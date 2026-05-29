@@ -1,3 +1,4 @@
+"""Sensor plugin registry. Maps type-key strings to SensorBase subclasses."""
 from __future__ import annotations
 
 from typing import TYPE_CHECKING

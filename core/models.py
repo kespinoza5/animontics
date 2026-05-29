@@ -1,3 +1,4 @@
+"""Pydantic data models shared across the animontics node agent."""
 from __future__ import annotations
 
 from typing import Any, Literal

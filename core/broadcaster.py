@@ -1,3 +1,4 @@
+"""Shared pub/sub broadcast utility used by all sensor plugins."""
 from __future__ import annotations
 
 import queue
