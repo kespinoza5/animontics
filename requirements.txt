@@ -1,0 +1,20 @@
+# Animontics unified requirements
+# Core dependencies — always required on Linux boards running the node agent.
+fastapi>=0.111.0
+uvicorn[standard]>=0.29.0
+pydantic>=2.0
+pyyaml>=6.0
+
+# Sensor dependencies — only install what the board actually uses.
+# The node agent gracefully skips sensor packages that are missing deps.
+pyserial>=3.5       # tf_mini, lv_maxsonar, usb_cdc sensors
+smbus2>=0.4.3       # vl53l1x, mlx90640, other I2C sensors
+
+# Camera (optional — only if camera is enabled in config)
+# opencv-python-headless>=4.9.0
+
+# Optional: Adafruit drivers as an alternative to the built-in smbus2 drivers.
+# Only needed if you prefer the Adafruit CircuitPython ecosystem.
+# adafruit-circuitpython-vl53l1x
+# adafruit-circuitpython-mlx90640
+# adafruit-blinka

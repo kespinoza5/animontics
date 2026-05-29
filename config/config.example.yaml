@@ -1,0 +1,70 @@
+# Animontics per-board node configuration
+# Copy this file to config/config.yaml and edit for your hardware.
+# config/config.yaml is gitignored — each board holds its own copy.
+
+# ── Node identity ─────────────────────────────────────────────────────────────
+node_id:   my_node              # unique ID within the fleet
+node_type: raspberry_pi_4       # board type (used for tooling and docs)
+hostname:  animontics-node      # network hostname
+
+# ── HTTP server ───────────────────────────────────────────────────────────────
+network:
+  host: "0.0.0.0"
+  port: 8080
+
+# ── Camera (optional) ─────────────────────────────────────────────────────────
+# camera:
+#   enabled: true
+#   device:  /dev/video0
+#   width:   1280
+#   height:  720
+#   fps:     30
+
+# ── Sensors ───────────────────────────────────────────────────────────────────
+# List only the sensors physically connected to this board.
+# Only the packages for enabled sensor types need to be deployed here.
+#
+# Connection types:
+#   uart    — hardware UART or USB-to-serial adapter
+#   usb_cdc — USB CDC (e.g. RP2040 running CircuitPython): appears as /dev/ttyACM*
+#   i2c     — I2C bus with device address
+
+sensors: []
+
+# ── Sensor examples (uncomment as needed) ────────────────────────────────────
+
+# Benewake TF Mini Plus LiDAR
+# - id: lidar_front
+#   type: tf_mini
+#   enabled: true
+#   connection:
+#     type:      uart
+#     port:      /dev/ttyAMA0
+#     baud_rate: 115200
+
+# MaxBotix LV-MaxSonar-EZ
+# - id: sonar_side
+#   type: lv_maxsonar
+#   enabled: true
+#   connection:
+#     type:      uart
+#     port:      /dev/ttyS0
+#     baud_rate: 9600
+
+# ST VL53L1X time-of-flight
+# - id: tof_top
+#   type: vl53l1x
+#   enabled: true
+#   connection:
+#     type:    i2c
+#     bus:     3
+#     address: 0x29
+
+# Melexis MLX90640 thermal camera
+# - id: thermal_rear
+#   type: mlx90640
+#   enabled: true
+#   connection:
+#     type:    i2c
+#     bus:     3
+#     address: 0x33

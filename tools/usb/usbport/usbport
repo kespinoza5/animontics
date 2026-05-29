@@ -1,0 +1,217 @@
+#!/usr/bin/env python3
+"""
+usbport — switch a USB ethernet interface between network mode and device mode
+Profiles are keyed to physical USB port (e.g. 1-1), not MAC address.
+
+Usage:
+  usbport                              show status of all cdc_ether interfaces
+  usbport net [--ip x] [--port 1-1]   bring up USB ethernet with static IP
+  usbport device [--port 1-1]          bring down USB ethernet
+  usbport status [--port 1-1]          show current state
+
+Install:
+  chmod +x usbport
+  sudo cp usbport /usr/local/bin/usbport
+"""
+
+import sys
+import argparse
+import subprocess
+import os
+import glob
+import re
+
+DEFAULT_IP = "192.168.8.1"
+PREFIX     = "24"
+
+
+def get_usb_port(iface):
+    """Return the stable USB port id (e.g. '1-1') for a network interface."""
+    path = f"/sys/class/net/{iface}/device"
+    try:
+        target = os.path.realpath(path)
+        # target ends in something like .../1-1:1.0 or .../1-1.2:1.0
+        basename = os.path.basename(target)
+        # strip the :1.0 interface suffix
+        port = re.sub(r":\d+\.\d+$", "", basename)
+        return port
+    except Exception:
+        return None
+
+def find_ifaces():
+    """Return list of (iface, usb_port) tuples for all cdc_ether interfaces."""
+    found = []
+    for path in glob.glob("/sys/class/net/*/device/driver"):
+        if "cdc_ether" in os.path.realpath(path):
+            iface = path.split("/")[4]
+            port = get_usb_port(iface)
+            found.append((iface, port))
+    return found
+
+def find_by_port(port_arg):
+    """Find the iface matching a given USB port id."""
+    for iface, port in find_ifaces():
+        if port == port_arg:
+            return iface, port
+    return None, None
+
+def resolve_iface(port_arg):
+    ifaces = find_ifaces()
+    if not ifaces:
+        die("no USB ethernet device found — is a device plugged in?")
+    if port_arg:
+        iface, port = find_by_port(port_arg)
+        if not iface:
+            ports = [p for _, p in ifaces]
+            die(f"no cdc_ether device on port {port_arg}. found: {ports}")
+        return iface, port
+    if len(ifaces) > 1:
+        ports = [p for _, p in ifaces]
+        die(f"multiple USB ethernet interfaces found on ports: {ports}\nuse --port to specify one")
+    return ifaces[0]
+
+def conn_name(port):
+    return f"usbport-{port}"
+
+def nmcli(*args, check=True):
+    return subprocess.run(["nmcli", *args], capture_output=True, text=True, check=check)
+
+def conn_exists(port):
+    return nmcli("connection", "show", conn_name(port), check=False).returncode == 0
+
+def iface_ip(iface):
+    r = nmcli("device", "show", iface, check=False)
+    for line in r.stdout.splitlines():
+        if "IP4.ADDRESS" in line:
+            return line.split(":", 1)[-1].strip()
+    return "none"
+
+def iface_state(iface):
+    r = nmcli("device", "show", iface, check=False)
+    for line in r.stdout.splitlines():
+        if "GENERAL.STATE" in line:
+            return line.split(":", 1)[-1].strip()
+    return "unknown"
+
+def die(msg):
+    print(f"error: {msg}")
+    sys.exit(1)
+
+
+def mode_net(ip, iface, port):
+    nm = conn_name(port)
+    if conn_exists(port):
+        nmcli("connection", "modify", nm,
+              "connection.interface-name", iface,
+              "ipv4.addresses", f"{ip}/{PREFIX}")
+        nmcli("connection", "up", nm)
+    else:
+        nmcli("connection", "add",
+              "type", "ethernet",
+              "ifname", iface,
+              "con-name", nm,
+              "ipv4.method", "manual",
+              "ipv4.addresses", f"{ip}/{PREFIX}",
+              "ipv4.gateway", "",
+              "ipv6.method", "disabled",
+              "connection.autoconnect", "no")
+        nmcli("connection", "up", nm)
+
+    print(f"port:  {port}")
+    print(f"iface: {iface}")
+    print(f"state: {iface_state(iface)}")
+    print(f"ip:    {iface_ip(iface)}")
+
+def mode_device(iface, port):
+    nm = conn_name(port)
+    if conn_exists(port):
+        nmcli("connection", "down", nm, check=False)
+        print(f"port {port} ({iface}): down — ready for HID devices")
+    else:
+        print(f"port {port} ({iface}): no active usbport connection")
+
+def mode_status(port_filter=None):
+    ifaces = find_ifaces()
+    if not ifaces:
+        print("no USB ethernet interfaces found")
+        return
+    print(f"found {len(ifaces)} USB ethernet interface(s):")
+    for iface, port in sorted(ifaces, key=lambda x: x[1]):
+        if port_filter and port != port_filter:
+            continue
+        profile = "profile exists" if conn_exists(port) else "no profile"
+        print(f"  port {port}  iface: {iface}  state: {iface_state(iface)}  ip: {iface_ip(iface)}  ({profile})")
+
+def mode_profiles():
+    """List all usbport NM profiles."""
+    r = nmcli("connection", "show", check=False)
+    profiles = [l for l in r.stdout.splitlines() if l.startswith("usbport-")]
+    if not profiles:
+        print("no usbport profiles found")
+        return
+    print(f"found {len(profiles)} usbport profile(s):")
+    for p in profiles:
+        print(f"  {p.split()[0]}")
+
+def mode_show(port):
+    """Print full NM profile details for a port."""
+    nm = conn_name(port)
+    r = nmcli("connection", "show", nm, check=False)
+    if r.returncode != 0:
+        die(f"no profile found for port {port} ({nm})")
+    print(r.stdout)
+
+def mode_cleanup():
+    """Delete all usbport NM profiles."""
+    r = nmcli("connection", "show", check=False)
+    profiles = [l.split()[0] for l in r.stdout.splitlines() if l.startswith("usbport-")]
+    if not profiles:
+        print("no usbport profiles to clean up")
+        return
+    for nm in profiles:
+        nmcli("connection", "delete", nm)
+        print(f"deleted {nm}")
+
+
+def main():
+    parser = argparse.ArgumentParser(prog="usbport")
+    sub = parser.add_subparsers(dest="cmd")
+
+    p_net = sub.add_parser("net", help="network mode — static IP on USB ethernet")
+    p_net.add_argument("--ip", default=DEFAULT_IP, help=f"static IP (default {DEFAULT_IP})")
+    p_net.add_argument("--port", default=None, help="USB port id e.g. 1-1 (auto-detected if only one)")
+
+    p_dev = sub.add_parser("device", help="device mode — bring down USB ethernet")
+    p_dev.add_argument("--port", default=None, help="USB port id e.g. 1-1 (auto-detected if only one)")
+
+    p_sta = sub.add_parser("status", help="show current state")
+    p_sta.add_argument("--port", default=None, help="filter to a specific USB port")
+
+    sub.add_parser("profiles", help="list all usbport NM profiles")
+
+    p_show = sub.add_parser("show", help="show full NM profile for a port")
+    p_show.add_argument("port", help="USB port id e.g. 1-1")
+
+    sub.add_parser("clean", help="delete all usbport NM profiles")
+
+    args = parser.parse_args()
+
+    if args.cmd is None:
+        mode_status()
+    elif args.cmd == "net":
+        iface, port = resolve_iface(args.port)
+        mode_net(args.ip, iface, port)
+    elif args.cmd == "device":
+        iface, port = resolve_iface(args.port)
+        mode_device(iface, port)
+    elif args.cmd == "status":
+        mode_status(args.port)
+    elif args.cmd == "profiles":
+        mode_profiles()
+    elif args.cmd == "show":
+        mode_show(args.port)
+    elif args.cmd == "clean":
+        mode_cleanup()
+
+if __name__ == "__main__":
+    main()

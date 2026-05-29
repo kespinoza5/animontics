@@ -1,0 +1,20 @@
+[Unit]
+Description=Animontics Node Agent
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=animontics
+WorkingDirectory=/opt/animontics
+ExecStart=/opt/animontics/.venv/bin/uvicorn node.app:app --host 0.0.0.0 --port 8080
+Restart=always
+RestartSec=5
+Environment=ANIMONTICS_CONFIG=/opt/animontics/config/config.yaml
+Environment=PYTHONUNBUFFERED=1
+
+# Allow I2C and serial access
+SupplementaryGroups=i2c dialout video gpio
+
+[Install]
+WantedBy=multi-user.target

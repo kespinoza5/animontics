@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VL53L1X ToF Sensor</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0d1117;
+      color: #e6edf3;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      height: 100vh;
+      overflow: hidden;
+      padding: 0.75rem 1.25rem;
+      gap: 0.6rem;
+    }
+
+    h1 {
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: #8b949e;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      flex-shrink: 0;
+    }
+
+    .readout {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.2rem;
+      flex-shrink: 0;
+    }
+
+    .main-val {
+      display: flex;
+      align-items: baseline;
+      gap: 0.4rem;
+    }
+
+    .value {
+      font-size: clamp(2.5rem, 8vw, 4.5rem);
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+      color: #79c0ff;
+      transition: color 0.2s;
+    }
+    .value.warn  { color: #f0883e; }
+    .value.close { color: #f85149; }
+
+    .unit {
+      font-size: 1.4rem;
+      color: #8b949e;
+      font-weight: 400;
+    }
+
+    .meta {
+      font-size: 0.8rem;
+      color: #484f58;
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 0.5rem;
+      flex-shrink: 0;
+    }
+
+    .btn {
+      background: #21262d;
+      border: 1px solid #30363d;
+      color: #c9d1d9;
+      padding: 0.35rem 0.9rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .btn:hover { background: #30363d; border-color: #8b949e; }
+    .btn.active      { border-color: #79c0ff; color: #79c0ff; }
+    .btn.auto-active { border-color: #3fb950; color: #3fb950; }
+
+    .chart-wrap {
+      flex: 1;
+      min-height: 0;
+      width: 100%;
+      max-width: 860px;
+      background: #161b22;
+      border: 1px solid #21262d;
+      border-radius: 10px;
+      padding: 0.9rem;
+      position: relative;
+    }
+    .chart-wrap canvas { width: 100% !important; height: 100% !important; }
+
+    .bottom-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      max-width: 860px;
+      flex-shrink: 0;
+      gap: 1rem;
+    }
+
+    .conn-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .conn-bar label {
+      font-size: 0.8rem;
+      color: #8b949e;
+      white-space: nowrap;
+    }
+    .conn-bar input {
+      background: #161b22;
+      border: 1px solid #30363d;
+      color: #e6edf3;
+      padding: 0.3rem 0.6rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-family: monospace;
+      width: 17ch;
+    }
+    .conn-bar input:focus { outline: none; border-color: #79c0ff; }
+
+    .status {
+      font-size: 0.75rem;
+      color: #484f58;
+      white-space: nowrap;
+    }
+    .status.ok  { color: #3fb950; }
+    .status.err { color: #f85149; }
+  </style>
+</head>
+<body>
+
+<h1>VL53L1X &mdash; Time of Flight Distance</h1>
+
+<div class="readout">
+  <div class="main-val">
+    <span class="value" id="val">—</span>
+    <span class="unit" id="unit">mm</span>
+  </div>
+  <div class="meta" id="meta">—</div>
+</div>
+
+<div class="btn-row">
+  <button class="btn" id="unitBtn">Switch to imperial</button>
+
+  <button class="btn" id="r1">Short</button>
+  <button class="btn active" id="r2">Medium</button>
+  <button class="btn" id="r3">Long</button>
+  <button class="btn" id="rAuto">Auto</button>
+</div>
+
+<div class="chart-wrap">
+  <canvas id="chart"></canvas>
+</div>
+
+<div class="bottom-bar">
+  <div class="conn-bar">
+    <label for="ip">Host IP</label>
+    <input id="ip" type="text" value="192.168.1.149" spellcheck="false" />
+    <button class="btn" id="reconnect">Connect</button>
+  </div>
+  <span class="status" id="status">connecting…</span>
+</div>
+
+<script>
+  const HISTORY = 60;
+
+  // Distance mode state — updated by server SSE 'mode' event
+  let sensorMode  = 2;          // 1 = short, 2 = long
+  let maxMm       = 4000;
+
+  let useMode = 'metric';   // 'metric' | 'imperial'
+
+  const valEl    = document.getElementById('val');
+  const unitEl   = document.getElementById('unit');
+  const metaEl   = document.getElementById('meta');
+  const statusEl = document.getElementById('status');
+  const unitBtn  = document.getElementById('unitBtn');
+  const rangeBtns = {
+    1: document.getElementById('r1'),
+    2: document.getElementById('r2'),
+    3: document.getElementById('r3'),
+  };
+  const autoBtn = document.getElementById('rAuto');
+  let isAuto = false;
+
+  const history  = Array(HISTORY).fill(null);
+
+  const chart = new Chart(document.getElementById('chart'), {
+    type: 'line',
+    data: {
+      labels: Array(HISTORY).fill(''),
+      datasets: [{
+        data: history,
+        borderColor: '#79c0ff',
+        backgroundColor: 'rgba(121,192,255,0.08)',
+        borderWidth: 2,
+        pointRadius: 0,
+        fill: true,
+        tension: 0.3,
+        spanGaps: true,
+        segment: {
+          borderDash: ctx => (ctx.p0.skip || ctx.p1.skip) ? [6, 4] : [],
+          borderColor: ctx => (ctx.p0.skip || ctx.p1.skip) ? 'rgba(121,192,255,0.35)' : '#79c0ff',
+        },
+      }]
+    },
+    options: {
+      animation: false,
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: { display: false },
+        y: {
+          min: 0,
+          max: maxMm,
+          ticks: { color: '#8b949e', callback: v => fmtAxis(v) },
+          grid:  { color: '#21262d' },
+        }
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => fmtTip(ctx.parsed.y) } }
+      }
+    }
+  });
+
+  // ── Formatting ─────────────────────────────────────────────────────────────
+
+  function fmtAxis(v) {
+    // v is already in display units (m or ft)
+    if (useMode === 'metric')   return v.toFixed(v < 1 ? 2 : 1) + ' m';
+    return v.toFixed(v < 1 ? 2 : 1) + ' ft';
+  }
+
+  function fmtTip(v) {
+    if (useMode === 'metric')   return v.toFixed(3) + ' m';
+    return v.toFixed(3) + ' ft';
+  }
+
+  function fmtPrimary(mm) {
+    if (useMode === 'metric') {
+      if (mm < 1000) return { val: mm.toFixed(0),             unit: 'mm' };
+      return                { val: (mm / 1000).toFixed(3),    unit: 'm'  };
+    } else {
+      const inches = mm / 25.4;
+      if (inches < 12) return { val: inches.toFixed(1), unit: 'in' };
+      return                  { val: (inches / 12).toFixed(2), unit: 'ft' };
+    }
+  }
+
+  function fmtMeta(mm) {
+    if (useMode === 'metric')
+      return `${(mm / 1000).toFixed(3)} m  ·  ${(mm / 25.4).toFixed(2)} in`;
+    const inches = mm / 25.4;
+    return `${inches.toFixed(1)} in  ·  ${(mm / 1000).toFixed(3)} m`;
+  }
+
+  // ── Chart Y-axis ───────────────────────────────────────────────────────────
+
+  function chartMax() {
+    if (useMode === 'metric')  return maxMm / 1000;
+    return maxMm / 304.8;
+  }
+
+  function applyChartMax(clearHistory) {
+    chart.options.scales.y.max = chartMax();
+    chart.options.scales.y.ticks.callback = v => fmtAxis(v);
+    if (clearHistory) {
+      history.fill(null);
+      chart.data.datasets[0].data = [...history];
+    }
+    chart.update('none');
+  }
+
+  // ── Unit toggle ────────────────────────────────────────────────────────────
+
+  let lastMm = null;
+
+  function setUseMode(mode) {
+    useMode = mode;
+    unitBtn.textContent = mode === 'metric' ? 'Switch to imperial' : 'Switch to metric';
+    applyChartMax(true);   // stored values change unit — must clear
+    if (lastMm !== null) updateReadout(lastMm);
+  }
+
+  unitBtn.addEventListener('click', () => setUseMode(useMode === 'metric' ? 'imperial' : 'metric'));
+
+  // ── Range mode toggle ──────────────────────────────────────────────────────
+
+  function applyModeEvent(data) {
+    sensorMode = data.mode;
+    maxMm      = data.max_mm;
+    Object.entries(rangeBtns).forEach(([m, btn]) =>
+      btn.classList.toggle('active', Number(m) === sensorMode)
+    );
+    applyChartMax(false);  // scale changes but mm values stay valid — keep history
+  }
+
+  function applyAutoEvent(data) {
+    isAuto = data.auto;
+    autoBtn.classList.toggle('auto-active', isAuto);
+  }
+
+  Object.entries(rangeBtns).forEach(([mode, btn]) => {
+    btn.addEventListener('click', () => {
+      const ip = document.getElementById('ip').value.trim();
+      fetch(`http://${ip}:5000/setmode/${mode}`)
+        .then(r => r.json())
+        .then(d => { applyModeEvent(d); applyAutoEvent({ auto: false }); })
+        .catch(() => {});
+    });
+  });
+
+  autoBtn.addEventListener('click', () => {
+    const ip = document.getElementById('ip').value.trim();
+    fetch(`http://${ip}:5000/setauto/${isAuto ? 0 : 1}`)
+      .then(r => r.json())
+      .then(applyAutoEvent)
+      .catch(() => {});
+  });
+
+  // ── Readout ────────────────────────────────────────────────────────────────
+
+  function updateReadout(mm) {
+    lastMm = mm;
+    const { val, unit } = fmtPrimary(mm);
+    valEl.textContent = val;
+    unitEl.textContent = unit;
+    metaEl.textContent = fmtMeta(mm);
+    valEl.classList.remove('warn', 'close');
+    if (mm < 50)       valEl.classList.add('close');
+    else if (mm < 200) valEl.classList.add('warn');
+  }
+
+  function pushChart(mm) {
+    const v = mm === null ? null : useMode === 'metric' ? mm / 1000 : mm / 304.8;
+    history.push(v);
+    if (history.length > HISTORY) history.shift();
+    chart.data.datasets[0].data = [...history];
+    chart.update('none');
+  }
+
+  // ── SSE ────────────────────────────────────────────────────────────────────
+
+  let activeEs = null;
+
+  function connect() {
+    if (activeEs) activeEs.close();
+    const ip = document.getElementById('ip').value.trim();
+    statusEl.textContent = `connecting to ${ip}…`;
+    statusEl.className = 'status';
+
+    const es = new EventSource(`http://${ip}:5000/stream`);
+    activeEs = es;
+
+    es.onopen = () => {
+      statusEl.textContent = 'live';
+      statusEl.className = 'status ok';
+    };
+
+    // Default (unnamed) events carry distance measurements
+    es.onmessage = e => {
+      const d = JSON.parse(e.data);
+      if (d.distance_mm === null) {
+        pushChart(null);                         // keeps time axis moving
+        valEl.style.opacity = '0.3';
+      } else {
+        valEl.style.opacity = '1';
+        updateReadout(d.distance_mm);
+        pushChart(d.distance_mm);
+      }
+    };
+
+    // Named 'mode' events carry sensor range mode changes
+    es.addEventListener('mode', e => {
+      applyModeEvent(JSON.parse(e.data));
+    });
+
+    // Named 'auto' events carry auto-ranging state changes
+    es.addEventListener('auto', e => {
+      applyAutoEvent(JSON.parse(e.data));
+    });
+
+    es.onerror = () => {
+      if (es !== activeEs) return;
+      statusEl.textContent = 'disconnected — reconnecting…';
+      statusEl.className = 'status err';
+      es.close();
+      activeEs = null;
+      setTimeout(connect, 3000);
+    };
+  }
+
+  document.getElementById('reconnect').addEventListener('click', connect);
+  connect();
+</script>
+</body>
+</html>

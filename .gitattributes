@@ -1,0 +1,27 @@
+# Normalize line endings: LF in the repo, platform-native on checkout
+* text=auto
+
+# Shell scripts must always be LF (they run on Linux boards)
+*.sh text eol=lf
+
+# Python files: LF
+*.py text eol=lf
+
+# YAML / config: LF
+*.yaml text eol=lf
+*.yml text eol=lf
+
+# systemd service files: LF
+*.service text eol=lf
+
+# HTML / JS / CSS: LF
+*.html text eol=lf
+*.js text eol=lf
+*.css text eol=lf
+
+# Markdown: LF
+*.md text eol=lf
+
+# Binaries
+*.bin binary
+*.so binary
