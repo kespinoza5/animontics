@@ -57,7 +57,8 @@ The current sensor streaming API (`GET /sensors/{id}/stream`, `WS /sensors/{id}/
 - [ ] `docs/ARCHITECTURE.md` — full system design, topology diagram, data flow
 - [ ] `docs/API.md` — complete endpoint reference (depends on API design above)
 - [ ] `docs/boards/` — per-board wiring and setup guides
-- [ ] Git submodule registration for sensor packages and usbport
+- [ ] Register `tools/usb/usbport/` as a git submodule
+- [ ] Graft `LV-MaxSonar-EZ/` git history onto `sensors/lv_maxsonar` once Windows permissions are resolved
 
 ---
 
