@@ -1,0 +1,12 @@
+[submodule "sensors/tf_mini"]
+	path = sensors/tf_mini
+	url = ./sensors/tf_mini
+[submodule "sensors/lv_maxsonar"]
+	path = sensors/lv_maxsonar
+	url = ./sensors/lv_maxsonar
+[submodule "sensors/vl53l1x"]
+	path = sensors/vl53l1x
+	url = ./sensors/vl53l1x
+[submodule "sensors/mlx90640"]
+	path = sensors/mlx90640
+	url = ./sensors/mlx90640
