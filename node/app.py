@@ -75,8 +75,6 @@ async def lifespan(app: FastAPI):
 
 
 def create_app() -> FastAPI:
-    config = load_node_config(_CONFIG_PATH)
-
     app = FastAPI(
         title="Animontics Node",
         description="Sensor data streaming node for the Animontics distributed AI system.",
@@ -86,9 +84,7 @@ def create_app() -> FastAPI:
 
     app.include_router(sensors_router)
     app.include_router(i2c_router)
-
-    if config.camera and config.camera.enabled:
-        app.include_router(camera_router_module.router)
+    app.include_router(camera_router_module.router)
 
     @app.get("/")
     async def node_info():

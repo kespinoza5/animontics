@@ -92,6 +92,9 @@ async def _mjpeg_stream():
 
 @router.get("/camera")
 async def video_stream():
+    if _camera is None:
+        from fastapi import Response
+        return Response(status_code=503, content="Camera not configured on this node.")
     return StreamingResponse(
         _mjpeg_stream(),
         media_type="multipart/x-mixed-replace; boundary=frame",
