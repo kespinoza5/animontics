@@ -50,6 +50,7 @@ The current sensor streaming API (`GET /sensors/{id}/stream`, `WS /sensors/{id}/
 
 ## Infrastructure
 
+- [ ] Delete `LV-MaxSonar-EZ/` root directory — access denied on Windows; contents already migrated to `sensors/lv_maxsonar/`; close File Explorer / VS Code on that path first
 - [ ] Board profiles (`config/profiles/`) — hardware defaults per board type
 - [ ] Fleet node discovery / health check endpoint
 - [ ] Hotswap peripheral autodetection (scan I2C + USB on startup, auto-add to config)
