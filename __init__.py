@@ -1,4 +1,7 @@
-from sensors.lv_maxsonar.sensor import LVMaxSonarSensor
+try:
+    from sensors.lv_maxsonar.sensor import LVMaxSonarSensor
+except ImportError:
+    pass  # pyserial not available on dev machines — skip gracefully
 
 #: Hardware constraints and defaults for the fleet tool.
 #: Connection details (actual port/baud used) live in the board's config.yaml.
