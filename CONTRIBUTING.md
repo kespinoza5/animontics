@@ -2,30 +2,48 @@
 
 ## Adding a New Sensor
 
-Each sensor type is a self-contained Python package under `sensors/`. Adding a new type requires four files and one line change.
+Each sensor type is a self-contained Python package under `sensors/`. Adding a new
+type requires creating a package directory (as a git submodule), writing four files,
+and updating three places in the repo.
 
-### 1. Create the package directory
+### 1. Create the package as a git submodule
+
+```bash
+# From the project root
+git init sensors/my_sensor
+cd sensors/my_sensor
+# ... add files, initial commit
+cd ../..
+git submodule add ./sensors/my_sensor sensors/my_sensor
+```
+
+Directory layout:
 
 ```
-sensors/
-└── my_sensor/
-    ├── __init__.py
-    ├── driver.py      ← low-level hardware protocol, no HTTP or threading
-    ├── sensor.py      ← SensorBase implementation with @register
-    ├── viewer.html    ← desktop diagnostic viewer
-    └── README.md
+sensors/my_sensor/
+├── __init__.py     ← METADATA dict + platform-safe import
+├── driver.py       ← low-level hardware protocol, no HTTP or threading
+├── sensor.py       ← SensorBase implementation with @register
+├── viewer.html     ← desktop diagnostic viewer (connect via browser)
+├── README.md       ← hardware wiring, config example, data format
+└── test_*.py       ← unit tests (codec/parsing logic, no hardware needed)
 ```
 
 ### 2. Write `driver.py`
 
-Pure hardware communication. No threading, no HTTP, no global state. Returns parsed values or raises exceptions.
+Pure hardware communication. No threading, no HTTP, no global state.
+Import all hardware-specific libraries inside functions so the module
+loads cleanly on development machines without the hardware present.
 
 ```python
 # sensors/my_sensor/driver.py
 
+def open_device(port: str, baud_rate: int): ...
+def read_frame(fd) -> bytes | None: ...
 def parse_frame(raw: bytes) -> tuple[int, float] | None:
-    """Parse a raw sensor frame. Returns (value, quality) or None on bad frame."""
+    """Returns (value, quality) or None on bad frame."""
     ...
+def close_device(fd): ...
 ```
 
 ### 3. Write `sensor.py`
@@ -33,13 +51,14 @@ def parse_frame(raw: bytes) -> tuple[int, float] | None:
 ```python
 # sensors/my_sensor/sensor.py
 from __future__ import annotations
-import threading, time
+import threading
+import time
 from core.models import SensorConfig, SensorReading
 from core.registry import register
 from core.sensor_base import SensorBase
-from sensors.my_sensor.driver import parse_frame
+import sensors.my_sensor.driver as _drv
 
-@register("my_sensor")           # ← key used in config.yaml
+@register("my_sensor")           # ← key used in config.yaml and animon.yaml
 class MySensor(SensorBase):
 
     def __init__(self, sensor_id: str, config: SensorConfig) -> None:
@@ -56,7 +75,7 @@ class MySensor(SensorBase):
 
     @property
     def latest(self) -> SensorReading | None:
-        return self._latest
+        return self._latest   # set by SensorBase._broadcast()
 
     def is_healthy(self) -> bool:
         return self._healthy
@@ -64,70 +83,173 @@ class MySensor(SensorBase):
     def _loop(self) -> None:
         while not self._stop.is_set():
             try:
-                # ... open hardware, read, call self._broadcast(reading)
-                reading = SensorReading(
-                    sensor_id=self.id,
-                    sensor_type="my_sensor",
-                    timestamp=time.time(),
-                    data={"distance_mm": 1234},
+                fd = _drv.open_device(
+                    self.config.connection.port,
+                    self.config.connection.baud_rate,
                 )
-                self._broadcast(reading)
+                self._healthy = True
+                try:
+                    while not self._stop.is_set():
+                        raw = _drv.read_frame(fd)
+                        if raw is None:
+                            continue
+                        value, quality = _drv.parse_frame(raw)
+                        reading = SensorReading(
+                            sensor_id=self.id,
+                            sensor_type="my_sensor",
+                            timestamp=time.time(),
+                            data={"distance_mm": value, "strength": quality},
+                        )
+                        self._broadcast(reading)   # stores _latest + pushes to SSE/WS
+                finally:
+                    _drv.close_device(fd)
             except Exception as exc:
                 self._healthy = False
-                self._stop.wait(2)
+                self._stop.wait(2)   # retry after 2 s
 ```
 
 ### 4. Write `__init__.py`
 
+**This file has two required parts: a try/except import and a METADATA dict.**
+
 ```python
-from sensors.my_sensor.sensor import MySensor
-__all__ = ["MySensor"]
+# sensors/my_sensor/__init__.py
+
+try:
+    from sensors.my_sensor.sensor import MySensor
+except ImportError:
+    pass  # hardware deps not available on Windows dev machines
+
+#: Hardware constraints and defaults for the fleet tool.
+#: Connection details (actual port / bus / address) live in the board's config.yaml.
+METADATA = {
+    "type": "my_sensor",
+    "name": "My Sensor Full Name",
+    "description": "One-line description of what it measures.",
+    "connection": {
+        # All connection types this sensor can use:
+        "supported": ["uart"],        # or ["i2c"], ["uart", "usb_cdc"], ["ir"], etc.
+        # Defaults used by 'animon deploy' when no config.yaml exists on the board yet:
+        "defaults": {
+            "baud_rate": 115200,
+        },
+        # Hard constraints — deploy will warn if the config violates these:
+        "valid": {
+            "baud_rate": [115200],    # omit key if any value is valid
+        },
+    },
+    "data_keys": {
+        "distance_mm": "int   — measured distance in millimetres",
+        "strength":    "int   — signal quality / return strength",
+    },
+}
+
+__all__ = ["MySensor", "METADATA"]
 ```
 
-### 5. That's it
+**Why try/except?** Platform-specific libraries (`smbus2`, `fcntl`, serial
+drivers) are not available on Windows. The import block must not crash on a
+dev machine — `sensors/__init__.py` catches and skips failed packages.
 
-The sensor is auto-discovered by `sensors/__init__.py` via `pkgutil`. No changes needed to `node/app.py` or any other file.
+**Why METADATA?** The fleet tool (`animon deploy`) reads METADATA to build a
+default `config.yaml` on a fresh board. Without it, deploy raises `ReconcileError`.
 
-Enable it in a board's `config.yaml`:
+### 5. Add the sensor to `config/animon.yaml`
+
+Update the relevant node entry in `config/animon.yaml`:
 
 ```yaml
-sensors:
-  - id: my_sensor_1
-    type: my_sensor
-    enabled: true
-    connection:
-      type: uart
-      port: /dev/ttyACM0
-      baud_rate: 115200
+- id: my_sensor_1
+  type: my_sensor
 ```
 
-Deploy the package to the board:
+### 6. Add a docs page
+
+Create `docs/sensors/my_sensor.md`:
+
+```markdown
+{%
+  include-markdown "../../sensors/my_sensor/README.md"
+  rewrite-relative-urls=true
+%}
+```
+
+Add it to the Sensors nav in `mkdocs.yml`:
+
+```yaml
+  - Sensors:
+    - ...
+    - My Sensor: sensors/my_sensor.md
+```
+
+### 7. Deploy to a board
 
 ```bash
-./tools/maintenance/deploy.sh pi@<board-ip>
+python -m tools.fleet.animon deploy <node-id> --dry-run   # preview
+python -m tools.fleet.animon deploy <node-id>             # apply
 ```
 
 ---
 
-## Standardized Data Keys
+## Adding a sensor-specific HTTP route
+
+Some sensors need routes beyond the standard SSE/WS streams (e.g. a transmit
+endpoint for `ir_xcvr`, a set-mode endpoint for VL53L1X ranging). Add a router
+in `node/routers/`:
+
+```python
+# node/routers/my_sensor.py
+from fastapi import APIRouter, Request, HTTPException
+
+router = APIRouter(prefix="/my_sensor", tags=["my_sensor"])
+
+def _get_sensor(request: Request):
+    sensors = getattr(request.app.state, "sensors", {})
+    for s in sensors.values():
+        if s.config.type == "my_sensor":
+            return s
+    raise HTTPException(status_code=404, detail="No my_sensor configured on this node")
+
+@router.post("/action")
+async def do_action(request: Request):
+    sensor = _get_sensor(request)
+    ...
+```
+
+Wire it in `node/app.py` — one line only:
+
+```python
+from node.routers.my_sensor import router as my_sensor_router
+app.include_router(my_sensor_router)
+```
+
+**Do not** add a `register_sensors()` function to the router or a call for it in
+`app.py`. Use `request.app.state.sensors` at request time instead — this is the
+established pattern for all routers.
+
+---
+
+## Standardized data keys
 
 All sensors should emit readings with these standardized keys where applicable.
 
-| Sensor category | Required keys | Optional keys |
-|-----------------|---------------|---------------|
+| Category | Required keys | Optional keys |
+|----------|---------------|---------------|
 | Distance | `distance_mm: int` | `strength: int`, `temp_c: float` |
-| Thermal array | `pixels: list[float]`, `min_temp: float`, `max_temp: float`, `width: int`, `height: int` | — |
+| Thermal array | `pixels: list[float]` (row-major), `min_temp: float`, `max_temp: float`, `width: int`, `height: int` | — |
+| IR remote | `protocol: str`, `address: int`, `command: int`, `scancode: int`, `repeat: bool` | — |
 | IMU | `accel_x/y/z: float`, `gyro_x/y/z: float` | `temp_c: float` |
 | Pressure | `pressure_pa: float` | `temp_c: float` |
 
-Use `None` for optional fields that the hardware does not provide.
+Use `None` for optional fields the hardware does not provide.
 
 ---
 
-## Code Style
+## Code style
 
-- Type hints everywhere (use `from __future__ import annotations`)
-- No comments explaining what the code does — names should do that
-- Comments only for non-obvious WHY: hardware quirks, calibration magic, workarounds
+- Type hints everywhere (`from __future__ import annotations` at top of every file)
+- Comments only for non-obvious **why** — hardware quirks, calibration constants, protocol workarounds
+- No comments explaining what the code does — names and structure should do that
 - No global state in sensor packages; all state lives on the sensor instance
 - `driver.py` has no side effects on import — pure functions and classes only
+- Hardware-specific imports always inside `try/except ImportError` in `__init__.py`
