@@ -65,8 +65,8 @@ def _default_connection(
     if not supported:
         return None
 
-    # Prefer uart > usb_cdc > i2c as the default connection type
-    preferred_order = ["uart", "usb_cdc", "i2c"]
+    # Prefer uart > usb_cdc > i2c > ir as the default connection type
+    preferred_order = ["uart", "usb_cdc", "i2c", "ir"]
     conn_type = next((t for t in preferred_order if t in supported), supported[0])
     defaults = conn.get("defaults", {})
 

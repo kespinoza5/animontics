@@ -69,6 +69,27 @@ def probe_hardware(host: str, user: str) -> dict[str, Any]:
             "product": product.strip(),
         })
 
+    # LIRC (IR transceiver)
+    stdout, _, _ = run_remote(
+        host, user,
+        "ls /dev/lirc* 2>/dev/null",
+        check=False,
+    )
+    lirc_devs: list[dict] = []
+    for dev in stdout.split():
+        dev = dev.strip()
+        if not dev:
+            continue
+        # Try to read the device name from sysfs
+        base = dev.rsplit("/", 1)[-1]
+        name_out, _, _ = run_remote(
+            host, user,
+            f"cat /sys/class/lirc/{base}/device/name 2>/dev/null || echo ''",
+            check=False,
+        )
+        lirc_devs.append({"device": dev, "name": name_out.strip()})
+    result["lirc"] = lirc_devs
+
     # USB device summary
     stdout, _, _ = run_remote(
         host, user,
@@ -153,6 +174,34 @@ def match_hardware_to_sensors(
                         ),
                     })
 
+        # Check IR (LIRC) sensors — presence of /dev/lirc* devices is a strong signal
+        if "ir" in supported:
+            lirc_devs = detected.get("lirc", [])
+            if lirc_devs:
+                rx_dev = defaults.get("rx_device")
+                tx_dev = defaults.get("tx_device")
+                # Check if the expected default devices are present
+                found_devs = {d["device"] for d in lirc_devs}
+                has_rx = rx_dev in found_devs if rx_dev else False
+                has_tx = tx_dev in found_devs if tx_dev else False
+                present = [d["device"] for d in lirc_devs]
+                name_hints = [d["name"] for d in lirc_devs if d["name"]]
+                confidence = "high" if (has_rx or has_tx) else "medium"
+                matches.append({
+                    "sensor_type": sensor_type,
+                    "confidence": confidence,
+                    "connection": {
+                        "type": "ir",
+                        "rx_device": present[0] if present else rx_dev,
+                        "tx_device": present[1] if len(present) > 1 else tx_dev,
+                    },
+                    "reason": (
+                        f"LIRC device(s) found: {', '.join(present)}"
+                        + (f" ({', '.join(name_hints)})" if name_hints else "")
+                        + f" — likely {meta['name']}"
+                    ),
+                })
+
     # Deduplicate: if uart and usb_cdc both match same sensor, keep both
     return matches
 
@@ -191,6 +240,14 @@ def format_probe_report(
     else:
         lines.append("  USB CDC: none found")
 
+    lirc = detected.get("lirc", [])
+    if lirc:
+        for dev in lirc:
+            label = dev["device"] + (f"  ({dev['name']})" if dev.get("name") else "")
+            lines.append(f"  LIRC: {label}")
+    else:
+        lines.append("  LIRC: none found")
+
     lines.extend(["", "Sensor matches:"])
 
     if not matches:
@@ -198,11 +255,14 @@ def format_probe_report(
     else:
         for m in matches:
             conn = m["connection"]
-            conn_str = (
-                f"bus={conn['bus']} addr={hex(conn['address'])}"
-                if conn["type"] == "i2c"
-                else f"port={conn.get('port', 'TBD')} baud={conn.get('baud_rate')}"
-            )
+            if conn["type"] == "i2c":
+                conn_str = f"bus={conn['bus']} addr={hex(conn['address'])}"
+            elif conn["type"] == "ir":
+                rx = conn.get("rx_device") or "—"
+                tx = conn.get("tx_device") or "—"
+                conn_str = f"rx={rx} tx={tx}"
+            else:
+                conn_str = f"port={conn.get('port', 'TBD')} baud={conn.get('baud_rate')}"
             desired_marker = " ✓" if m["sensor_type"] in desired_types else " (not in animon.yaml)"
             lines.append(
                 f"  [{m['confidence'].upper():6}] {m['sensor_type']:20} "

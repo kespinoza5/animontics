@@ -31,7 +31,6 @@ from node.routers.camera import start_camera, stop_camera
 from node.routers.config import router as config_router
 from node.routers.i2c import router as i2c_router
 from node.routers.ir_xcvr import router as ir_xcvr_router
-from node.routers.ir_xcvr import register_sensors as register_sensors_ir
 from node.routers.sensors import router as sensors_router, register_sensors
 
 log = logging.getLogger(__name__)
@@ -61,7 +60,6 @@ async def lifespan(app: FastAPI):
             log.error("Sensor '%s': %s", sc.id, exc)
 
     register_sensors(active_sensors)
-    register_sensors_ir(active_sensors)
 
     if config.camera and config.camera.enabled:
         start_camera(config.camera)
