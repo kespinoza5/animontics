@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IR Transceiver</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0d1117;
+      color: #e6edf3;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 0.75rem 1.25rem 1.5rem;
+      gap: 0.75rem;
+    }
+
+    h1 {
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: #8b949e;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      flex-shrink: 0;
+    }
+
+    /* ── Last received ── */
+    .last-code {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.5rem;
+      width: 100%;
+      max-width: 700px;
+      flex-shrink: 0;
+    }
+
+    .tile {
+      background: #161b22;
+      border: 1px solid #21262d;
+      border-radius: 10px;
+      padding: 0.7rem 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+    }
+
+    .tile-label {
+      font-size: 0.7rem;
+      color: #484f58;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .tile-value {
+      font-size: 1.4rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      color: #58a6ff;
+      font-family: monospace;
+    }
+
+    .tile-value.repeat { color: #f0883e; }
+    .tile-value.none   { color: #484f58; }
+
+    /* ── TX panel ── */
+    .tx-panel {
+      width: 100%;
+      max-width: 700px;
+      background: #161b22;
+      border: 1px solid #21262d;
+      border-radius: 10px;
+      padding: 0.9rem 1rem;
+      flex-shrink: 0;
+    }
+
+    .tx-panel h2 {
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: #8b949e;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 0.6rem;
+    }
+
+    .tx-row {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .tx-row label {
+      font-size: 0.8rem;
+      color: #8b949e;
+      white-space: nowrap;
+    }
+
+    .tx-row input, .tx-row select {
+      background: #0d1117;
+      border: 1px solid #30363d;
+      color: #e6edf3;
+      padding: 0.3rem 0.6rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-family: monospace;
+      width: 9ch;
+    }
+
+    .tx-row input:focus, .tx-row select:focus {
+      outline: none;
+      border-color: #58a6ff;
+    }
+
+    .tx-row select { width: auto; }
+
+    .tx-result {
+      margin-top: 0.5rem;
+      font-size: 0.8rem;
+      min-height: 1.1rem;
+      font-family: monospace;
+    }
+
+    .tx-result.ok  { color: #3fb950; }
+    .tx-result.err { color: #f85149; }
+
+    /* ── Log ── */
+    .log-wrap {
+      flex: 1;
+      width: 100%;
+      max-width: 700px;
+      background: #161b22;
+      border: 1px solid #21262d;
+      border-radius: 10px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      min-height: 220px;
+    }
+
+    .log-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.5rem 0.9rem;
+      border-bottom: 1px solid #21262d;
+      flex-shrink: 0;
+    }
+
+    .log-header span {
+      font-size: 0.75rem;
+      color: #8b949e;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .log-body {
+      overflow-y: auto;
+      flex: 1;
+      padding: 0.4rem 0;
+      font-family: monospace;
+      font-size: 0.82rem;
+    }
+
+    .log-row {
+      display: grid;
+      grid-template-columns: 6.5rem 4.5rem 6rem 6rem 5.5rem 1fr;
+      padding: 0.22rem 0.9rem;
+      gap: 0.5rem;
+      border-bottom: 1px solid #161b22;
+      transition: background 0.1s;
+    }
+
+    .log-row:hover { background: #1c2128; }
+
+    .log-row.repeat { opacity: 0.55; }
+
+    .col-time  { color: #484f58; }
+    .col-proto { color: #d2a8ff; }
+    .col-addr  { color: #79c0ff; }
+    .col-cmd   { color: #56d364; }
+    .col-sc    { color: #8b949e; }
+    .col-flag  { color: #f0883e; font-size: 0.72rem; }
+
+    /* ── Bottom bar ── */
+    .bottom-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      max-width: 700px;
+      flex-shrink: 0;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .conn-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .conn-bar label {
+      font-size: 0.8rem;
+      color: #8b949e;
+      white-space: nowrap;
+    }
+
+    .conn-bar input {
+      background: #161b22;
+      border: 1px solid #30363d;
+      color: #e6edf3;
+      padding: 0.3rem 0.6rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-family: monospace;
+      width: 17ch;
+    }
+
+    .conn-bar input:focus {
+      outline: none;
+      border-color: #58a6ff;
+    }
+
+    .btn {
+      background: #21262d;
+      border: 1px solid #30363d;
+      color: #c9d1d9;
+      padding: 0.35rem 0.9rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .btn:hover  { background: #30363d; border-color: #8b949e; }
+    .btn.accent { border-color: #388bfd; color: #58a6ff; }
+    .btn.accent:hover { background: #1f3250; }
+
+    .status {
+      font-size: 0.75rem;
+      color: #484f58;
+      white-space: nowrap;
+    }
+    .status.ok  { color: #3fb950; }
+    .status.err { color: #f85149; }
+
+    .cap-badge {
+      font-size: 0.7rem;
+      padding: 0.15rem 0.45rem;
+      border-radius: 4px;
+      border: 1px solid #30363d;
+      color: #8b949e;
+    }
+    .cap-badge.on  { border-color: #3fb950; color: #3fb950; }
+    .cap-badge.off { border-color: #484f58; color: #484f58; }
+  </style>
+</head>
+<body>
+  <h1>IR Transceiver &mdash; ir_xcvr</h1>
+
+  <!-- Last received code -->
+  <div class="last-code">
+    <div class="tile">
+      <div class="tile-label">Protocol</div>
+      <div class="tile-value none" id="last-proto">—</div>
+    </div>
+    <div class="tile">
+      <div class="tile-label">Address</div>
+      <div class="tile-value none" id="last-addr">—</div>
+    </div>
+    <div class="tile">
+      <div class="tile-label">Command</div>
+      <div class="tile-value none" id="last-cmd">—</div>
+    </div>
+  </div>
+
+  <!-- TX panel -->
+  <div class="tx-panel">
+    <h2>Transmit</h2>
+    <div class="tx-row">
+      <label>Protocol</label>
+      <select id="tx-proto">
+        <option value="NEC">NEC</option>
+        <option value="NECX">NECX</option>
+      </select>
+      <label>Address (hex)</label>
+      <input id="tx-addr" type="text" value="0x04" spellcheck="false" />
+      <label>Command (hex)</label>
+      <input id="tx-cmd"  type="text" value="0x08" spellcheck="false" />
+      <button class="btn accent" id="tx-send">Send</button>
+    </div>
+    <div class="tx-result" id="tx-result"></div>
+  </div>
+
+  <!-- Code log -->
+  <div class="log-wrap">
+    <div class="log-header">
+      <span>Received codes</span>
+      <div style="display:flex;gap:0.5rem;align-items:center;">
+        <span class="cap-badge" id="badge-rx">RX —</span>
+        <span class="cap-badge" id="badge-tx">TX —</span>
+        <button class="btn" id="clear-log">Clear</button>
+      </div>
+    </div>
+    <div class="log-body" id="log-body">
+      <!-- rows injected here -->
+    </div>
+  </div>
+
+  <!-- Connection bar -->
+  <div class="bottom-bar">
+    <div class="conn-bar">
+      <label for="ip">Host IP</label>
+      <input id="ip" type="text" value="192.168.1.37" spellcheck="false" />
+      <input id="sensor-id" type="text" value="ir_xcvr"
+             style="width:10ch" spellcheck="false" title="Sensor ID" />
+      <button class="btn" id="reconnect">Connect</button>
+    </div>
+    <span class="status" id="status">connecting…</span>
+  </div>
+
+<script>
+  const MAX_LOG = 120;
+
+  const lastProto = document.getElementById('last-proto');
+  const lastAddr  = document.getElementById('last-addr');
+  const lastCmd   = document.getElementById('last-cmd');
+  const logBody   = document.getElementById('log-body');
+  const statusEl  = document.getElementById('status');
+  const txResult  = document.getElementById('tx-result');
+  const badgeRx   = document.getElementById('badge-rx');
+  const badgeTx   = document.getElementById('badge-tx');
+
+  function fmtHex2(n)  { return '0x' + n.toString(16).toUpperCase().padStart(2,  '0'); }
+  function fmtHex4(n)  { return '0x' + n.toString(16).toUpperCase().padStart(4,  '0'); }
+  function fmtHex6(n)  { return '0x' + n.toString(16).toUpperCase().padStart(6,  '0'); }
+  function fmtTime(ts) {
+    const d = new Date(ts * 1000);
+    return d.toLocaleTimeString('en', { hour12: false }) +
+           '.' + String(d.getMilliseconds()).padStart(3, '0');
+  }
+
+  function updateLastCode(d) {
+    lastProto.textContent = d.protocol;
+    lastProto.className   = 'tile-value' + (d.repeat ? ' repeat' : '');
+    lastAddr.textContent  = fmtHex4(d.address);
+    lastAddr.className    = 'tile-value';
+    lastCmd.textContent   = fmtHex2(d.command);
+    lastCmd.className     = 'tile-value';
+  }
+
+  function appendLog(ts, d) {
+    const row = document.createElement('div');
+    row.className = 'log-row' + (d.repeat ? ' repeat' : '');
+    row.innerHTML =
+      `<span class="col-time">${fmtTime(ts)}</span>` +
+      `<span class="col-proto">${d.protocol}</span>` +
+      `<span class="col-addr">${fmtHex4(d.address)}</span>` +
+      `<span class="col-cmd">${fmtHex2(d.command)}</span>` +
+      `<span class="col-sc">${fmtHex6(d.scancode)}</span>` +
+      `<span class="col-flag">${d.repeat ? 'repeat' : ''}</span>`;
+
+    logBody.prepend(row);
+
+    // Trim log
+    while (logBody.children.length > MAX_LOG) {
+      logBody.removeChild(logBody.lastChild);
+    }
+  }
+
+  document.getElementById('clear-log').addEventListener('click', () => {
+    logBody.innerHTML = '';
+    lastProto.textContent = '—'; lastProto.className = 'tile-value none';
+    lastAddr.textContent  = '—'; lastAddr.className  = 'tile-value none';
+    lastCmd.textContent   = '—'; lastCmd.className   = 'tile-value none';
+  });
+
+  // ── Capabilities ──────────────────────────────────────────────────────────
+
+  function fetchCapabilities(host) {
+    fetch(`http://${host}:8080/ir/capabilities`)
+      .then(r => r.json())
+      .then(data => {
+        badgeRx.textContent = 'RX ' + (data.can_receive  ? '✓' : '✗');
+        badgeRx.className   = 'cap-badge ' + (data.can_receive  ? 'on' : 'off');
+        badgeTx.textContent = 'TX ' + (data.can_transmit ? '✓' : '✗');
+        badgeTx.className   = 'cap-badge ' + (data.can_transmit ? 'on' : 'off');
+      })
+      .catch(() => {
+        badgeRx.textContent = 'RX —'; badgeRx.className = 'cap-badge';
+        badgeTx.textContent = 'TX —'; badgeTx.className = 'cap-badge';
+      });
+  }
+
+  // ── TX ────────────────────────────────────────────────────────────────────
+
+  document.getElementById('tx-send').addEventListener('click', () => {
+    const host     = document.getElementById('ip').value.trim();
+    const protocol = document.getElementById('tx-proto').value;
+    const addrRaw  = document.getElementById('tx-addr').value.trim();
+    const cmdRaw   = document.getElementById('tx-cmd').value.trim();
+
+    let address, command;
+    try {
+      address = parseInt(addrRaw, addrRaw.startsWith('0x') ? 16 : 10);
+      command = parseInt(cmdRaw,  cmdRaw.startsWith('0x')  ? 16 : 10);
+    } catch {
+      txResult.textContent = '✗  Invalid address or command';
+      txResult.className   = 'tx-result err';
+      return;
+    }
+
+    txResult.textContent = '…  sending';
+    txResult.className   = 'tx-result';
+
+    fetch(`http://${host}:8080/ir/transmit`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ protocol, address, command }),
+    })
+    .then(r => r.json().then(j => ({ ok: r.ok, body: j })))
+    .then(({ ok, body }) => {
+      if (ok) {
+        txResult.textContent = `✓  Sent ${body.protocol}  addr=${fmtHex4(body.address)}  cmd=${fmtHex2(body.command)}`;
+        txResult.className   = 'tx-result ok';
+      } else {
+        txResult.textContent = `✗  ${body.detail || 'Error'}`;
+        txResult.className   = 'tx-result err';
+      }
+    })
+    .catch(err => {
+      txResult.textContent = `✗  ${err.message}`;
+      txResult.className   = 'tx-result err';
+    });
+  });
+
+  // ── SSE ───────────────────────────────────────────────────────────────────
+
+  let activeEs = null;
+
+  function connect() {
+    if (activeEs) activeEs.close();
+    const host = document.getElementById('ip').value.trim();
+    const sid  = document.getElementById('sensor-id').value.trim();
+
+    statusEl.textContent = `connecting to ${host}…`;
+    statusEl.className   = 'status';
+
+    fetchCapabilities(host);
+
+    const es = new EventSource(`http://${host}:8080/sensors/${sid}/stream`);
+    activeEs = es;
+
+    es.onopen = () => {
+      statusEl.textContent = 'live';
+      statusEl.className   = 'status ok';
+    };
+
+    es.onmessage = e => {
+      const msg = JSON.parse(e.data);
+      const d   = msg.data;
+      if (!d) return;
+      updateLastCode(d);
+      appendLog(msg.timestamp, d);
+    };
+
+    es.onerror = () => {
+      if (es !== activeEs) return;
+      statusEl.textContent = 'disconnected — reconnecting…';
+      statusEl.className   = 'status err';
+      es.close();
+      activeEs = null;
+      setTimeout(connect, 3000);
+    };
+  }
+
+  document.getElementById('reconnect').addEventListener('click', connect);
+
+  connect();
+</script>
+</body>
+</html>
