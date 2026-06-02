@@ -243,6 +243,10 @@ Examples:
 
 def main(argv: list[str] | None = None) -> int:
     """Parse arguments and dispatch to the appropriate command."""
+    # Ensure Unicode output works on Windows consoles (CP1252 → UTF-8).
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
     parser = _build_parser()
     args = parser.parse_args(argv)
     return args.func(args)

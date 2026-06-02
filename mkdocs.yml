@@ -42,8 +42,9 @@ nav:
   - Core Library: core.md
   - Tools:
     - Overview: tools/index.md
+    - Fleet CLI (animon): tools/fleet.md
     - Verify Comms: tools/board.md
-    - Deploy: tools/deploy.md
+    - Deploy (legacy): tools/deploy.md
     - Network (AP): tools/network.md
     - USB Gadget: tools/usb.md
   - API Reference:
