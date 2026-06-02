@@ -1,4 +1,7 @@
-from sensors.vl53l1x.sensor import VL53L1XSensor
+try:
+    from sensors.vl53l1x.sensor import VL53L1XSensor
+except ImportError:
+    pass  # smbus2 / Blinka not available on dev machines — skip gracefully
 
 #: Hardware constraints and defaults for the fleet tool.
 #: Connection details (actual bus/address used) live in the board's config.yaml.
