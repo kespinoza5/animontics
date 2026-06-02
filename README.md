@@ -19,7 +19,7 @@ FPGA fabric: SPI/I2S connections to multiple boards
              reconfigured via NeoCore2 over USB
 ```
 
-See [config/fleet.yaml](config/fleet.yaml) for the full system map.
+See [config/animon.yaml](config/animon.yaml) for the full system map.
 
 ## Quick Start
 
@@ -71,7 +71,7 @@ sensors/        Sensor plugin packages (each its own git repo)
 node/           Per-board node agent (FastAPI + uvicorn)
   app.py        App factory: loads config, starts sensors, mounts routers
   routers/      HTTP/SSE/WebSocket route handlers
-config/         Per-board config.yaml + fleet.yaml system map
+config/         Per-board config.yaml + animon.yaml fleet topology
 tools/          Board management and provisioning scripts
   usb/usbport/  USB ethernet interface tool (standalone)
   network/      WiFi AP setup scripts

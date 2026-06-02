@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
-# deploy.sh — Deploy animontics to a target board.
+# deploy.sh — Legacy shell deploy script.
 #
-# Reads the target board's config.yaml to determine which sensor packages
-# are needed, then copies only those packages (plus core/, node/, config/)
-# to the board and restarts the service.
+# SUPERSEDED BY: python -m tools.fleet.animon deploy <node-id>
+#
+# The Python fleet CLI (tools/fleet/) is now the primary deployment tool.
+# It reads from config/animon.yaml, negotiates config changes with the board,
+# validates against sensor METADATA, and handles packages more precisely.
+#
+# This script is kept as a fallback for environments without Python or where
+# the fleet config (animon.yaml) is not yet set up.
 #
 # Usage:
 #   ./tools/maintenance/deploy.sh <user@host> [config_file]
@@ -13,7 +18,7 @@
 #   ./tools/maintenance/deploy.sh pi@192.168.1.y config/rpi5.yaml
 #
 # Requirements on the target board:
-#   - SSH key auth configured (run tools/ssh/gen_keys.sh first)
+#   - SSH key auth configured
 #   - Python 3.11+ with pip
 #   - Target install path: /opt/animontics
 

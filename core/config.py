@@ -5,7 +5,31 @@ from pathlib import Path
 
 import yaml
 
-from core.models import NodeConfig
+from core.models import AnimonConfig, NodeConfig
+
+
+def load_animon_config(path: str | Path = "config/animon.yaml") -> AnimonConfig:
+    """
+    Load and validate the fleet topology from animon.yaml.
+
+    Args:
+        path: Path to animon.yaml. Defaults to config/animon.yaml.
+
+    Returns:
+        Validated AnimonConfig instance.
+
+    Raises:
+        FileNotFoundError: if the file does not exist.
+        pydantic.ValidationError: if the file is malformed.
+    """
+    p = Path(path)
+    if not p.exists():
+        raise FileNotFoundError(
+            f"Fleet config not found: {p}\n"
+            f"Expected animon.yaml at {p}."
+        )
+    raw = yaml.safe_load(p.read_text())
+    return AnimonConfig.model_validate(raw)
 
 
 def load_node_config(path: str | Path = "config/config.yaml") -> NodeConfig:

@@ -10,3 +10,6 @@
 [submodule "sensors/mlx90640"]
 	path = sensors/mlx90640
 	url = ./sensors/mlx90640
+[submodule "sensors/ir_xcvr"]
+	path = sensors/ir_xcvr
+	url = ./sensors/ir_xcvr

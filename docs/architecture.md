@@ -110,7 +110,7 @@ The `Broadcaster` class manages a queue-per-client. When the sensor thread produ
 | Layer | File | Lives | Purpose |
 |-------|------|-------|---------|
 | Per-board | `config.yaml` | On the board, gitignored | What this node loads and runs |
-| Fleet | `fleet.yaml` | In the repo | Whole-system topology reference |
+| Fleet | `animon.yaml` | In the repo | Whole-system topology reference |
 
 The fleet config does not control any server at runtime. It documents the system for developers and future management tooling.
 

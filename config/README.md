@@ -25,17 +25,21 @@ sensors:
       baud_rate: 115200
 ```
 
-Copy `config.example.yaml` to `config.yaml` and edit for the target board. Deploy it with:
+Copy `config.example.yaml` to `config.yaml` and edit for the target board, or let the fleet tool generate one:
 
 ```bash
-./tools/maintenance/deploy.sh pi@<board-ip>
+# Probe the board's hardware and generate a config
+python tools/fleet/animon.py probe my_sbc_node
+
+# Deploy using animon.yaml as the desired state
+python tools/fleet/animon.py deploy my_sbc_node
 ```
 
-## Layer 2 — Fleet Map (`fleet.yaml`)
+## Layer 2 — Fleet Topology (`animon.yaml`)
 
-Lives in the repo. Documents the whole distributed system: every node, what sensors it carries, and how it connects. Not read by any server at runtime — used by developers and future fleet management tooling.
+Lives in the repo. The **desired state** for the whole distributed system: every node, what sensors it carries (by id and type — no wiring details), and how nodes connect. Read by the fleet tool to deploy, sync, and probe.
 
-Update `fleet.yaml` when:
+Update `animon.yaml` when:
 - A new board is added to the system
 - A sensor is moved to a different node
 - IP addresses or hostnames change
@@ -46,7 +50,7 @@ Update `fleet.yaml` when:
 |------|---------|
 | `config.example.yaml` | Full documented template — copy this to `config.yaml` |
 | `config.yaml` | Active per-board config — **gitignored**, do not commit |
-| `fleet.yaml` | Whole-system topology map |
+| `animon.yaml` | Whole-system topology and desired state |
 
 ## Connection Types
 
@@ -55,3 +59,9 @@ Update `fleet.yaml` when:
 | `uart` | Hardware UART or USB-to-serial adapter | `port`, `baud_rate` |
 | `usb_cdc` | USB CDC device (RP2040/SAMD running CircuitPython) | `port`, `baud_rate` |
 | `i2c` | I2C bus | `bus`, `address` |
+
+## Secrets
+
+Secrets (WiFi passwords, API tokens) must never appear in `config.yaml` or `animon.yaml`.
+Store them in a gitignored `secrets.yaml` on each board and reference via the
+`ANIMONTICS_SECRETS` environment variable. SSH access uses key auth — see `tools/ssh/`.
