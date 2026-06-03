@@ -25,8 +25,11 @@ See [`fleet/README.md`](fleet/README.md) for full documentation.
 | `fleet/` | Full fleet management CLI (deploy, status, diff, pull, probe, revert) |
 | `board/verify_comms.sh` | Scan I2C buses, list UART and USB serial devices |
 | `board/setup_i2c.sh` · `setup_uart.sh` · `setup_spi.sh` · `setup_i2s.sh` | Enable a hardware bus on the board (run as root; reboot required) |
+| `ssh/fleet_access.sh` | One-command access setup/refresh/rotate — wraps the scripts below |
 | `ssh/gen_keys.sh` | Generate an Ed25519 key pair for fleet access |
-| `ssh/distribute_keys.sh` | Push the fleet public key to every node in `animon.yaml` |
+| `ssh/distribute_keys.sh` | Push the fleet public key to every node in `animon.yaml`; `--harden`/`--unharden` toggle board password auth |
+| `ssh/setup_ssh_config.sh` | Write `~/.ssh/config` aliases so `ssh`/`scp <node-id>` work with no `-i` and no `ssh-add` |
+| `ssh/revoke_keys.sh` | Remove a fleet public key from the boards (rotation / revocation) |
 | `network/setup_ap.sh` | Configure node as a WiFi access point |
 | `network/undo_ap.sh` | Revert AP configuration |
 | `usb/usbport/` | Manage USB ethernet gadget interfaces (standalone binary) |
@@ -59,9 +62,11 @@ alone. (This replaces the old `maintenance/deploy.sh` shell script.)
 
 ## Pre-flight checklist before first deploy
 
-1. SSH key generated and distributed: `tools/ssh/gen_keys.sh` then
-   `tools/ssh/distribute_keys.sh` (or `ssh-copy-id pi@<board-ip>` by hand)
-2. SSH agent running: `eval $(ssh-agent) && ssh-add ~/.ssh/animontics_ed25519`
+1. SSH access set up: `tools/ssh/fleet_access.sh setup` (generates the fleet key,
+   pushes it to every board, and writes `~/.ssh/config` aliases). This rolls up
+   `gen_keys.sh` + `distribute_keys.sh` + `setup_ssh_config.sh`.
+2. No SSH agent needed — `setup_ssh_config.sh` pins the key via `IdentityFile`.
+   (If you skip it, run `ssh-add ~/.ssh/animontics_ed25519` instead.)
 3. Hardware buses enabled on the board: `tools/board/setup_i2c.sh` /
    `setup_uart.sh` / `setup_spi.sh` as needed (run on the board, then reboot)
 4. Board reachable: `tools/board/verify_comms.sh` (run on the board itself)

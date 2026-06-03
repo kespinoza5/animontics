@@ -120,7 +120,7 @@ work. The tools are grouped by concern:
 |------|---------|---------------|
 | **Fleet CLI** | `python -m tools.fleet.animon` | Keep boards in sync from desired state — `deploy`, `status`, `diff`, `pull`, `probe`, `revert`. The primary interface. See [tools/fleet/README.md](tools/fleet/README.md). |
 | **Repo audit** | `python tools/dev/audit.py` | Conformance checks — verifies sensor packages and routers follow the plugin contract (METADATA present, no `register_sensors` anti-pattern). Static analysis, safe to run on any OS. |
-| **SSH keys** | `tools/ssh/gen_keys.sh` · `distribute_keys.sh` | Generate an Ed25519 fleet key and push it to every board in `animon.yaml` — the key auth the CLI requires. Run on your dev machine. |
+| **SSH access** | `tools/ssh/fleet_access.sh setup` | One command to generate the Ed25519 fleet key, push it to every board in `animon.yaml`, and write `~/.ssh/config` aliases so `ssh`/`scp <node-id>` just work (no `-i`, no `ssh-add`) — the key auth the CLI requires. Also `refresh`, `rotate`, and `--harden` to disable board password auth. Run on your dev machine. |
 | **Board setup** | `tools/board/setup_{i2c,uart,spi,i2s}.sh` | Enable a hardware bus on the board (idempotent edits to `config.txt`; run as root, reboot after). Raspberry Pi OS. |
 | **Comms check** | `tools/board/verify_comms.sh` | On-board scan of I2C buses and UART/USB devices — sanity-check wiring before deploy. |
 | **WiFi AP** | `tools/network/setup_ap.sh` / `undo_ap.sh` | Bring a board up as / down from a WiFi access point. |
@@ -149,6 +149,7 @@ node/           Per-board node agent (FastAPI + uvicorn)
 config/         Per-board config.yaml + animon.yaml fleet topology
 tools/          Board management and provisioning scripts
   fleet/        animon CLI — deploy, status, diff, pull, probe
+  ssh/          Fleet SSH access — key gen/distribute/rotate, ~/.ssh/config setup
   dev/          Repo audit / conformance checks
   usb/usbport/  USB ethernet interface tool (standalone)
   network/      WiFi AP setup scripts
