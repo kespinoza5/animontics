@@ -64,5 +64,7 @@ python3 test_sensor.py
 # Raw byte dump (for debugging framing issues)
 python3 test_raw.py
 
-# Open viewer.html in your browser and enter the board IP
+# Bench viewer: open web/viewers/tf_mini.html (repo root) in a browser,
+# enter the board IP + sensor id. Connects to the node's
+# /sensors/{id}/stream SSE on port 8080.
 ```
