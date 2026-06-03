@@ -1,0 +1,99 @@
+# animon.example.yaml — Fleet topology template
+#
+# Copy this file to config/animon.yaml and fill in your values.
+# config/animon.yaml is gitignored — keep your real IPs and usernames out of
+# source control.
+#
+# Each node entry specifies:
+#   - Desired sensor list (id + type only — no wiring details)
+#   - Network address and SSH access
+#   - Hardware capabilities / attached peripherals
+#
+# Connection wiring (port, bus, baud_rate, address) lives in config.yaml on
+# each board, or in config/nodes/<node-id>.yaml on your dev machine.
+# Sensor constraints (valid connections, addresses, baud rates) live in each
+# sensor package's METADATA dict.
+#
+# The fleet tool reads this file to deploy, sync, and probe nodes:
+#   python -m tools.fleet.animon status
+#   python -m tools.fleet.animon deploy <node-id> --dry-run
+
+system_name: my-animontics-system   # human label, not used by tooling
+
+# ── Fleet-wide defaults (overridable per node) ────────────────────────────────
+defaults:
+  ssh_user:    pi                   # override per node as needed
+  deploy_path: /opt/animontics
+
+# ── Nodes ─────────────────────────────────────────────────────────────────────
+
+nodes:
+
+  # Example: SBC running scalar distance sensors
+  - id:       my_sbc_node
+    hostname:  my-sbc-hostname
+    ip:        192.168.1.100        # GbE address; add wifi_ip if dual-homed
+    type:      orangepi_zero2       # board type, informational
+    port:      8080
+    ssh_user:  orangepi             # overrides defaults.ssh_user
+    role:      proprioception       # free-form label, informational
+    sensors:
+      - id:   tof_front
+        type: vl53l1x
+      - id:   ir_xcvr
+        type: ir_xcvr
+
+  # Example: SBC connected via USB gadget (no direct GbE)
+  - id:       my_pizero_node
+    hostname:  my-pizero-hostname
+    type:      raspberry_pi_zero_2w
+    port:      8080
+    ssh_user:  pi
+    wifi_ip:   192.168.1.200
+    connection:
+      via:  usb_gadget
+      host: my_sbc_node             # reachable via this node's USB ethernet interface
+      usb_ip: 192.168.8.x           # address on the USB gadget network
+    sensors:
+      - id:   sonar_side
+        type: lv_maxsonar
+
+  # Example: SBC running imaging and high-rate sensors
+  - id:       my_rpi5_node
+    hostname:  my-rpi5-hostname
+    ip:        192.168.1.x
+    type:      raspberry_pi_5
+    port:      8080
+    ssh_user:  pi
+    role:      vision
+    capabilities:
+      - hailo_inference             # remove if no Hailo hat
+    sensors:
+      - id:   lidar_front
+        type: tf_mini
+      - id:   thermal_rear
+        type: mlx90640
+      - id:   webcam
+        type: camera
+    camera:
+      enabled: true
+
+  # Example: Hub node with USB-attached MCUs
+  - id:       my_hub_node
+    hostname:  my-hub-hostname
+    ip:        192.168.1.y
+    type:      neocore2
+    port:      8080
+    ssh_user:  root
+    usb_mcus:
+      - type:     rp2040
+        usb_port: "1-1"
+        role:     power_control
+      - type:     rp2040
+        usb_port: "1-2"
+        role:     sensor_imu
+
+# ── Notes ─────────────────────────────────────────────────────────────────────
+# Per-board wiring configs (config.yaml) live on each board at deploy_path.
+# Keep staging copies in config/nodes/<node-id>.yaml on your dev machine
+# (that directory is gitignored). Run `animon pull <node-id>` to populate them.

@@ -63,15 +63,15 @@ The current sensor streaming API (`GET /sensors/{id}/stream`, `WS /sensors/{id}/
 
 ## Infrastructure
 
-- [ ] Delete `LV-MaxSonar-EZ/` root directory — access denied on Windows; contents already migrated to `sensors/lv_maxsonar/`; close File Explorer / VS Code on that path first
+- [x] Delete `LV-MaxSonar-EZ/` root directory — resolved
 - [ ] Board profiles (`config/profiles/`) — hardware defaults per board type
 - [ ] Fleet node discovery / health check endpoint
 - [ ] Hotswap peripheral autodetection (scan I2C + USB on startup, auto-add to config)
-- [ ] `docs/ARCHITECTURE.md` — full system design, topology diagram, data flow
+- [x] `docs/architecture.md` — full system design, topology diagram, data flow
 - [ ] `docs/API.md` — complete endpoint reference (depends on API design above)
 - [ ] `docs/boards/` — per-board wiring and setup guides
 - [ ] Register `tools/usb/usbport/` as a git submodule
-- [ ] Graft `LV-MaxSonar-EZ/` git history onto `sensors/lv_maxsonar` once Windows permissions are resolved
+- [ ] Graft `LV-MaxSonar-EZ/` git history onto `sensors/lv_maxsonar` — directory is gone, can now proceed when desired
 
 ---
 

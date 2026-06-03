@@ -1,14 +1,35 @@
-# config
+# config/
 
-Two-layer configuration for the animontics distributed system.
+Three-layer configuration for the animontics distributed system.
 
-## Layer 1 — Per-Board (`config.yaml`)
+```
+config/
+├── animon.example.yaml    schema + placeholder template (in repo)
+├── animon.yaml            your real fleet — IPs, SSH users (gitignored)
+├── config.example.yaml    per-board wiring template (in repo)
+├── config.yaml            active per-board config on a single board (gitignored)
+└── nodes/                 dev-machine staging copies of board configs (gitignored)
+    └── <node-id>.yaml
+```
 
-Lives on the board. Controls what the node agent loads and runs. **Gitignored** — each board holds its own copy so the repo doesn't accumulate per-device files.
+---
+
+## Layer 1 — Hardware constraints (`sensors/<type>/__init__.py` METADATA)
+
+Embedded in each sensor package — valid connection types, locked baud rates,
+I2C address ranges, and defaults for fresh installs. The fleet tool reads METADATA
+when adding a sensor to a board that has no existing wiring entry.
+
+---
+
+## Layer 2 — Board wiring reality (`config.yaml`)
+
+Lives on the board at `<deploy_path>/config/config.yaml`. Controls what the node
+agent loads and runs. **Gitignored** — each board holds its own copy.
 
 ```yaml
 node_id:   my_sbc_node
-node_type: orangepi_zero2
+node_type: raspberry_pi_5
 hostname:  animontics-node
 
 network:
@@ -17,40 +38,53 @@ network:
 
 sensors:
   - id: lidar_front
-    type: tf_mini          # must match a @register key in sensors/
+    type: tf_mini
     enabled: true
     connection:
       type:      uart
       port:      /dev/ttyAMA0
       baud_rate: 115200
+
+  - id: thermal_rear
+    type: mlx90640
+    enabled: true
+    connection:
+      type:    i2c
+      bus:     1
+      address: 0x33
 ```
 
-Copy `config.example.yaml` to `config.yaml` and edit for the target board, or let the fleet tool generate one:
+Copy `config.example.yaml` and edit for the target board, or let the fleet tool
+generate one:
 
 ```bash
-# Probe the board's hardware and generate a config
-python tools/fleet/animon.py probe my_sbc_node
+# Probe the board and generate a config from discovered hardware
+python -m tools.fleet.animon probe my_sbc_node
 
-# Deploy using animon.yaml as the desired state
-python tools/fleet/animon.py deploy my_sbc_node
+# Deploy (reads animon.yaml for desired state, negotiates wiring)
+python -m tools.fleet.animon deploy my_sbc_node
 ```
 
-## Layer 2 — Fleet Topology (`animon.yaml`)
+Dev-machine staging copies live in `config/nodes/<node-id>.yaml` (gitignored).
+Run `animon pull <node-id>` to fetch the live config from a board and store it there.
 
-Lives in the repo. The **desired state** for the whole distributed system: every node, what sensors it carries (by id and type — no wiring details), and how nodes connect. Read by the fleet tool to deploy, sync, and probe.
+---
+
+## Layer 3 — Fleet desired state (`animon.yaml`)
+
+The whole-system topology: every node, what sensors it *should* carry (id + type
+only — no wiring details), IPs, SSH access, and attached peripherals. Read by the
+fleet tool to deploy, sync, and probe.
+
+**Gitignored** — contains your real IPs and SSH usernames. Copy
+`animon.example.yaml` → `animon.yaml` and fill in your values.
 
 Update `animon.yaml` when:
-- A new board is added to the system
-- A sensor is moved to a different node
-- IP addresses or hostnames change
+- A new board joins the system
+- A sensor moves to a different node
+- IPs or SSH users change
 
-## Files
-
-| File | Purpose |
-|------|---------|
-| `config.example.yaml` | Full documented template — copy this to `config.yaml` |
-| `config.yaml` | Active per-board config — **gitignored**, do not commit |
-| `animon.yaml` | Whole-system topology and desired state |
+---
 
 ## Connection Types
 
@@ -60,8 +94,11 @@ Update `animon.yaml` when:
 | `usb_cdc` | USB CDC device (RP2040/SAMD running CircuitPython) | `port`, `baud_rate` |
 | `i2c` | I2C bus | `bus`, `address` |
 
+---
+
 ## Secrets
 
-Secrets (WiFi passwords, API tokens) must never appear in `config.yaml` or `animon.yaml`.
-Store them in a gitignored `secrets.yaml` on each board and reference via the
-`ANIMONTICS_SECRETS` environment variable. SSH access uses key auth — see `tools/ssh/`.
+Secrets (WiFi passwords, API tokens) must never appear in any config file committed
+to the repo. Store them in a gitignored `secrets.yaml` on each board, loaded via
+the `ANIMONTICS_SECRETS` environment variable. SSH access uses key auth only — see
+`tools/ssh/`.

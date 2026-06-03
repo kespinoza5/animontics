@@ -21,6 +21,12 @@ ENV/
 # Node config — lives on each board, not in source control
 config/config.yaml
 
+# Fleet config — contains real IPs, hostnames, SSH users; use animon.example.yaml as template
+config/animon.yaml
+
+# Per-board staging configs — dev-machine copies used by animon deploy/diff; not committed
+config/nodes/
+
 # Secrets and credentials
 .env
 *.key
