@@ -4,11 +4,32 @@
 set -euo pipefail
 
 AP_CON="animontics-ap"
-AP_SSID="animontics"
-AP_PASS="REDACTED-SEE-SECRETS-FILE"
 PI_IP="192.168.50.1/24"
 INSTALL_DIR="/opt/animontics"
 SERVICE="animontics-dashboard"
+
+# AP credentials are NOT hardcoded. Source them from a gitignored secrets file
+# (shell-sourceable, e.g. tools/network/ap.secrets) or from the environment.
+# The file/env must define AP_PASS; AP_SSID is optional (defaults to "animontics").
+#   AP_SSID="animontics"
+#   AP_PASS="<your-wpa2-passphrase>"
+AP_SECRETS_FILE="${ANIMONTICS_AP_SECRETS:-$(dirname "$0")/ap.secrets}"
+if [ -f "$AP_SECRETS_FILE" ]; then
+    # shellcheck disable=SC1090
+    . "$AP_SECRETS_FILE"
+fi
+AP_SSID="${AP_SSID:-animontics}"
+if [ -z "${AP_PASS:-}" ]; then
+    echo "ERROR: AP_PASS is not set." >&2
+    echo "  Provide it via the environment (AP_PASS=... sudo -E bash setup_ap.sh)" >&2
+    echo "  or in a gitignored secrets file: $AP_SECRETS_FILE" >&2
+    echo "  (set ANIMONTICS_AP_SECRETS to point elsewhere)." >&2
+    exit 1
+fi
+if [ "${#AP_PASS}" -lt 8 ] || [ "${#AP_PASS}" -gt 63 ]; then
+    echo "ERROR: AP_PASS must be 8-63 characters (WPA2 passphrase requirement)." >&2
+    exit 1
+fi
 
 echo "=== [1/5] Installing dashboard files ==="
 mkdir -p "$INSTALL_DIR/static"
@@ -70,7 +91,7 @@ echo ""
 echo "========================================"
 echo "Done!"
 echo "  AP SSID : $AP_SSID"
-echo "  Password : $AP_PASS"
+echo "  Password : (from $AP_SECRETS_FILE / environment — not printed)"
 echo "  Dashboard: http://${PI_IP%/*}:8080"
 echo ""
 echo "To undo everything: sudo bash undo-ap.sh"

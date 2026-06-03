@@ -38,6 +38,10 @@ config/nodes/*.yaml
 .env
 *.key
 *.pem
+secrets.yaml
+# AP credentials sourced by tools/network/setup_ap.sh (use ap.secrets.example)
+*.secrets
+tools/network/ap.secrets
 
 # Editor
 .vscode/
