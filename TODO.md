@@ -83,7 +83,8 @@ The current sensor streaming API (`GET /sensors/{id}/stream`, `WS /sensors/{id}/
 - [ ] `docs/boards/` — per-board wiring and setup guides
 - [ ] Register `tools/usb/usbport/` as a git submodule
 - [ ] Graft `LV-MaxSonar-EZ/` git history onto `sensors/lv_maxsonar` — directory is gone, can now proceed when desired
-- [ ] `tools/network/setup_ap.sh` — AP password `REDACTED-SEE-SECRETS-FILE` is exposed in git history (commit 981562f). Rotate the live AP passphrase; decide whether to scrub history (git filter-repo) — needs maintainer sign-off before rewriting
+- [x] `tools/network/setup_ap.sh` — old hardcoded AP password scrubbed from git history via `git filter-repo --replace-text` (local-only repo, no force-push needed)
+- [ ] `tools/network/setup_ap.sh` — rotate the live AP passphrase on any board provisioned with the old password (history scrub does not change passphrases already configured on boards)
 
 ---
 
