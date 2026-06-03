@@ -52,7 +52,22 @@ The current sensor streaming API (`GET /sensors/{id}/stream`, `WS /sensors/{id}/
 - [ ] `tools/firmware/flash_micropython.sh`
 - [x] `tools/ssh/gen_keys.sh` — generate a dedicated Ed25519 fleet key pair
 - [x] `tools/ssh/distribute_keys.sh` — ssh-copy-id the fleet key to every node
-      in `animon.yaml`
+      in `animon.yaml`; `--harden`/`--unharden` toggle board password auth
+- [x] `tools/ssh/revoke_keys.sh` — remove a fleet public key from boards
+      (key rotation / revocation); refuses to empty authorized_keys without --force
+- [x] `tools/ssh/setup_ssh_config.sh` — generate a managed ~/.ssh/config block
+      from animon.yaml so `scp/ssh <node-id>` work with no -i / no ssh-add
+- [x] `tools/ssh/fleet_access.sh` — one wrapper stitching gen/distribute/config/
+      revoke into setup / refresh / rotate workflows; auto-detects python3 vs python
+- [ ] node → dev SSH (reverse direction) — currently only dev → node is wired
+      (dev's pubkey on the boards). If a board ever needs to push files back to a
+      workstation (e.g. uploading captures), set up an SSH server on the dev
+      machine and install each node's public key there. Not needed yet.
+- [ ] `tools/ssh/` + `tools/fleet/ssh.py` — host-key trust is TOFU
+      (`StrictHostKeyChecking=accept-new`), so the first connection to a board is
+      MITM-able. Consider host-key pinning: capture each board's host key during
+      provisioning into a fleet `known_hosts` and switch to
+      `StrictHostKeyChecking=yes` against it.
 - [ ] `animon update <node-id>` — remote apt/pip upgrade as a fleet subcommand
       (folded into tools/fleet/ rather than a standalone maintenance script)
 - [ ] `tools/fleet/deploy.py` — `deploy --dry-run` still makes one SSH call
@@ -83,8 +98,6 @@ The current sensor streaming API (`GET /sensors/{id}/stream`, `WS /sensors/{id}/
 - [ ] `docs/boards/` — per-board wiring and setup guides
 - [ ] Register `tools/usb/usbport/` as a git submodule
 - [ ] Graft `LV-MaxSonar-EZ/` git history onto `sensors/lv_maxsonar` — directory is gone, can now proceed when desired
-- [x] `tools/network/setup_ap.sh` — old hardcoded AP password scrubbed from git history via `git filter-repo --replace-text` (local-only repo, no force-push needed)
-- [ ] `tools/network/setup_ap.sh` — rotate the live AP passphrase on any board provisioned with the old password (history scrub does not change passphrases already configured on boards)
 
 ---
 
