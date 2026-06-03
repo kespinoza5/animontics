@@ -59,5 +59,7 @@ Format: `R` + 3-digit integer (inches, zero-padded). See `driver.py`.
 # Live console output
 python3 test_sensor.py
 
-# Open viewer.html in browser, enter board IP
+# Bench viewer: open web/viewers/lv_maxsonar.html (repo root) in a browser,
+# enter the board IP + sensor id. Connects to the node's
+# /sensors/{id}/stream SSE on port 8080.
 ```
