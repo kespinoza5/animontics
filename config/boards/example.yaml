@@ -1,15 +1,18 @@
-# config/config.example.yaml — per-board wiring template
+# config/boards/example.yaml — board wiring template
 #
-# Copy to config/config.yaml on the target board (or let 'animon deploy'
-# generate it from config/nodes/ + sensor METADATA defaults).
+# This file is the template for config/boards/<node-id>.yaml staging copies.
+# Those files are gitignored — only this example is tracked.
 #
-# This file documents the WIRING REALITY for one board: which physical ports,
-# buses, and addresses each sensor is connected to. It does NOT describe what
-# the board *should* run — that's config/nodes/<node-id>.yaml in the repo.
+# In normal operation these files are written automatically:
+#   animon pull <node-id>   — fetches live config from the board and stores it here
+#   animon deploy <node-id> — updates staging copy after a successful deploy
+#
+# To create manually: copy this file to config/boards/<your-node-id>.yaml
+# and fill in the physical wiring for that board.
 #
 # Schema reference:
 #   node_id    — must match the id in config/nodes/<node-id>.yaml
-#   node_type  — board type, e.g. orangepi_zero2 / raspberry_pi_5
+#   node_type  — board type (orangepi_zero2 / raspberry_pi_5 / etc.)
 #   hostname   — network hostname of this board
 #
 # Sensor connection types:
@@ -19,7 +22,7 @@
 #   ir      — Linux LIRC IR transceiver               (rx_device, tx_device)
 
 # ── Node identity ──────────────────────────────────────────────────────────────
-node_id:   my_node
+node_id:   my_sbc_node
 node_type: raspberry_pi_5
 hostname:  animontics-node
 

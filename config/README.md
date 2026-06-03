@@ -5,16 +5,13 @@ Four-layer configuration for the animontics distributed system.
 ```
 config/
 ├── nodes/                      ← IN REPO — node desired state (no secrets)
-│   ├── my_other_node.yaml
-│   ├── my_pizero_node.yaml
-│   ├── my_sbc_node.yaml
-│   ├── my_hub_node.yaml
-│   └── my_inference_node.yaml
+│   ├── example.yaml            ← IN REPO — desired-state template
+│   └── <node-id>.yaml          ← GITIGNORED — real node IDs/hostnames
 ├── animon.example.yaml         ← IN REPO — access layer template
 ├── animon.yaml                 ← GITIGNORED — real IPs, SSH users
 ├── boards/                     ← GITIGNORED — dev-machine wiring staging copies
-│   └── <node-id>.yaml
-├── config.example.yaml         ← IN REPO — per-board wiring template
+│   ├── example.yaml            ← IN REPO — board wiring template
+│   └── <node-id>.yaml          ← GITIGNORED — auto-populated by animon pull/deploy
 └── config.yaml                 ← GITIGNORED — active per-board config on board
 ```
 

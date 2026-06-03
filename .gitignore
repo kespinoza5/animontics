@@ -18,14 +18,21 @@ venv/
 env/
 ENV/
 
-# Node config — lives on each board, not in source control
+# Live board config — runtime artifact on each board, not in source control
 config/config.yaml
 
 # Access config — real IPs, SSH users; use animon.example.yaml as template
 config/animon.yaml
 
-# Board wiring staging — dev-machine copies of each board's config.yaml; not committed
-config/boards/
+# Board wiring staging — dev-machine copies of each board's live config.yaml
+# Use config/boards/example.yaml as the template (that file IS tracked)
+config/boards/*.yaml
+!config/boards/example.yaml
+
+# Node desired-state files — real node IDs, not for public history
+# Use config/nodes/example.yaml as the template (that file IS tracked)
+config/nodes/*.yaml
+!config/nodes/example.yaml
 
 # Secrets and credentials
 .env
