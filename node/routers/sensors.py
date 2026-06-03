@@ -3,43 +3,34 @@ from __future__ import annotations
 import asyncio
 import logging
 
-from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import StreamingResponse
-
-from core.sensor_base import SensorBase
 
 log = logging.getLogger(__name__)
 router = APIRouter()
-
-# Populated at startup by node/app.py: {sensor_id: SensorBase}
-_sensors: dict[str, SensorBase] = {}
-
-
-def register_sensors(sensors: dict[str, SensorBase]) -> None:
-    """Called by app startup to hand the sensor registry to this router."""
-    _sensors.update(sensors)
 
 
 # ── REST ─────────────────────────────────────────────────────────────────────
 
 
 @router.get("/sensors")
-async def list_sensors():
+async def list_sensors(request: Request):
     """List all configured sensors with their type and enabled status."""
+    sensors = request.app.state.sensors
     return [
         {
             "id":      sensor.id,
             "type":    sensor.config.type,
             "enabled": sensor.config.enabled,
         }
-        for sensor in _sensors.values()
+        for sensor in sensors.values()
     ]
 
 
 @router.get("/sensors/{sensor_id}")
-async def get_sensor(sensor_id: str):
+async def get_sensor(sensor_id: str, request: Request):
     """Return the latest reading from a sensor, or null if not yet available."""
-    sensor = _sensors.get(sensor_id)
+    sensor = request.app.state.sensors.get(sensor_id)
     if sensor is None:
         raise HTTPException(status_code=404, detail=f"Sensor '{sensor_id}' not found")
     reading = sensor.latest
@@ -50,13 +41,13 @@ async def get_sensor(sensor_id: str):
 
 
 @router.get("/sensors/{sensor_id}/stream")
-async def sensor_stream(sensor_id: str):
+async def sensor_stream(sensor_id: str, request: Request):
     """
     Server-sent events stream for a sensor.
     Each event is a JSON-encoded SensorReading.
     A keepalive comment is sent every 25 s when no reading is available.
     """
-    sensor = _sensors.get(sensor_id)
+    sensor = request.app.state.sensors.get(sensor_id)
     if sensor is None:
         raise HTTPException(status_code=404, detail=f"Sensor '{sensor_id}' not found")
 
@@ -98,7 +89,7 @@ async def sensor_stream(sensor_id: str):
 @router.websocket("/sensors/{sensor_id}/ws")
 async def sensor_ws(websocket: WebSocket, sensor_id: str):
     """WebSocket stream — sends the same JSON payload as the SSE stream."""
-    sensor = _sensors.get(sensor_id)
+    sensor = websocket.app.state.sensors.get(sensor_id)
     if sensor is None:
         await websocket.close(code=4004, reason=f"Sensor '{sensor_id}' not found")
         return
