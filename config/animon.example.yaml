@@ -25,7 +25,7 @@ nodes:
 
   # Dual-homed node (GbE + WiFi)
   my_rpi5_node:
-    ip:       192.168.1.x
+    ip:       192.168.1.111
     wifi_ip:  192.168.1.150    # optional — used as fallback if GbE unreachable
     ssh_user: pi
 
@@ -36,9 +36,9 @@ nodes:
     connection:
       via:    usb_gadget
       host:   my_sbc_node      # reaches this node through its host's USB interface
-      usb_ip: 192.168.8.x      # IP on the USB gadget network
+      usb_ip: 192.168.8.2      # IP on the USB gadget network
 
   # Hub or inference node
   my_hub_node:
-    ip:       192.168.1.y
+    ip:       192.168.1.130
     ssh_user: root
