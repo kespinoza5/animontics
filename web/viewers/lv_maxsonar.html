@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LV-MaxSonar-EZ</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="../shared/viewer.css" />
+</head>
+<body>
+  <h1>LV-MaxSonar-EZ &mdash; Distance</h1>
+
+  <div class="readout">
+    <div class="main-val">
+      <span class="value" id="val">—</span>
+      <span class="unit" id="unit">cm</span>
+    </div>
+    <div class="meta" id="alt">—</div>
+  </div>
+
+  <button class="btn" id="toggle">Switch to ft / in</button>
+
+  <div class="chart-wrap"><canvas id="chart"></canvas></div>
+
+  <div class="bottom-bar">
+    <div class="conn-bar">
+      <label for="ip">Host IP</label>
+      <input id="ip" type="text" value="192.168.1.x" spellcheck="false" />
+      <input id="sid" type="text" value="sonar_side" style="width:11ch"
+             spellcheck="false" title="Sensor ID" />
+      <button class="btn" id="reconnect">Connect</button>
+    </div>
+    <span class="status" id="status">connecting…</span>
+  </div>
+
+<script src="../shared/stream.js"></script>
+<script src="../shared/timeseries.js"></script>
+<script>
+  // ── Per-sensor config ───────────────────────────────────────────────────────
+  const CM_MAX = 645;     // 254 in × 2.54 — full LV-MaxSonar-EZ range
+  const IN_MAX = 254;
+
+  let useMetric = true;
+  let lastMm = null;
+
+  const valEl  = document.getElementById("val");
+  const unitEl = document.getElementById("unit");
+  const altEl  = document.getElementById("alt");
+
+  const chart = AnimChart.makeLine(document.getElementById("chart"), {
+    color: "#58a6ff",
+    max: CM_MAX,
+    tickFmt: (v) => v.toFixed(0) + (useMetric ? " cm" : " in"),
+    tipFmt: (v) => v.toFixed(0) + (useMetric ? " cm" : " in"),
+  });
+
+  function updateReadout(mm) {
+    if (useMetric) {
+      const cm = mm / 10;
+      if (cm >= 100) { valEl.textContent = (cm / 100).toFixed(2); unitEl.textContent = "m";  altEl.textContent = cm.toFixed(0) + " cm"; }
+      else           { valEl.textContent = cm.toFixed(0);         unitEl.textContent = "cm"; altEl.textContent = (cm / 100).toFixed(3) + " m"; }
+    } else {
+      const inches = mm / 25.4;
+      if (inches >= 12) {
+        const ft = Math.floor(inches / 12);
+        valEl.textContent = `${ft}'${(inches % 12).toFixed(1)}"`;
+        unitEl.textContent = "";
+        altEl.textContent = inches.toFixed(1) + " in";
+      } else {
+        valEl.textContent = inches.toFixed(1); unitEl.textContent = "in";
+        altEl.textContent = (inches / 12).toFixed(2) + " ft";
+      }
+    }
+    valEl.classList.remove("warn", "close");
+    if (mm < 150)      valEl.classList.add("close");
+    else if (mm < 300) valEl.classList.add("warn");
+  }
+
+  document.getElementById("toggle").addEventListener("click", () => {
+    useMetric = !useMetric;
+    document.getElementById("toggle").textContent =
+      useMetric ? "Switch to ft / in" : "Switch to m / cm";
+    chart.setMax(useMetric ? CM_MAX : IN_MAX);
+    chart.setFormatters();
+    chart.clear();
+    if (lastMm !== null) updateReadout(lastMm);
+  });
+
+  // ── Connection ──────────────────────────────────────────────────────────────
+  let conn = null;
+  function start() {
+    if (conn) conn.close();
+    conn = AnimStream.connect({
+      hostInput: document.getElementById("ip"),
+      sensorId: document.getElementById("sid").value.trim(),
+      onStatus: (text, cls) => {
+        const s = document.getElementById("status");
+        s.textContent = text; s.className = "status " + cls;
+      },
+      onReading: (d) => {
+        if (d.distance_mm == null) return;
+        lastMm = d.distance_mm;
+        updateReadout(d.distance_mm);
+        chart.push(useMetric ? d.distance_mm / 10 : d.distance_mm / 25.4);
+      },
+    });
+  }
+
+  document.getElementById("reconnect").addEventListener("click", start);
+  start();
+</script>
+</body>
+</html>
