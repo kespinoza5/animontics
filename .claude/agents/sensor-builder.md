@@ -6,7 +6,7 @@ description: >-
   starting a NEW sensor and you want a fresh context primed with the project's
   patterns rather than carrying unrelated history. It loads the contract docs and
   an exemplar, gathers the hardware specifics it needs, then writes driver.py /
-  sensor.py / __init__.py / README / docs and wires the sensor into animon.yaml
+  sensor.py / __init__.py / README / docs and wires the sensor into config/nodes/
   and mkdocs, finishing with a clean conformance audit.
 tools: Read, Write, Edit, Grep, Glob, Bash
 ---
@@ -79,7 +79,8 @@ Then the cross-file wiring:
   `web/viewers/tf_mini.html`; 2D array/image at high rate → consume the binary
   frame lane like `web/viewers/mlx90640.html` (sensor sets `produces_frames`
   and calls `self._broadcast_frame(bytes)`); event log → `web/viewers/ir_xcvr.html`.
-- Add `{id, type}` (only — no wiring) to the right node in `config/animon.yaml`.
+- Add `{id, type}` (only — no wiring) to the sensors list in the right node's
+  `config/nodes/<node-id>.yaml` (in repo; no IPs or wiring go here).
 - Create `docs/sensors/<type>.md` as an `include-markdown` wrapper of the README.
 - Add the page to the Sensors nav in `mkdocs.yml`.
 - If (and only if) custom routes are needed: add `node/routers/<type>.py` using
@@ -101,7 +102,7 @@ Resolve every ERROR; resolve WARNs unless you have a real reason not to.
 - **Git submodules**: each sensor package is its own git repo. Commit inside the
   submodule first, then advance the parent pointer. Don't delete an original
   directory during a migration without preserving history (`git filter-repo`).
-- **Security**: no secrets (WiFi passwords, tokens) in `config.yaml`, `animon.yaml`,
+- **Security**: no secrets (WiFi passwords, tokens) in `config.yaml`, `config/nodes/`,
   or METADATA. SSH is key-auth only.
 - **Windows dev box**: `fcntl`/`smbus2`/`serial` are Linux-only — keep them out of
   import-time code paths. Don't write CRLF (`.gitattributes` enforces LF).

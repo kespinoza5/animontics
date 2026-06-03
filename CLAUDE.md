@@ -16,18 +16,20 @@ architecture, fleet deploy process — read `docs/architecture.md`.
 
 ---
 
-## Three-layer config architecture
+## Four-layer config architecture
 
 This is the core design. Each layer owns exactly its concern — never cross them.
 
-| Layer | File | Who owns it | Contains |
-|-------|------|-------------|----------|
-| Fleet desired state | `config/animon.yaml` | Repo | Which sensors each board *should* have (id + type only) |
-| Board wiring reality | `<deploy_path>/config/config.yaml` | Board | Physical connection details (port, bus, baud, address) |
-| Hardware constraints | `sensors/<type>/__init__.py` `METADATA` | Repo | Valid connection types, addresses, baud rates, defaults |
+| Layer | File | In repo? | Contains |
+|-------|------|----------|----------|
+| Node desired state | `config/nodes/<id>.yaml` | ✅ | Which sensors each node should run (id + type only), capabilities, role |
+| Fleet access | `config/animon.yaml` | ❌ gitignored | IPs, SSH users — how to reach each board |
+| Board wiring reality | `config/boards/<id>.yaml` + board's `config.yaml` | ❌ gitignored | Physical connection details (port, bus, baud, address) |
+| Hardware constraints | `sensors/<type>/__init__.py` `METADATA` | ✅ | Valid connection types, addresses, baud rates, defaults |
 
-`animon deploy` negotiates all three: keep existing wiring, add new sensors from
-METADATA defaults, disable removed sensors.
+`animon deploy` negotiates all four: desired state from `config/nodes/`, access
+from `config/animon.yaml`, existing wiring from `config/boards/` (or live SSH),
+constraints from METADATA. After deploy, `config/boards/<id>.yaml` is updated.
 
 ---
 
@@ -107,7 +109,7 @@ No extra startup calls. The router accesses `request.app.state.sensors` itself.
    Not in the sensor package — viewers are opened from a dev machine against any
    node, so they live together. High-rate array/image sensors consume the
    binary frame lane (`/sensors/<id>/frames`); scalars use the JSON SSE lane.
-7. Add to `config/animon.yaml` on the relevant node
+7. Add `{id, type}` to the relevant node in `config/nodes/<node-id>.yaml`
 8. Add `docs/sensors/<type>.md` (one `include-markdown` line)
 9. Add to `mkdocs.yml` sensors nav
 10. If the sensor needs dedicated HTTP routes, add `node/routers/<type>.py`

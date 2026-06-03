@@ -234,28 +234,35 @@ def audit_sensor(pkg_dir: Path, report: Report) -> None:
 
 
 def audit_animon_yaml(root: Path, known: set[str], report: Report) -> None:
-    path = root / "config" / "animon.yaml"
-    if not path.exists():
-        report.add(WARN, "animon.yaml", "config/animon.yaml not found")
-        return
+    """Check config/nodes/*.yaml for unknown sensor type references.
+
+    animon.yaml is now access-only (IPs, SSH users); sensor desired state
+    lives in config/nodes/<id>.yaml. This check validates those files.
+    """
     try:
         import yaml
     except ImportError:
-        report.add(WARN, "animon.yaml", "pyyaml not installed — skipped type cross-check")
+        report.add(WARN, "config/nodes", "pyyaml not installed — skipped type cross-check")
         return
-    try:
-        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-    except yaml.YAMLError as exc:
-        report.add(ERROR, "animon.yaml", f"does not parse: {exc}")
+
+    nodes_dir = root / "config" / "nodes"
+    if not nodes_dir.exists():
+        report.add(WARN, "config/nodes", "config/nodes/ directory not found")
         return
-    for node in data.get("nodes", []) or []:
-        node_id = node.get("id", "<unknown>")
-        for sensor in node.get("sensors", []) or []:
+
+    for node_file in sorted(nodes_dir.glob("*.yaml")):
+        try:
+            data = yaml.safe_load(node_file.read_text(encoding="utf-8")) or {}
+        except yaml.YAMLError as exc:
+            report.add(ERROR, f"config/nodes/{node_file.name}", f"does not parse: {exc}")
+            continue
+        node_id = data.get("id", node_file.stem)
+        for sensor in data.get("sensors", []) or []:
             stype = sensor.get("type")
             if not stype or stype in NON_PACKAGE_TYPES:
                 continue
             if stype not in known:
-                report.add(ERROR, "animon.yaml",
+                report.add(ERROR, f"config/nodes/{node_file.name}",
                            f"node '{node_id}' references sensor type '{stype}' "
                            f"with no package under sensors/")
 

@@ -1,8 +1,8 @@
 """Sync commands — status, diff, and pull.
 
-status:  Compare animon.yaml desired state against each board's live state.
+status:  Compare desired state (config/nodes/) against each board's live state.
 diff:    Show what 'deploy' would change for a specific node.
-pull:    Read a board's current config and update animon.yaml to match.
+pull:    Read a board's live config; update boards/ staging + nodes/ desired state.
 """
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from pathlib import Path
 
 import yaml
 
-from core.config import load_animon_config
+from core.config import load_fleet, save_board_staging
 from core.models import AnimonConfig, AnimonNodeEntry, NodeConfig
 from tools.fleet.reconcile import load_all_metadata, reconcile
 from tools.fleet.ssh import SSHError, read_remote_file
@@ -26,6 +26,7 @@ EXIT_DRIFT = 2  # in-sync but with drift detected — useful for scripting
 
 
 def status(
+    nodes_dir: Path,
     animon_path: Path,
     node_id: str | None = None,
     *,
@@ -36,14 +37,14 @@ def status(
 
     For each reachable node:
       - Queries GET /config to get the board's live config
-      - Compares against animon.yaml desired state
+      - Compares against config/nodes/ desired state
       - Reports: in-sync / drifted / unreachable
 
     Returns EXIT_OK if all nodes are in sync, EXIT_DRIFT if any drift,
     EXIT_ERROR on config/connection failure.
     """
     try:
-        animon = load_animon_config(animon_path)
+        animon = load_fleet(nodes_dir=nodes_dir, animon_path=animon_path)
     except FileNotFoundError as e:
         print(f"error: {e}")
         return EXIT_ERROR
@@ -96,15 +97,16 @@ def status(
 
 def diff(
     node_id: str,
-    animon_path: Path,
     project_root: Path,
+    nodes_dir: Path,
+    animon_path: Path,
     *,
     user_override: str | None = None,
     verbose: bool = False,
 ) -> int:
     """Show what 'deploy' would change for a node without applying anything."""
     try:
-        animon = load_animon_config(animon_path)
+        animon = load_fleet(project_root, nodes_dir=nodes_dir, animon_path=animon_path)
     except FileNotFoundError as e:
         print(f"error: {e}")
         return EXIT_ERROR
@@ -148,33 +150,39 @@ def diff(
 
 def pull(
     node_id: str,
+    project_root: Path,
+    nodes_dir: Path,
     animon_path: Path,
     *,
     user_override: str | None = None,
     dry_run: bool = False,
 ) -> int:
-    """Pull a board's current sensor config into animon.yaml.
+    """Pull a board's live config into local staging files.
 
-    Adds sensors found on the board that are not yet in animon.yaml.
-    Does not remove sensors from animon.yaml that are missing on the board.
+    Two things are updated:
+      config/boards/<id>.yaml — full wiring staging copy (gitignored)
+      config/nodes/<id>.yaml  — desired state: any new sensor {id,type} pairs
+                                that are enabled on the board but not yet listed
+
+    Does not remove sensors from nodes/<id>.yaml that are absent on the board.
     Shows a diff before writing.
     """
     try:
-        animon = load_animon_config(animon_path)
+        animon = load_fleet(project_root, nodes_dir=nodes_dir, animon_path=animon_path)
     except FileNotFoundError as e:
         print(f"error: {e}")
         return EXIT_ERROR
 
     node = animon.get_node(node_id)
     if node is None:
-        print(f"error: node '{node_id}' not found")
+        print(f"error: node '{node_id}' not found in config/nodes/")
         return EXIT_ERROR
 
     host = node.ip or node.hostname
     user = user_override or animon.effective_ssh_user(node)
     deploy_path = animon.effective_deploy_path(node)
 
-    # Fetch board config
+    # ── Fetch live board config ────────────────────────────────────────────────
     live_config = _fetch_config_http(host, node.port)
     if live_config is None:
         raw = read_remote_file(host, user, f"{deploy_path}/config/config.yaml")
@@ -187,7 +195,15 @@ def pull(
             print(f"error: could not parse board config: {e}")
             return EXIT_ERROR
 
-    # Find sensors on the board not in animon.yaml
+    # ── 1. Update boards/ staging copy (always) ───────────────────────────────
+    print(f"pull {node_id}:")
+    if not dry_run:
+        staging_path = save_board_staging(node_id, live_config, project_root)
+        print(f"  ✓ config/boards/{node_id}.yaml updated (full wiring)")
+    else:
+        print(f"  [dry-run] would update config/boards/{node_id}.yaml")
+
+    # ── 2. Update nodes/ desired state — add any new sensor refs ──────────────
     desired_ids = {ref.id for ref in node.sensors}
     new_sensors = [
         s for s in live_config.sensors
@@ -195,33 +211,28 @@ def pull(
     ]
 
     if not new_sensors:
-        print(f"pull {node_id}: nothing to pull — animon.yaml already covers all board sensors.")
+        print(f"  config/nodes/{node_id}.yaml: already covers all board sensors.")
         return EXIT_OK
 
-    print(f"pull {node_id}: adding {len(new_sensors)} sensor(s) to animon.yaml:")
+    print(f"  Adding {len(new_sensors)} sensor(s) to config/nodes/{node_id}.yaml:")
     for s in new_sensors:
-        print(f"  + {s.id} ({s.type})")
+        print(f"    + {s.id} ({s.type})")
 
     if dry_run:
-        print("[dry-run] animon.yaml not modified.")
+        print("  [dry-run] config/nodes/ not modified.")
         return EXIT_OK
 
-    # Update animon.yaml in place
-    raw_animon = animon_path.read_text(encoding="utf-8")
-    updated = yaml.safe_load(raw_animon)
-
-    for node_entry in updated["nodes"]:
-        if node_entry["id"] == node_id:
-            existing_sensors = node_entry.setdefault("sensors", [])
-            for s in new_sensors:
-                existing_sensors.append({"id": s.id, "type": s.type})
-            break
-
-    animon_path.write_text(
-        yaml.dump(updated, default_flow_style=False, allow_unicode=True),
+    # Update the node's desired-state YAML in place
+    node_file = nodes_dir / f"{node_id}.yaml"
+    raw_node = yaml.safe_load(node_file.read_text(encoding="utf-8")) or {}
+    existing = raw_node.setdefault("sensors", [])
+    for s in new_sensors:
+        existing.append({"id": s.id, "type": s.type})
+    node_file.write_text(
+        yaml.dump(raw_node, default_flow_style=False, allow_unicode=True),
         encoding="utf-8",
     )
-    print(f"Updated {animon_path}")
+    print(f"  ✓ config/nodes/{node_id}.yaml updated")
     return EXIT_OK
 
 

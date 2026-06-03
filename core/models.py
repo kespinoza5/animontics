@@ -54,14 +54,14 @@ class NodeConfig(BaseModel):
     sensors: list[SensorConfig] = []
 
 
-# ── Fleet / animon.yaml models ────────────────────────────────────────────────
+# ── Fleet models ──────────────────────────────────────────────────────────────
 
 class AnimonSensorRef(BaseModel):
-    """A sensor assignment in the fleet topology.
+    """A sensor assignment in the fleet topology (id + type only).
 
-    Intentionally minimal — contains only what the fleet needs to know.
-    Wiring details (port, bus, address, baud_rate) live in the board's
-    config.yaml; hardware constraints live in each sensor's METADATA dict.
+    Intentionally minimal — wiring details (port, bus, address, baud_rate)
+    live in the board's config.yaml / config/boards/<id>.yaml; hardware
+    constraints live in each sensor's METADATA dict.
     """
 
     id: str    # sensor instance id, e.g. "lidar_front"
@@ -77,10 +77,11 @@ class AnimonUsbMcu(BaseModel):
 
 
 class AnimonNodeConnection(BaseModel):
-    """Describes how a node connects to the network (for non-Ethernet nodes)."""
+    """Network connection details for non-Ethernet nodes (e.g. USB gadget)."""
 
-    via: str   # e.g. "usb_gadget"
-    host: str  # id of the host node that bridges this connection
+    via: str              # e.g. "usb_gadget"
+    host: str             # id of the host node that bridges this connection
+    usb_ip: str | None = None  # IP on the USB gadget network
 
 
 class AnimonNodeCamera(BaseModel):
@@ -89,35 +90,78 @@ class AnimonNodeCamera(BaseModel):
     enabled: bool = True
 
 
-class AnimonNodeEntry(BaseModel):
-    """A single node in the animon.yaml fleet topology."""
+class NodeDesiredState(BaseModel):
+    """Desired state for one node — lives in config/nodes/<id>.yaml (in repo).
+
+    Contains the logical description of what a node should run: sensors,
+    capabilities, board type. No IPs, no SSH users, no physical wiring.
+    """
 
     id: str
+    type: str                        # board type, e.g. "raspberry_pi_5"
     hostname: str
-    ip: str | None = None            # None for USB-attached nodes
-    type: str                        # board type, e.g. "orangepi_zero2"
     port: int = 8080
-    ssh_user: str | None = None      # overrides AnimonDefaults.ssh_user
-    deploy_path: str | None = None   # overrides AnimonDefaults.deploy_path
+    role: str | None = None          # informational, e.g. "vision", "proprioception"
     sensors: list[AnimonSensorRef] = []
     capabilities: list[str] = []
-    connection: AnimonNodeConnection | None = None
-    usb_attached: list[str] = []     # ids of USB-gadget child nodes
-    usb_mcus: list[AnimonUsbMcu] = []
     camera: AnimonNodeCamera | None = None
+    usb_mcus: list[AnimonUsbMcu] = []
+    usb_attached: list[str] = []     # ids of USB-gadget child nodes
+
+
+class AnimonNodeAccess(BaseModel):
+    """Access details for one node — lives in config/animon.yaml (gitignored).
+
+    Contains only the information needed to reach the board: IP address,
+    SSH credentials, network topology. Never mixed with desired state.
+    """
+
+    ip: str | None = None            # GbE address; None for USB-only nodes
+    wifi_ip: str | None = None       # WiFi address if dual-homed
+    ssh_user: str | None = None      # overrides AnimonDefaults.ssh_user
+    deploy_path: str | None = None   # overrides AnimonDefaults.deploy_path
+    connection: AnimonNodeConnection | None = None  # for USB-gadget nodes
 
 
 class AnimonDefaults(BaseModel):
-    """Fleet-wide defaults, overridable per node."""
+    """Fleet-wide defaults, overridable per node in config/animon.yaml."""
 
     ssh_user: str = "pi"
     deploy_path: str = "/opt/animontics"
 
 
-class AnimonConfig(BaseModel):
-    """Complete fleet topology loaded from animon.yaml."""
+class AnimonNodeEntry(BaseModel):
+    """Merged working view of a node used by the fleet tool at runtime.
 
-    system_name: str
+    Assembled by load_fleet() from NodeDesiredState (config/nodes/) and
+    AnimonNodeAccess (config/animon.yaml). Code that reads fleet state
+    should always work with this type, not the split sources.
+    """
+
+    # From NodeDesiredState (config/nodes/<id>.yaml)
+    id: str
+    type: str
+    hostname: str
+    port: int = 8080
+    role: str | None = None
+    sensors: list[AnimonSensorRef] = []
+    capabilities: list[str] = []
+    camera: AnimonNodeCamera | None = None
+    usb_mcus: list[AnimonUsbMcu] = []
+    usb_attached: list[str] = []
+
+    # From AnimonNodeAccess (config/animon.yaml)
+    ip: str | None = None
+    wifi_ip: str | None = None
+    ssh_user: str | None = None
+    deploy_path: str | None = None
+    connection: AnimonNodeConnection | None = None
+
+
+class AnimonConfig(BaseModel):
+    """Complete fleet topology — merged from config/nodes/ + config/animon.yaml."""
+
+    system_name: str = ""
     defaults: AnimonDefaults = AnimonDefaults()
     nodes: list[AnimonNodeEntry] = []
 

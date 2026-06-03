@@ -7,13 +7,18 @@ Usage:
     animon pull   <node-id>   [--user USER] [--dry-run]
     animon probe  <node-id>   [--user USER]
 
+Fleet config is read from two sources in the project's config/ directory:
+    config/nodes/<id>.yaml    Desired state per node (in repo, no secrets)
+    config/animon.yaml        Access layer: IPs, SSH users (gitignored)
+
 Global options:
-    --config PATH   Path to animon.yaml  (default: config/animon.yaml)
+    --access PATH   Path to animon.yaml access config  (default: config/animon.yaml)
+    --nodes PATH    Path to nodes/ desired-state dir   (default: config/nodes/)
 
 Exit codes:
     0  success / all nodes in sync
     1  error   (config problem, connection failure, etc.)
-    2  drift   (nodes reachable but config differs from animon.yaml)
+    2  drift   (nodes reachable but desired state differs from board reality)
 """
 from __future__ import annotations
 
@@ -30,8 +35,26 @@ def _project_root() -> Path:
     return Path(__file__).resolve().parent.parent.parent
 
 
+def _default_nodes_dir() -> Path:
+    return _project_root() / "config" / "nodes"
+
+
 def _default_animon_path() -> Path:
     return _project_root() / "config" / "animon.yaml"
+
+
+def _load_fleet(args: argparse.Namespace):
+    """Load fleet config from CLI args, raising SystemExit on failure."""
+    from core.config import load_fleet
+    try:
+        return load_fleet(
+            _project_root(),
+            nodes_dir=args.nodes,
+            animon_path=args.access,
+        )
+    except FileNotFoundError as e:
+        print(f"error: {e}")
+        raise SystemExit(1)
 
 
 # ---------------------------------------------------------------------------
@@ -42,8 +65,9 @@ def _cmd_deploy(args: argparse.Namespace) -> int:
     from tools.fleet.deploy import deploy
     return deploy(
         node_id=args.node_id,
-        animon_path=args.config,
         project_root=_project_root(),
+        nodes_dir=args.nodes,
+        animon_path=args.access,
         dry_run=args.dry_run,
         user_override=args.user,
         verbose=args.verbose,
@@ -53,7 +77,8 @@ def _cmd_deploy(args: argparse.Namespace) -> int:
 def _cmd_status(args: argparse.Namespace) -> int:
     from tools.fleet.sync import status
     return status(
-        animon_path=args.config,
+        nodes_dir=args.nodes,
+        animon_path=args.access,
         node_id=args.node_id,
         user_override=args.user,
         json_output=args.json,
@@ -64,8 +89,9 @@ def _cmd_diff(args: argparse.Namespace) -> int:
     from tools.fleet.sync import diff
     return diff(
         node_id=args.node_id,
-        animon_path=args.config,
         project_root=_project_root(),
+        nodes_dir=args.nodes,
+        animon_path=args.access,
         user_override=args.user,
         verbose=args.verbose,
     )
@@ -75,7 +101,9 @@ def _cmd_pull(args: argparse.Namespace) -> int:
     from tools.fleet.sync import pull
     return pull(
         node_id=args.node_id,
-        animon_path=args.config,
+        project_root=_project_root(),
+        nodes_dir=args.nodes,
+        animon_path=args.access,
         user_override=args.user,
         dry_run=args.dry_run,
     )
@@ -88,14 +116,8 @@ def _cmd_probe(args: argparse.Namespace) -> int:
         probe_hardware,
     )
     from tools.fleet.reconcile import load_all_metadata
-    from core.config import load_animon_config
 
-    try:
-        animon = load_animon_config(args.config)
-    except FileNotFoundError as e:
-        print(f"error: {e}")
-        return 1
-
+    animon = _load_fleet(args)
     node = animon.get_node(args.node_id)
     if node is None:
         print(f"error: node '{args.node_id}' not found")
@@ -131,21 +153,28 @@ Exit codes:
 
 Examples:
   animon status
-  animon status my_rpi_node --json
-  animon diff my_sbc_node
+  animon status my_sbc_node --json
+  animon diff my_other_node
   animon deploy my_sbc_node --dry-run
   animon deploy my_sbc_node --verbose
-  animon pull pi_zero_sonar
-  animon probe my_sbc_node
+  animon pull my_pizero_node
+  animon probe my_other_node
 """,
     )
 
     parser.add_argument(
-        "--config",
+        "--access",
         metavar="PATH",
         type=Path,
         default=_default_animon_path(),
-        help="Path to animon.yaml (default: config/animon.yaml)",
+        help="Path to access config (default: config/animon.yaml)",
+    )
+    parser.add_argument(
+        "--nodes",
+        metavar="DIR",
+        type=Path,
+        default=_default_nodes_dir(),
+        help="Path to nodes/ desired-state directory (default: config/nodes/)",
     )
 
     subparsers = parser.add_subparsers(dest="command", metavar="COMMAND")

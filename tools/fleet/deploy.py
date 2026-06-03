@@ -1,16 +1,17 @@
 """Deploy command — push fleet desired state to a board.
 
 Negotiation flow:
-  1. Read animon.yaml → desired sensor list for this node
-  2. SSH to board → read current config.yaml (wiring reality)
+  1. Load config/nodes/<id>.yaml (desired state) + config/animon.yaml (access)
+  2. Try config/boards/<id>.yaml staging copy; else SSH to board for config.yaml
   3. Reconcile: keep existing wiring, add new sensors with METADATA defaults,
-     disable sensors removed from animon.yaml
+     disable sensors removed from nodes/<id>.yaml
   4. Validate result against METADATA constraints
   5. dry_run → print diff and exit
   6. Rsync core/, node/, needed sensor packages; remove unneeded packages
   7. Write new config.yaml to board
   8. pip install deps + restart service
   9. Poll GET / to confirm healthy
+ 10. Write merged config to config/boards/<id>.yaml staging copy
 """
 from __future__ import annotations
 
@@ -22,7 +23,7 @@ from pathlib import Path
 
 import yaml
 
-from core.config import load_animon_config, load_node_config
+from core.config import load_board_staging, load_fleet, load_node_config, save_board_staging
 from core.models import AnimonConfig, AnimonNodeEntry, NodeConfig
 from tools.fleet.reconcile import ReconcileError, load_all_metadata, reconcile
 from tools.fleet.ssh import SSHError, read_remote_file, rsync_to, run_remote, write_remote_file
@@ -30,14 +31,15 @@ from tools.fleet.ssh import SSHError, read_remote_file, rsync_to, run_remote, wr
 
 def deploy(
     node_id: str,
-    animon_path: Path,
     project_root: Path,
     *,
+    nodes_dir: Path | None = None,
+    animon_path: Path | None = None,
     dry_run: bool = False,
     user_override: str | None = None,
     verbose: bool = False,
 ) -> int:
-    """Deploy animontics to a node based on animon.yaml desired state.
+    """Deploy animontics to a node based on desired state in config/nodes/.
 
     Returns 0 on success, 1 on failure.
     """
@@ -50,7 +52,7 @@ def deploy(
 
     # ── 1. Load fleet config and locate node ──────────────────────────────────
     try:
-        animon = load_animon_config(animon_path)
+        animon = load_fleet(project_root, nodes_dir=nodes_dir, animon_path=animon_path)
     except FileNotFoundError as e:
         print(f"error: {e}")
         return 1
@@ -58,7 +60,7 @@ def deploy(
     node = animon.get_node(node_id)
     if node is None:
         ids = [n.id for n in animon.nodes]
-        print(f"error: node '{node_id}' not found in {animon_path}")
+        print(f"error: node '{node_id}' not found in config/nodes/")
         print(f"  known nodes: {ids}")
         return 1
 
@@ -74,24 +76,24 @@ def deploy(
     if dry_run:
         log("  [dry-run mode — no changes will be made]")
 
-    # ── 2. Read current config from board ─────────────────────────────────────
+    # ── 2. Read current board config (staging copy first, then SSH) ──────────
     current_config: NodeConfig | None = None
-    config_path = f"{deploy_path}/config/config.yaml"
-    vlog(f"Reading {config_path} from board...")
 
-    raw = read_remote_file(host, user, config_path)
-    if raw:
-        try:
-            current_config = load_node_config.__wrapped__(raw)  # parse from string
-        except Exception:
-            # Fall back to yaml parse + model_validate
+    # Try local staging copy first (allows offline dry-run)
+    current_config = load_board_staging(node_id, project_root)
+    if current_config:
+        vlog(f"Using staging copy from config/boards/{node_id}.yaml")
+    else:
+        config_path = f"{deploy_path}/config/config.yaml"
+        vlog(f"No staging copy — reading {config_path} from board via SSH...")
+        raw = read_remote_file(host, user, config_path)
+        if raw:
             try:
-                from core.models import NodeConfig
                 current_config = NodeConfig.model_validate(yaml.safe_load(raw))
             except Exception as e:
                 vlog(f"warning: could not parse board config ({e}), treating as fresh install")
-    else:
-        log("  No existing config.yaml on board — fresh install.")
+        else:
+            log("  No existing config.yaml on board — fresh install.")
 
     # ── 3. Load sensor METADATA and reconcile ─────────────────────────────────
     metadata = load_all_metadata()
@@ -194,6 +196,10 @@ def deploy(
     else:
         log("  ⚠ Node did not respond in time — check service logs on the board.")
         return 1
+
+    # ── 12. Update local staging copy ────────────────────────────────────────
+    staging_path = save_board_staging(node_id, new_config, project_root)
+    vlog(f"Staging copy updated: {staging_path}")
 
     log(f"\nDeploy complete: {node_id}")
     return 0

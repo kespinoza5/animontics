@@ -36,20 +36,29 @@ on those boards will serve over USB network or be polled by the NeoCore2 agent.
 
 ---
 
-## Three-Layer Configuration
+## Configuration Layers
 
-This is the core design principle. Each layer owns exactly its concern — never cross them.
+Four layers — each owns exactly its concern, never crossing into another.
 
-| Layer | File | Lives | Contains |
-|-------|------|-------|----------|
-| **Fleet desired state** | `config/animon.yaml` | Repo | Which sensors each board *should* have (id + type only) |
-| **Board wiring reality** | `<deploy_path>/config/config.yaml` | Board, gitignored | Physical connection details (port, bus, baud, address) |
-| **Hardware constraints** | `sensors/<type>/__init__.py` `METADATA` | Repo | Valid connection types, addresses, baud rates, defaults |
+| Layer | File | In repo? | Contains |
+|-------|------|----------|----------|
+| **Node desired state** | `config/nodes/<id>.yaml` | ✅ | Which sensors each node should run (id + type), capabilities, role |
+| **Fleet access** | `config/animon.yaml` | ❌ gitignored | IPs, SSH users — how to reach each board |
+| **Board wiring** | `config/boards/<id>.yaml` + board's `config.yaml` | ❌ gitignored | Physical connection details (port, bus, baud, address) |
+| **Hardware constraints** | `sensors/<type>/__init__.py` METADATA | ✅ | Valid connection types, locked baud rates, I2C addresses, defaults |
 
-`animon deploy` negotiates all three: keep existing wiring, add new sensors using METADATA defaults,
-disable sensors removed from `animon.yaml`. Separation means the repo never holds board-specific
-wiring, boards never need to know about each other, and hardware constraints live with the code that
-implements them.
+The separation reflects the fundamental distinction between **node** (a logical participant in
+the system with a role and sensor responsibilities) and **board** (a physical device with wires
+on specific pins). Desired state is versioned because it's a design decision; wiring and access
+details are gitignored because they're hardware-specific and may contain network topology.
+
+`animon deploy` negotiates all four layers:
+
+1. Read `config/nodes/<id>.yaml` — what sensors this node should have
+2. Read `config/animon.yaml` — how to reach the board
+3. Read `config/boards/<id>.yaml` (staging copy) or fetch live `config.yaml` via SSH
+4. Reconcile: keep existing wiring, bootstrap new sensors from METADATA defaults, disable removed ones
+5. Write merged config to board; update `config/boards/<id>.yaml` staging copy
 
 ### METADATA shape
 
@@ -260,11 +269,13 @@ Exit codes: `0` = success/in-sync, `1` = error, `2` = drift detected (useful in 
 
 The deploy process:
 
-1. Load `config/animon.yaml` — desired sensor list for this node
-2. Pull the board's live `config.yaml` via SSH
-3. Negotiate: keep existing wiring, add new sensors from METADATA defaults, disable removed ones
-4. Rsync only the sensor packages referenced by the resulting config
-5. Restart the node service
+1. Load `config/nodes/<id>.yaml` — desired sensors for this node
+2. Load `config/animon.yaml` — SSH credentials and IP to reach the board
+3. Read `config/boards/<id>.yaml` staging copy (or SSH to board for live config)
+4. Negotiate: keep existing wiring, bootstrap new sensors from METADATA defaults, disable removed ones
+5. Rsync only the sensor packages referenced by the resulting config
+6. Write merged config to board's `config.yaml`; update `config/boards/<id>.yaml`
+7. Restart the node service
 
 SSH uses key auth only (`BatchMode=yes`). Credentials never appear on the command line.
 
