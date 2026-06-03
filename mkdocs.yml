@@ -15,6 +15,9 @@ theme:
     - search.suggest
     - content.code.copy
 
+hooks:
+  - mkdocs_hooks.py
+
 plugins:
   - search
   - include-markdown
@@ -44,14 +47,17 @@ nav:
   - Tools:
     - Overview: tools/index.md
     - Fleet CLI (animon): tools/fleet.md
-    - Verify Comms: tools/board.md
+    - Board Setup & Comms: tools/board.md
+    - SSH Access: tools/ssh.md
     - Network (AP): tools/network.md
     - USB Gadget: tools/usb.md
+    - USB Port (usbport): tools/usbport.md
   - API Reference:
     - core: api/core.md
     - sensors: api/sensors.md
     - node: api/node.md
   - Contributing: contributing.md
+  - Roadmap: roadmap.md
 
 validation:
   links:

@@ -94,6 +94,10 @@ The current sensor streaming API (`GET /sensors/{id}/stream`, `WS /sensors/{id}/
 - [ ] Fleet node discovery / health check endpoint
 - [ ] Hotswap peripheral autodetection (scan I2C + USB on startup, auto-add to config)
 - [x] `docs/architecture.md` — full system design, topology diagram, data flow
+- [ ] `docs/tools/network.md` — embedded `tools/network/README.md` links to
+      `ap.secrets.example` (a non-markdown asset), which 404s in the built site.
+      Resolve alongside the AP-secrets cleanup (move the AP password out of the
+      tracked `setup_ap.sh` into a gitignored secrets file).
 - [ ] `docs/API.md` — complete endpoint reference (depends on API design above)
 - [ ] `docs/boards/` — per-board wiring and setup guides
 - [ ] Register `tools/usb/usbport/` as a git submodule
