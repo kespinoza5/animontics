@@ -10,7 +10,7 @@ keeps every board's software and config in sync with the desired fleet state.
 ```bash
 # From the project root
 python -m tools.fleet.animon status          # check all nodes
-python -m tools.fleet.animon deploy my_rpi_node
+python -m tools.fleet.animon deploy my_sbc_node
 python -m tools.fleet.animon diff  my_sbc_node
 ```
 
@@ -40,5 +40,5 @@ See [`fleet/README.md`](fleet/README.md) for full documentation.
 
 ```bash
 # Quick connectivity check from dev machine
-ssh pi@192.168.1.x echo OK
+ssh pi@<board-ip> echo OK
 ```

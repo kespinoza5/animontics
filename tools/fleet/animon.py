@@ -154,11 +154,11 @@ Exit codes:
 Examples:
   animon status
   animon status my_sbc_node --json
-  animon diff my_other_node
+  animon diff my_sbc_node
   animon deploy my_sbc_node --dry-run
   animon deploy my_sbc_node --verbose
   animon pull my_pizero_node
-  animon probe my_other_node
+  animon probe my_sbc_node
 """,
     )
 

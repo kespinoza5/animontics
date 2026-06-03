@@ -41,8 +41,8 @@ points at any node. Deploy just this directory to boards that need the sensor.
 
 ```bash
 # deploy.sh reads config.yaml and copies only the needed packages
-./tools/maintenance/deploy.sh pi@192.168.1.x
+./tools/maintenance/deploy.sh pi@<board-ip>
 
 # Manual copy of a single package
-rsync -az sensors/tf_mini/ pi@192.168.1.x:/opt/animontics/sensors/tf_mini/
+rsync -az sensors/tf_mini/ pi@<board-ip>:/opt/animontics/sensors/tf_mini/
 ```

@@ -12,8 +12,8 @@ Scans all hardware communication interfaces and prints what's present. Run this 
 # On the board directly
 ./verify_comms.sh
 
-# From your development machine
-ssh pi@192.168.1.x 'bash -s' < tools/board/verify_comms.sh
+# From your development machine (via fleet CLI)
+python -m tools.fleet.animon probe my_sbc_node
 ```
 
 **Output includes:**

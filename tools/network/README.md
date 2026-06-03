@@ -10,8 +10,8 @@ Configures the board as a WiFi access point using `hostapd` and `dnsmasq`. Used 
 
 ```bash
 # Copy to the board and run
-scp tools/network/setup_ap.sh pi@192.168.1.x:/tmp/
-ssh pi@192.168.1.x 'chmod +x /tmp/setup_ap.sh && sudo /tmp/setup_ap.sh'
+scp tools/network/setup_ap.sh pi@<board-ip>:/tmp/
+ssh pi@<board-ip> 'chmod +x /tmp/setup_ap.sh && sudo /tmp/setup_ap.sh'
 ```
 
 ### `undo_ap.sh`
@@ -19,8 +19,8 @@ ssh pi@192.168.1.x 'chmod +x /tmp/setup_ap.sh && sudo /tmp/setup_ap.sh'
 Reverts the AP configuration applied by `setup_ap.sh`, restoring the board to normal WiFi client mode.
 
 ```bash
-scp tools/network/undo_ap.sh pi@192.168.1.x:/tmp/
-ssh pi@192.168.1.x 'chmod +x /tmp/undo_ap.sh && sudo /tmp/undo_ap.sh'
+scp tools/network/undo_ap.sh pi@<board-ip>:/tmp/
+ssh pi@<board-ip> 'chmod +x /tmp/undo_ap.sh && sudo /tmp/undo_ap.sh'
 ```
 
 ## Which Boards Need This

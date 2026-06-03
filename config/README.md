@@ -61,11 +61,11 @@ nodes:
     ip:       192.168.1.x
     ssh_user: myuser
   my_pizero_node:
-    wifi_ip: 192.168.1.x
+    wifi_ip: 192.168.1.y
     connection:
       via: usb_gadget
       host: my_other_node
-      usb_ip: 192.168.8.x
+      usb_ip: 192.168.8.z
 ```
 
 ---

@@ -9,19 +9,19 @@
 ## On a Board
 
 ```bash
-# Clone the repo (or use deploy.sh from your dev machine)
+# Clone the repo (or use the fleet CLI from your dev machine)
 git clone --recurse-submodules https://github.com/your-org/animontics.git /opt/animontics
 cd /opt/animontics
 
 # Install dependencies
 pip3 install -r requirements.txt
 
-# Create a config for this board
-cp config/config.example.yaml config/config.yaml
-nano config/config.yaml        # set node_id, node_type, enable your sensors
+# Create a wiring config for this board
+cp config/boards/example.yaml config/boards/<your-node-id>.yaml
+nano config/boards/<your-node-id>.yaml   # set node_id, node_type, fill in sensor connections
 ```
 
-Example config for a board with a TF Mini LiDAR on UART:
+Example wiring config for a board with a TF Mini LiDAR on UART:
 
 ```yaml
 node_id:   my_sbc_node
@@ -57,15 +57,20 @@ sudo systemctl enable --now animontics-node
 ## From Your Development Machine
 
 ```bash
-# Deploy to a board (reads its config.yaml to decide which packages to copy)
-./tools/maintenance/deploy.sh pi@192.168.1.x
+# Deploy to a board via the fleet CLI
+python -m tools.fleet.animon deploy my_sbc_node
 
-# Deploy with a specific config file
-./tools/maintenance/deploy.sh pi@192.168.1.y config/rpi5.yaml
+# Preview what deploy will change without touching the board
+python -m tools.fleet.animon deploy my_sbc_node --dry-run
+
+# Check live sensor health across all nodes
+python -m tools.fleet.animon status
 
 # Verify hardware connections on a remote board
-ssh pi@192.168.1.x 'bash -s' < tools/board/verify_comms.sh
+python -m tools.fleet.animon probe my_sbc_node
 ```
+
+See [Fleet CLI](architecture.md#fleet-management) for the full command reference.
 
 ## Reading Sensor Data
 
@@ -73,13 +78,13 @@ Once the node agent is running, sensor data is available at:
 
 ```bash
 # Latest reading (JSON)
-curl http://192.168.1.x:8080/sensors/lidar_front
+curl http://<board-ip>:8080/sensors/lidar_front
 
 # Node summary (all sensors + health)
-curl http://192.168.1.x:8080/
+curl http://<board-ip>:8080/
 
 # Stream readings (SSE — open in browser or curl)
-curl -N http://192.168.1.x:8080/sensors/lidar_front/stream
+curl -N http://<board-ip>:8080/sensors/lidar_front/stream
 ```
 
 Open `web/viewers/tf_mini.html` in a browser, enter the board's IP and sensor id, and you'll get a live chart. The `web/viewers/` tree has a bench viewer for each sensor type.

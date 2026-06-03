@@ -10,10 +10,10 @@ Deploys animontics to a target board over SSH + rsync. Reads the board's `config
 
 ```bash
 # Deploy using the local config/config.yaml
-./tools/maintenance/deploy.sh pi@192.168.1.x
+python -m tools.fleet.animon deploy my_sbc_node
 
-# Deploy with a specific config file (e.g. for the RPi5)
-./tools/maintenance/deploy.sh pi@192.168.1.y config/rpi5.yaml
+# Preview what will change without touching the board
+python -m tools.fleet.animon deploy my_sbc_node --dry-run
 ```
 
 **What it does:**

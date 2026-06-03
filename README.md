@@ -6,20 +6,21 @@ Distributed sensor infrastructure for an embodied AI system. Each compute node r
 
 ```
 Gigabit Ethernet Switch
-├── OrangePi Zero 2      192.168.1.x   TF Mini Plus LiDAR (UART)
+├── OrangePi Zero 2      TF Mini Plus LiDAR (UART)
 │   └── Pi Zero 2W       (USB gadget)    LV-MaxSonar-EZ (UART)
-├── Raspberry Pi 5       192.168.1.y   MLX90640 Thermal + Camera
+├── Raspberry Pi 5       MLX90640 Thermal + Camera
 │   └── HAILO-10H NPU hat               (inference accelerator)
-├── NeoCore2             192.168.1.z
+├── NeoCore2
 │   └── USB Hub → RP2040 × N, SAMD20 × N, Arduino, Feather M4
 │       (RP2040s control power/reboot for all boards)
-└── Nvidia Jetson Nano   192.168.1.w
+└── Nvidia Jetson Nano   (CUDA inference)
 
 FPGA fabric: SPI/I2S connections to multiple boards
              reconfigured via NeoCore2 over USB
 ```
 
-See [config/animon.yaml](config/animon.yaml) for the full system map.
+Node IPs, SSH users, and access details live in `config/animon.yaml` (gitignored).
+See `config/animon.example.yaml` for the schema.
 
 ## Quick Start
 
@@ -34,8 +35,8 @@ cd /opt/animontics
 pip3 install -r requirements.txt
 
 # Configure this board
-cp config/config.example.yaml config/config.yaml
-nano config/config.yaml   # enable your sensors, set your node_id
+cp config/boards/example.yaml config/boards/<your-node-id>.yaml
+nano config/boards/<your-node-id>.yaml   # set node_id, fill in connection details
 
 # Run the node agent
 uvicorn node.app:app --host 0.0.0.0 --port 8080
@@ -48,11 +49,11 @@ sudo systemctl enable --now animontics-node
 ### From your development machine
 
 ```bash
-# Deploy to a board (reads config.yaml to determine which sensor packages to copy)
-./tools/maintenance/deploy.sh pi@192.168.1.y
+# Deploy to a board via the fleet CLI
+python -m tools.fleet.animon deploy my_sbc_node
 
 # Verify hardware connections on a board
-ssh pi@192.168.1.y 'bash -s' < tools/board/verify_comms.sh
+python -m tools.fleet.animon probe my_sbc_node
 ```
 
 ## Adding a New Sensor

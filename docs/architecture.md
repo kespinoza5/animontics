@@ -10,22 +10,24 @@ a USB hub — and each runs only the software it needs.
 
 ```
 Gigabit Ethernet Switch
-├── OrangePi Zero 2      192.168.1.x   TF Mini Plus LiDAR (UART)
+├── OrangePi Zero 2      TF Mini Plus LiDAR (UART)
 │   └── Pi Zero 2W       (USB gadget)    LV-MaxSonar-EZ (UART)
-├── Raspberry Pi 5       192.168.1.y   MLX90640 Thermal + Webcam
-│   └── HAILO-10H hat                   (NPU inference accelerator)
-├── NeoCore2             192.168.1.z
+├── Raspberry Pi 5       MLX90640 Thermal + Webcam
+│   └── HAILO-10H hat    (NPU inference accelerator)
+├── NeoCore2
 │   └── USB Hub
 │       ├── RP2040 (power/reboot control for all boards)
 │       ├── RP2040 (IMU)
 │       ├── SAMD20
 │       ├── Arduino
 │       └── Feather M4
-└── Nvidia Jetson Nano   192.168.1.w   (CUDA inference)
+└── Nvidia Jetson Nano   (CUDA inference)
 
 FPGA fabric: SPI/I2S to multiple boards
              reconfigured via NeoCore2 + RP2040 power controllers
 ```
+
+Node IPs and SSH access details live in `config/animon.yaml` (gitignored).
 
 Each Linux SBC runs an **animontics node agent** — a lightweight FastAPI HTTP server that exposes
 its local sensors over a simple streaming API. The Pi Zero 2W connects to the OrangePi over USB
@@ -259,9 +261,9 @@ file. Key commands:
 
 ```
 animon status  [<node-id>]     show live sensor health across nodes
-animon diff    <node-id>       show drift between animon.yaml and board reality
+animon diff    <node-id>       show drift between desired state and board reality
 animon deploy  <node-id>       push changes (--dry-run to preview)
-animon pull    <node-id>       update animon.yaml from board's current config
+animon pull    <node-id>       fetch live config from board → update boards/ staging + nodes/
 animon probe   <node-id>       scan I2C buses and USB ports on the board
 ```
 
@@ -270,11 +272,11 @@ Exit codes: `0` = success/in-sync, `1` = error, `2` = drift detected (useful in 
 The deploy process:
 
 1. Load `config/nodes/<id>.yaml` — desired sensors for this node
-2. Load `config/animon.yaml` — SSH credentials and IP to reach the board
-3. Read `config/boards/<id>.yaml` staging copy (or SSH to board for live config)
-4. Negotiate: keep existing wiring, bootstrap new sensors from METADATA defaults, disable removed ones
+2. Load `config/animon.yaml` — SSH credentials and IP (gitignored; never committed)
+3. Read `config/boards/<id>.yaml` staging copy, or SSH to board for live `config.yaml`
+4. Reconcile: keep existing wiring, bootstrap new sensors from METADATA defaults, disable removed ones
 5. Rsync only the sensor packages referenced by the resulting config
-6. Write merged config to board's `config.yaml`; update `config/boards/<id>.yaml`
+6. Write merged config to board's `config.yaml`; update `config/boards/<id>.yaml` staging copy
 7. Restart the node service
 
 SSH uses key auth only (`BatchMode=yes`). Credentials never appear on the command line.

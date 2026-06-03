@@ -14,8 +14,8 @@
 #   ./tools/maintenance/deploy.sh <user@host> [config_file]
 #
 # Examples:
-#   ./tools/maintenance/deploy.sh pi@192.168.1.y
-#   ./tools/maintenance/deploy.sh pi@192.168.1.y config/rpi5.yaml
+#   ./tools/maintenance/deploy.sh pi@<board-ip>
+#   ./tools/maintenance/deploy.sh pi@<board-ip> config/boards/my_sbc_node.yaml
 #
 # Requirements on the target board:
 #   - SSH key auth configured
