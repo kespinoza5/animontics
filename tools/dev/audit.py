@@ -275,10 +275,12 @@ def audit_routers(root: Path, report: Report) -> None:
     routers_dir = root / "node" / "routers"
     if not routers_dir.is_dir():
         return
-    # sensors.py is the generic registry router; camera/i2c/config are subsystem
-    # routers that legitimately don't read the sensor registry. The check targets
-    # *per-sensor* routers (e.g. ir_xcvr.py), which must use request.app.state.
-    skip = {"__init__.py", "sensors.py", "config.py", "camera.py", "i2c.py"}
+    # camera/i2c/config are subsystem routers that legitimately don't read the
+    # sensor registry, so the app.state requirement doesn't apply to them. The
+    # check targets registry-backed routers — the generic sensors.py and every
+    # per-sensor router (e.g. ir_xcvr.py, vl53l1x.py) — which must reach sensors
+    # via request.app.state and never the old register_sensors() coupling.
+    skip = {"__init__.py", "config.py", "camera.py", "i2c.py"}
     for router in routers_dir.glob("*.py"):
         if router.name in skip:
             continue
