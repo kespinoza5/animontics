@@ -49,3 +49,54 @@ class Broadcaster:
     def subscriber_count(self) -> int:
         with self._lock:
             return len(self._clients)
+
+
+class FrameBroadcaster:
+    """
+    Latest-wins binary pub/sub for high-rate frame streams (thermal arrays,
+    pressure grids — anything pushing image-like blobs many times per second).
+
+    Differs from Broadcaster in its backpressure policy. Broadcaster drops a
+    *slow text client* (removes its queue) when it can't keep up — fine for
+    discrete scalar readings. For a 32 fps frame stream a momentary stall is
+    normal and the client should stay connected; it just shouldn't accumulate a
+    backlog of stale frames. So on a full queue we discard the oldest frame and
+    enqueue the newest: the consumer always gets the freshest frame available.
+    """
+
+    def __init__(self, maxsize: int = 2) -> None:
+        self._clients: list[queue.Queue[bytes]] = []
+        self._lock = threading.Lock()
+        self._maxsize = maxsize
+
+    def subscribe(self) -> queue.Queue[bytes]:
+        q: queue.Queue[bytes] = queue.Queue(maxsize=self._maxsize)
+        with self._lock:
+            self._clients.append(q)
+        return q
+
+    def unsubscribe(self, q: queue.Queue[bytes]) -> None:
+        with self._lock:
+            try:
+                self._clients.remove(q)
+            except ValueError:
+                pass
+
+    def broadcast(self, payload: bytes) -> None:
+        with self._lock:
+            for q in self._clients:
+                # Latest-wins: drop oldest frames until the newest fits.
+                while True:
+                    try:
+                        q.put_nowait(payload)
+                        break
+                    except queue.Full:
+                        try:
+                            q.get_nowait()
+                        except queue.Empty:
+                            break
+
+    @property
+    def subscriber_count(self) -> int:
+        with self._lock:
+            return len(self._clients)

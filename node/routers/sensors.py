@@ -116,3 +116,42 @@ async def sensor_ws(websocket: WebSocket, sensor_id: str):
         pass
     finally:
         sensor.unsubscribe(q)
+
+
+# ── Binary frame stream ───────────────────────────────────────────────────────
+
+
+@router.websocket("/sensors/{sensor_id}/frames")
+async def sensor_frames(websocket: WebSocket, sensor_id: str):
+    """
+    Binary frame stream for high-rate array/image sensors (thermal, pressure
+    grids). Each message is one raw binary frame whose layout is sensor-defined
+    (see the sensor's README / viewer). Use this instead of the JSON /ws lane
+    when per-frame payloads are large and arrive tens of times per second — it
+    avoids json.dumps on the server and a parse + GC of a big array on the
+    client. Sensors without produces_frames are rejected with 4003.
+    """
+    sensor = websocket.app.state.sensors.get(sensor_id)
+    if sensor is None:
+        await websocket.close(code=4004, reason=f"Sensor '{sensor_id}' not found")
+        return
+    if not getattr(sensor, "produces_frames", False):
+        await websocket.close(code=4003, reason=f"Sensor '{sensor_id}' has no frame stream")
+        return
+
+    await websocket.accept()
+    q = sensor.subscribe_frames()
+    try:
+        while True:
+            try:
+                frame = await asyncio.wait_for(
+                    asyncio.to_thread(q.get, True, 25),
+                    timeout=26,
+                )
+                await websocket.send_bytes(frame)
+            except asyncio.TimeoutError:
+                await websocket.send_bytes(b"")   # keepalive ping (zero-length)
+    except WebSocketDisconnect:
+        pass
+    finally:
+        sensor.unsubscribe_frames(q)

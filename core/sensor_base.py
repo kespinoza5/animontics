@@ -5,7 +5,7 @@ import queue
 from abc import ABC, abstractmethod
 from typing import Any
 
-from core.broadcaster import Broadcaster
+from core.broadcaster import Broadcaster, FrameBroadcaster
 from core.models import SensorConfig, SensorReading
 
 
@@ -18,10 +18,15 @@ class SensorBase(ABC):
     call self._broadcast(reading) after each successful reading.
     """
 
+    #: Override to True on sensors that also emit a binary frame stream
+    #: (thermal arrays, pressure grids). Gates the /sensors/{id}/frames route.
+    produces_frames: bool = False
+
     def __init__(self, sensor_id: str, config: SensorConfig) -> None:
         self.id = sensor_id
         self.config = config
         self._broadcaster = Broadcaster()
+        self._frames = FrameBroadcaster()
         self._latest: SensorReading | None = None
 
     # ── Abstract interface ────────────────────────────────────────────────────
@@ -56,6 +61,24 @@ class SensorBase(ABC):
         """Store latest and push JSON to all subscribers. Called by subclass threads."""
         self._latest = reading
         self._broadcaster.broadcast(reading.to_sse())
+
+    # ── Binary frame lane (opt-in: produces_frames = True) ────────────────────
+
+    def subscribe_frames(self) -> queue.Queue[bytes]:
+        """Register a subscriber for the binary frame stream."""
+        return self._frames.subscribe()
+
+    def unsubscribe_frames(self, q: queue.Queue[bytes]) -> None:
+        self._frames.unsubscribe(q)
+
+    def _broadcast_frame(self, payload: bytes) -> None:
+        """
+        Push one binary frame to all frame subscribers. Called by subclass
+        threads on sensors with produces_frames = True. The JSON reading stream
+        (_broadcast) is independent — a sensor typically emits a lean JSON
+        summary (min/max/shape) for scalars and the full array as a frame.
+        """
+        self._frames.broadcast(payload)
 
     def _broadcast_event(self, event: str, data: dict[str, Any]) -> None:
         """
