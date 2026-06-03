@@ -11,6 +11,9 @@ Raspberry Pi) run `node/app.py` (FastAPI), each serving a small set of hardware
 sensors. A fleet management CLI (`tools/fleet/animon.py`) keeps all boards in sync
 from a single desired-state file.
 
+For the full system design — topology, data lanes, binary frame protocol, viewer
+architecture, fleet deploy process — read `docs/architecture.md`.
+
 ---
 
 ## Three-layer config architecture
