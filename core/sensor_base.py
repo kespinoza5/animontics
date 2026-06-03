@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import json
 import queue
 from abc import ABC, abstractmethod
+from typing import Any
 
 from core.broadcaster import Broadcaster
 from core.models import SensorConfig, SensorReading
@@ -54,3 +56,14 @@ class SensorBase(ABC):
         """Store latest and push JSON to all subscribers. Called by subclass threads."""
         self._latest = reading
         self._broadcaster.broadcast(reading.to_sse())
+
+    def _broadcast_event(self, event: str, data: dict[str, Any]) -> None:
+        """
+        Push a *named* SSE event to all subscribers (control/state changes such
+        as a range-mode switch), separate from the default reading stream.
+
+        Clients receive it as an addressable SSE event (EventSource
+        addEventListener(event, …)); the default onmessage reading handler is
+        unaffected. Called by subclass threads.
+        """
+        self._broadcaster.broadcast(f"event: {event}\ndata: {json.dumps(data)}\n\n")

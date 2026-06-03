@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VL53L1X</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="../shared/viewer.css" />
+</head>
+<body>
+  <h1>VL53L1X &mdash; Time-of-Flight Distance</h1>
+
+  <div class="readout">
+    <div class="main-val">
+      <span class="value" id="val">—</span>
+      <span class="unit" id="unit">m</span>
+    </div>
+    <div class="meta" id="alt">—</div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn" id="m1" data-mode="1">Short</button>
+    <button class="btn" id="m2" data-mode="2">Medium</button>
+    <button class="btn" id="m3" data-mode="3">Long</button>
+    <button class="btn" id="mauto">Auto</button>
+    <button class="btn" id="toggle">Switch to ft</button>
+  </div>
+
+  <div class="chart-wrap"><canvas id="chart"></canvas></div>
+
+  <div class="bottom-bar">
+    <div class="conn-bar">
+      <label for="ip">Host IP</label>
+      <input id="ip" type="text" value="192.168.1.x" spellcheck="false" />
+      <input id="sid" type="text" value="tof_top" style="width:11ch"
+             spellcheck="false" title="Sensor ID" />
+      <button class="btn" id="reconnect">Connect</button>
+    </div>
+    <span class="status" id="status">connecting…</span>
+  </div>
+
+<script src="../shared/stream.js"></script>
+<script src="../shared/timeseries.js"></script>
+<script>
+  // ── Per-sensor config ───────────────────────────────────────────────────────
+  const PORT = AnimStream.DEFAULT_PORT;
+
+  let useMetric = true;
+  let lastMm    = null;
+  let maxMm     = 4000;   // current mode's max range — tracks named "mode" events
+  let curMode   = 3;      // 1/2/3
+  let autoOn    = false;
+
+  const valEl  = document.getElementById("val");
+  const unitEl = document.getElementById("unit");
+  const altEl  = document.getElementById("alt");
+
+  // Display helpers — metric metres, imperial feet (matches the distance fleet).
+  const toDisp  = (mm) => useMetric ? mm / 1000 : mm / 304.8;
+  const chartMax = () => toDisp(maxMm);
+
+  const chart = AnimChart.makeLine(document.getElementById("chart"), {
+    color: "#58a6ff",
+    max: chartMax(),
+    tickFmt: (v) => v.toFixed(useMetric ? 1 : 1) + (useMetric ? " m" : " ft"),
+    tipFmt: (v) => useMetric ? v.toFixed(3) + " m" : v.toFixed(2) + " ft",
+  });
+
+  function updateReadout(mm) {
+    if (mm == null) {
+      valEl.textContent = "—"; altEl.textContent = "out of range";
+      valEl.classList.remove("warn", "close");
+      return;
+    }
+    if (useMetric) {
+      const m = mm / 1000;
+      valEl.textContent = m.toFixed(3); unitEl.textContent = "m";
+      altEl.textContent = (mm / 10).toFixed(1) + " cm";
+    } else {
+      const inches = mm / 25.4;
+      valEl.textContent = (mm / 304.8).toFixed(2); unitEl.textContent = "ft";
+      altEl.textContent = inches.toFixed(1) + " in";
+    }
+    valEl.classList.remove("warn", "close");
+    if (mm < 100)      valEl.classList.add("close");
+    else if (mm < 300) valEl.classList.add("warn");
+  }
+
+  function refreshChartAxis() {
+    chart.setMax(chartMax());
+    chart.setFormatters();
+    chart.clear();
+  }
+
+  // ── Mode UI ─────────────────────────────────────────────────────────────────
+  function reflectMode(info) {
+    // info: { mode, label, max_mm, auto }
+    curMode = info.mode;
+    autoOn  = info.auto;
+    if (typeof info.max_mm === "number") {
+      maxMm = info.max_mm;
+      refreshChartAxis();
+      if (lastMm !== null) updateReadout(lastMm);
+    }
+    [["m1", 1], ["m2", 2], ["m3", 3]].forEach(([id, m]) => {
+      document.getElementById(id).classList.toggle("active", !autoOn && curMode === m);
+    });
+    const a = document.getElementById("mauto");
+    a.classList.toggle("auto-active", autoOn);
+    a.textContent = autoOn ? `Auto · ${info.label}` : "Auto";
+  }
+
+  function baseUrl() {
+    const h = document.getElementById("ip").value.trim();
+    return `http://${h}:${PORT}/vl53l1x`;
+  }
+  function sidParam() {
+    const sid = document.getElementById("sid").value.trim();
+    return sid ? `?sensor_id=${encodeURIComponent(sid)}` : "";
+  }
+
+  async function post(path, body) {
+    try {
+      const r = await fetch(baseUrl() + path + sidParam(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (r.ok) reflectMode(await r.json());
+    } catch (_) { /* status bar already shows connection health */ }
+  }
+
+  document.getElementById("m1").addEventListener("click", () => post("/mode", { mode: 1 }));
+  document.getElementById("m2").addEventListener("click", () => post("/mode", { mode: 2 }));
+  document.getElementById("m3").addEventListener("click", () => post("/mode", { mode: 3 }));
+  document.getElementById("mauto").addEventListener("click", () => post("/auto", { enabled: !autoOn }));
+
+  async function fetchState() {
+    try {
+      const r = await fetch(baseUrl() + "/state" + sidParam());
+      if (r.ok) reflectMode(await r.json());
+    } catch (_) { /* not yet reachable; named events will fill in */ }
+  }
+
+  document.getElementById("toggle").addEventListener("click", () => {
+    useMetric = !useMetric;
+    document.getElementById("toggle").textContent = useMetric ? "Switch to ft" : "Switch to m";
+    refreshChartAxis();
+    if (lastMm !== null) updateReadout(lastMm);
+  });
+
+  // ── Connection ──────────────────────────────────────────────────────────────
+  let conn = null;
+  function start() {
+    if (conn) conn.close();
+    fetchState();
+    conn = AnimStream.connect({
+      hostInput: document.getElementById("ip"),
+      sensorId: document.getElementById("sid").value.trim(),
+      namedEvents: ["mode"],
+      onStatus: (text, cls) => {
+        const s = document.getElementById("status");
+        s.textContent = text; s.className = "status " + cls;
+      },
+      onReading: (d) => {
+        lastMm = d.distance_mm;       // may be null (out of range)
+        updateReadout(d.distance_mm);
+        chart.push(d.distance_mm == null ? null : toDisp(d.distance_mm));
+      },
+      onNamed: (_name, info) => reflectMode(info),
+    });
+  }
+
+  document.getElementById("reconnect").addEventListener("click", start);
+  start();
+</script>
+</body>
+</html>
