@@ -2,6 +2,27 @@
 
 Distributed sensor infrastructure for an embodied AI system. Each compute node runs a lightweight HTTP server exposing its local sensors. The system spans Linux SBCs connected over Gigabit Ethernet, a USB-networked Pi Zero 2W, and a cluster of CircuitPython/MicroPython microcontrollers on a USB hub.
 
+## Documentation
+
+The full project documentation — architecture, configuration model, per-sensor
+guides, the fleet CLI, and an auto-generated API reference — is a browsable
+[MkDocs](https://www.mkdocs.org/) site built from the `docs/` tree.
+
+```bash
+# Install the docs toolchain (one time)
+pip install -r docs/requirements.txt
+
+# Serve locally with live reload, then open http://127.0.0.1:8000
+python -m mkdocs serve
+
+# Or build the static site into ./site/
+python -m mkdocs build
+```
+
+Start at **Architecture** for the system design, or **Getting Started** for a
+first deploy. The source pages live in `docs/` and the navigation is defined in
+`mkdocs.yml`.
+
 ## Hardware Topology
 
 ```
@@ -95,7 +116,7 @@ Each node exposes:
 | `GET /camera` | MJPEG stream (if camera enabled) |
 | `GET /i2c` | I2C bus scan |
 
-Per-sensor diagnostic viewers live in each sensor package directory and open directly in a browser. Point them at any node's IP.
+Per-sensor diagnostic viewers live in `web/viewers/` (built on the shared modules in `web/shared/`) and open directly in a browser. Point them at any node's IP.
 
 ## Deferred Work
 
