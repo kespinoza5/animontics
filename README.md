@@ -43,39 +43,90 @@ FPGA fabric: SPI/I2S connections to multiple boards
 Node IPs, SSH users, and access details live in `config/animon.yaml` (gitignored).
 See `config/animon.example.yaml` for the schema.
 
+## How It Works
+
+Every board runs the same node agent (`node/app.py`, FastAPI) and serves only
+the sensors assigned to it. You don't manage boards by hand — the **fleet CLI**
+(`animon`) keeps each board's code and config in sync from a single desired-state
+file on your dev machine.
+
+Configuration is split into four layers, each owning exactly one concern:
+
+| Layer | Where | In repo? | Holds |
+|-------|-------|----------|-------|
+| **Desired state** | `config/nodes/<id>.yaml` | ✅ | Which sensors a node runs (id + type), role, capabilities |
+| **Fleet access** | `config/animon.yaml` | ❌ | IPs, SSH users — how to reach each board |
+| **Board wiring** | `config/boards/<id>.yaml` | ❌ | Physical connections (port, bus, baud, address) |
+| **Hardware constraints** | `sensors/<type>/__init__.py` `METADATA` | ✅ | Valid connection types, addresses, locked baud rates |
+
+`animon deploy` negotiates all four: it reconciles the desired state against the
+board's existing wiring, fills gaps from METADATA defaults, validates the result,
+and ships only the sensor packages that board actually needs.
+
+See **[docs/architecture.md](docs/architecture.md)** for the full design —
+topology, configuration layers, the sensor plugin system, data lanes, and the
+fleet deploy flow.
+
 ## Quick Start
 
-### On a board
+Boards are provisioned from a dev machine — you don't clone the repo onto each
+one. Drive everything through the fleet CLI:
 
 ```bash
-# Clone the repo
-git clone https://github.com/your-org/animontics.git /opt/animontics
-cd /opt/animontics
+# 1. Declare what the node should run (committed, no secrets)
+$EDITOR config/nodes/my_sbc_node.yaml      # see config/nodes/example.yaml
 
-# Install dependencies
+# 2. Tell the CLI how to reach the board (gitignored)
+$EDITOR config/animon.yaml                  # see config/animon.example.yaml
+
+# 3. Preview, then deploy
+python -m tools.fleet.animon diff   my_sbc_node
+python -m tools.fleet.animon deploy my_sbc_node
+
+# Check live health across the fleet, or detect hardware on a board
+python -m tools.fleet.animon status
+python -m tools.fleet.animon probe  my_sbc_node
+```
+
+First touch — a board not yet in `config/animon.yaml`? Bootstrap it by address;
+the full reconcile/validate flow still runs:
+
+```bash
+python -m tools.fleet.animon deploy my_sbc_node --host <board-ip> --user pi
+```
+
+See the [Fleet CLI guide](tools/fleet/README.md) for `deploy`, `status`, `diff`,
+`pull`, `probe`, `revert`, and ad-hoc config overrides for testing/rollback.
+
+### Running a node directly (local development)
+
+On a board (or for local testing) you can skip the CLI and run the agent itself:
+
+```bash
 pip3 install -r requirements.txt
+uvicorn node.app:app --host 0.0.0.0 --port 8080   # reads config/config.yaml
 
-# Configure this board
-cp config/boards/example.yaml config/boards/<your-node-id>.yaml
-nano config/boards/<your-node-id>.yaml   # set node_id, fill in connection details
-
-# Run the node agent
-uvicorn node.app:app --host 0.0.0.0 --port 8080
-
-# Or install as a service
+# Install as a service (the deploy flow does this for you)
 sudo cp animontics-node.service /etc/systemd/system/
 sudo systemctl enable --now animontics-node
 ```
 
-### From your development machine
+## Tools
 
-```bash
-# Deploy to a board via the fleet CLI
-python -m tools.fleet.animon deploy my_sbc_node
+Everything is driven from your dev machine — no per-board logins for day-to-day
+work. The tools are grouped by concern:
 
-# Verify hardware connections on a board
-python -m tools.fleet.animon probe my_sbc_node
-```
+| Tool | Command | What it's for |
+|------|---------|---------------|
+| **Fleet CLI** | `python -m tools.fleet.animon` | Keep boards in sync from desired state — `deploy`, `status`, `diff`, `pull`, `probe`, `revert`. The primary interface. See [tools/fleet/README.md](tools/fleet/README.md). |
+| **Repo audit** | `python tools/dev/audit.py` | Conformance checks — verifies sensor packages and routers follow the plugin contract (METADATA present, no `register_sensors` anti-pattern). Static analysis, safe to run on any OS. |
+| **Comms check** | `tools/board/verify_comms.sh` | On-board scan of I2C buses and UART/USB devices — sanity-check wiring before deploy. |
+| **WiFi AP** | `tools/network/setup_ap.sh` / `undo_ap.sh` | Bring a board up as / down from a WiFi access point. |
+| **USB networking** | `tools/usb/usbport/` | Standalone USB-ethernet interface tool for the USB-gadget Pi Zero link. |
+
+Start with the [Tools overview](tools/README.md) for what each one does and when
+to reach for it; the [Fleet CLI guide](tools/fleet/README.md) covers the `animon`
+subcommands in depth, including ad-hoc config overrides and `revert`.
 
 ## Adding a New Sensor
 
