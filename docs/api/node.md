@@ -6,7 +6,7 @@
 
 ## routers.sensors
 
-::: node.routers.sensors.register_sensors
+::: node.routers.sensors
 
 ## routers.camera
 

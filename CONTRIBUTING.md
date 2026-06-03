@@ -176,10 +176,10 @@ Update the relevant node entry in `config/animon.yaml`:
 Create `docs/sensors/my_sensor.md`:
 
 ```markdown
-{%
+\{%
   include-markdown "../../sensors/my_sensor/README.md"
   rewrite-relative-urls=true
-%}
+%\}
 ```
 
 Add it to the Sensors nav in `mkdocs.yml`:
