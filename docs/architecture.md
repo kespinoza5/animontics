@@ -149,9 +149,10 @@ sensors/
 present on disk is imported. Missing hardware dependencies (`smbus2`, `pyserial`, etc.) raise
 `ImportError` which is caught and logged — the board doesn't crash.
 
-**Selective deployment:** `tools/maintenance/deploy.sh` reads the board's `config.yaml`, extracts
-enabled sensor types, and rsyncs only those package directories. A board running only LiDAR has
-only `sensors/tf_mini/` on disk — the thermal driver code is never present on it.
+**Selective deployment:** `animon deploy` reconciles the board's config, extracts the enabled
+sensor types, and rsyncs only those package directories (removing any that are no longer needed).
+A board running only LiDAR has only `sensors/tf_mini/` on disk — the thermal driver code is never
+present on it.
 
 **Custom HTTP routes:** Some sensors need dedicated control endpoints beyond the standard
 `/sensors/{id}/*` pattern (e.g. VL53L1X ranging mode, IR transmit). These go in

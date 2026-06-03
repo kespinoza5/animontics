@@ -158,6 +158,23 @@ class AnimonNodeEntry(BaseModel):
     connection: AnimonNodeConnection | None = None
 
 
+class BoardOverride(BaseModel):
+    """Marker for an ad-hoc config deployed to a board outside the normal flow.
+
+    Lives at config/boards/<id>.override.yaml (gitignored). Records a deliberate
+    deviation from the staged baseline (config/boards/<id>.yaml) for testing,
+    debugging, or rollback. While an override is active the baseline is never
+    overwritten, so `animon revert <id>` can restore it exactly and delete this
+    marker. There is intentionally only one override state — the human reason for
+    the deviation lives in `note`, not in a typed category.
+    """
+
+    deployed_at: str             # ISO-8601 UTC timestamp of the override deploy
+    source: str | None = None    # path the override config was loaded from
+    note: str | None = None      # free-text reason, e.g. "test tf_mini @ 230400"
+    config: NodeConfig           # the exact config pushed to the board
+
+
 class AnimonConfig(BaseModel):
     """Complete fleet topology — merged from config/nodes/ + config/animon.yaml."""
 

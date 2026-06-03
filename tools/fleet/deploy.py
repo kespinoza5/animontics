@@ -23,9 +23,22 @@ from pathlib import Path
 
 import yaml
 
-from core.config import load_board_staging, load_fleet, load_node_config, save_board_staging
+from core.config import (
+    clear_board_override,
+    load_board_override,
+    load_board_staging,
+    load_fleet,
+    load_node_config,
+    save_board_override,
+    save_board_staging,
+)
 from core.models import AnimonConfig, AnimonNodeEntry, NodeConfig
-from tools.fleet.reconcile import ReconcileError, load_all_metadata, reconcile
+from tools.fleet.reconcile import (
+    ReconcileError,
+    load_all_metadata,
+    reconcile,
+    validate_connection,
+)
 from tools.fleet.ssh import SSHError, read_remote_file, rsync_to, run_remote, write_remote_file
 
 
@@ -37,11 +50,31 @@ def deploy(
     animon_path: Path | None = None,
     dry_run: bool = False,
     user_override: str | None = None,
+    host_override: str | None = None,
+    deploy_path_override: str | None = None,
+    config_override: Path | None = None,
+    note: str | None = None,
+    assume_yes: bool = False,
+    is_revert: bool = False,
     verbose: bool = False,
 ) -> int:
     """Deploy animontics to a node based on desired state in config/nodes/.
 
     Returns 0 on success, 1 on failure.
+
+    Bootstrap: a board does not need an entry in config/animon.yaml to be
+    deployed. Pass host_override (and optionally user_override /
+    deploy_path_override) to push to a board reachable at a known address
+    before its access details are recorded in animon.yaml. The desired state
+    in config/nodes/<id>.yaml is still required.
+
+    Override: pass config_override to push a verbatim, pre-built config.yaml to
+    the board for testing / debugging / rollback. It is validated against
+    METADATA but NOT reconciled. The staged baseline (config/boards/<id>.yaml)
+    is left untouched; instead an override marker (config/boards/<id>.override.yaml)
+    is written so the deviation is visible in status/diff and revertible with
+    'animon revert <id>'. A plain deploy onto a board with an active override
+    prompts before discarding it (unless assume_yes / is_revert).
     """
     def log(msg: str) -> None:
         print(msg)
@@ -64,54 +97,97 @@ def deploy(
         print(f"  known nodes: {ids}")
         return 1
 
-    host = node.ip or node.hostname
+    host = host_override or node.ip or node.hostname
     if not host:
-        print(f"error: node '{node_id}' has no ip or hostname in animon.yaml")
+        print(
+            f"error: node '{node_id}' has no ip or hostname.\n"
+            f"  Add access details to config/animon.yaml, or pass --host <ip|hostname>\n"
+            f"  to bootstrap a board that is not yet in animon.yaml."
+        )
         return 1
 
     user = user_override or animon.effective_ssh_user(node)
-    deploy_path = animon.effective_deploy_path(node)
+    deploy_path = deploy_path_override or animon.effective_deploy_path(node)
     config_path = f"{deploy_path}/config/config.yaml"  # path on the board
 
+    is_override = config_override is not None
     log(f"Deploying {node_id} → {user}@{host}  (deploy path: {deploy_path})")
     if dry_run:
         log("  [dry-run mode — no changes will be made]")
 
-    # ── 2. Read current board config (staging copy first, then SSH) ──────────
-    current_config: NodeConfig | None = None
-
-    # Try local staging copy first (allows offline dry-run)
-    current_config = load_board_staging(node_id, project_root)
-    if current_config:
-        vlog(f"Using staging copy from config/boards/{node_id}.yaml")
-    else:
-        vlog(f"No staging copy — reading {config_path} from board via SSH...")
-        raw = read_remote_file(host, user, config_path)
-        if raw:
-            try:
-                current_config = NodeConfig.model_validate(yaml.safe_load(raw))
-            except Exception as e:
-                vlog(f"warning: could not parse board config ({e}), treating as fresh install")
-        else:
-            log("  No existing config.yaml on board — fresh install.")
-
-    # ── 3. Load sensor METADATA and reconcile ─────────────────────────────────
     metadata = load_all_metadata()
     vlog(f"Loaded metadata for: {sorted(metadata)}")
 
-    try:
-        new_config, changes = reconcile(node, current_config, metadata)
-    except ReconcileError as e:
-        print(f"error: {e}")
-        return 1
+    # Is there already an ad-hoc override pinned to this board?
+    active_override = load_board_override(node_id, project_root)
 
-    # ── 4. Show the diff ───────────────────────────────────────────────────────
-    if changes:
-        log("\nConfig changes:")
+    if is_override:
+        # ── 2a. Override deploy — verbatim, validated, NOT reconciled ──────────
+        try:
+            raw = Path(config_override).read_text(encoding="utf-8")
+            new_config = NodeConfig.model_validate(yaml.safe_load(raw))
+        except FileNotFoundError:
+            print(f"error: config file not found: {config_override}")
+            return 1
+        except Exception as e:
+            print(f"error: could not parse/validate {config_override}: {e}")
+            return 1
+
+        if new_config.node_id != node_id:
+            log(f"  warning: config node_id '{new_config.node_id}' does not match "
+                f"target node '{node_id}'")
+
+        errors = _validate_against_metadata(new_config, metadata)
+        if errors:
+            print(f"error: override config failed METADATA validation:")
+            for err in errors:
+                print(f"  ! {err}")
+            return 1
+
+        baseline = load_board_staging(node_id, project_root)
+        changes = _describe_override(baseline, new_config)
+        log("\nOverride config (verbatim — not reconciled against desired state):")
         for c in changes:
             log(c)
     else:
-        log("  Config: no changes.")
+        # ── 2b. Normal / revert deploy — reconcile against staged baseline ─────
+        if active_override and not is_revert:
+            log(f"\n⚠ {node_id} has an active OVERRIDE"
+                + (f' — note: "{active_override.note}"' if active_override.note else "")
+                + f" (deployed {active_override.deployed_at}).")
+            log("  A normal deploy reconciles from the staged baseline and discards it.")
+            if not dry_run and not _confirm("  Continue and revert the override?", assume_yes):
+                log(f"  Aborted. Use 'animon revert {node_id}' to revert explicitly, or "
+                    f"'animon deploy {node_id} --config <file>' to apply another override.")
+                return 1
+
+        current_config = load_board_staging(node_id, project_root)
+        if current_config:
+            vlog(f"Using staging copy from config/boards/{node_id}.yaml")
+        else:
+            vlog(f"No staging copy — reading {config_path} from board via SSH...")
+            raw = read_remote_file(host, user, config_path)
+            if raw:
+                try:
+                    current_config = NodeConfig.model_validate(yaml.safe_load(raw))
+                except Exception as e:
+                    vlog(f"warning: could not parse board config ({e}), treating as fresh install")
+            else:
+                log("  No existing config.yaml on board — fresh install.")
+
+        try:
+            new_config, changes = reconcile(node, current_config, metadata)
+        except ReconcileError as e:
+            print(f"error: {e}")
+            return 1
+
+        # ── Show the diff ──────────────────────────────────────────────────────
+        if changes:
+            log("\nConfig changes:")
+            for c in changes:
+                log(c)
+        else:
+            log("  Config: no changes.")
 
     desired_sensor_types = {ref.type for ref in node.sensors}
     enabled_sensor_types = {s.type for s in new_config.sensors if s.enabled}
@@ -197,11 +273,27 @@ def deploy(
         log("  ⚠ Node did not respond in time — check service logs on the board.")
         return 1
 
-    # ── 12. Update local staging copy ────────────────────────────────────────
+    # ── 12. Update local state ────────────────────────────────────────────────
+    if is_override:
+        # Baseline is preserved; record the deviation as an override marker.
+        marker_path = save_board_override(
+            node_id, new_config, project_root,
+            source=str(config_override), note=note,
+        )
+        vlog(f"Override marker written: {marker_path}")
+        log(f"\n⚠ Override active on {node_id}"
+            + (f' — note: "{note}"' if note else "")
+            + f".\n  Baseline preserved (config/boards/{node_id}.yaml). "
+            f"Revert with: animon revert {node_id}")
+        return 0
+
+    # Normal / revert deploy: refresh the baseline and clear any override.
     staging_path = save_board_staging(node_id, new_config, project_root)
     vlog(f"Staging copy updated: {staging_path}")
+    if clear_board_override(node_id, project_root):
+        log(f"  Cleared override marker — {node_id} is back on the staged baseline.")
 
-    log(f"\nDeploy complete: {node_id}")
+    log(f"\n{'Revert' if is_revert else 'Deploy'} complete: {node_id}")
     return 0
 
 
@@ -230,3 +322,48 @@ def _remote_packages(host: str, user: str, deploy_path: str) -> set[str]:
 
 def _ensure_remote_dir(host: str, user: str, path: str) -> None:
     run_remote(host, user, f"mkdir -p {path}/sensors {path}/config {path}/core {path}/node")
+
+
+def _validate_against_metadata(config: NodeConfig, metadata: dict[str, dict]) -> list[str]:
+    """Validate every enabled sensor in a config against METADATA constraints."""
+    errors: list[str] = []
+    for s in config.sensors:
+        if s.enabled:
+            errors.extend(validate_connection(s.type, s.connection, metadata))
+    return errors
+
+
+def _describe_override(baseline: NodeConfig | None, new_config: NodeConfig) -> list[str]:
+    """Human-readable diff between the staged baseline and an override config."""
+    new_enabled = {s.id: s for s in new_config.sensors if s.enabled}
+    base_enabled = {s.id: s for s in baseline.sensors if s.enabled} if baseline else {}
+
+    changes: list[str] = []
+    for sid, s in new_enabled.items():
+        base = base_enabled.get(sid)
+        if base is None:
+            changes.append(f"  + {sid} ({s.type}): enabled by override")
+        elif base.type != s.type or base.connection != s.connection:
+            changes.append(f"  ~ {sid} ({s.type}): differs from baseline wiring")
+    for sid, s in base_enabled.items():
+        if sid not in new_enabled:
+            changes.append(f"  - {sid} ({s.type}): not enabled in override")
+
+    if not changes:
+        changes.append("  (override is identical to the staged baseline)")
+    return changes
+
+
+def _confirm(prompt: str, assume_yes: bool) -> bool:
+    """Prompt for y/N confirmation. Returns False in non-interactive contexts."""
+    import sys
+    if assume_yes:
+        return True
+    if not sys.stdin.isatty():
+        print(f"{prompt} [y/N] — non-interactive, pass --yes to confirm → no")
+        return False
+    try:
+        return input(f"{prompt} [y/N] ").strip().lower() in ("y", "yes")
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return False

@@ -13,7 +13,7 @@ from pathlib import Path
 
 import yaml
 
-from core.config import load_fleet, save_board_staging
+from core.config import load_board_override, load_fleet, save_board_staging
 from core.models import AnimonConfig, AnimonNodeEntry, NodeConfig
 from tools.fleet.reconcile import load_all_metadata, reconcile
 from tools.fleet.ssh import SSHError, read_remote_file
@@ -30,6 +30,7 @@ def status(
     animon_path: Path,
     node_id: str | None = None,
     *,
+    project_root: Path | None = None,
     user_override: str | None = None,
     json_output: bool = False,
 ) -> int:
@@ -56,6 +57,7 @@ def status(
         print(f"error: node '{node_id}' not found in {animon_path}")
         return EXIT_ERROR
 
+    root = project_root or nodes_dir.parent.parent
     metadata = load_all_metadata()
     results = []
     any_drift = False
@@ -76,8 +78,11 @@ def status(
         except (urllib.error.URLError, Exception):
             pass  # unreachable — status will show as unknown
 
+        override = load_board_override(node.id, root)
         drift = _compute_drift(node, live_config, metadata)
-        any_drift = any_drift or bool(drift)
+        # An active override is an intentional, tracked deviation — surface it
+        # distinctly, but it still means the board is not on the staged baseline.
+        any_drift = any_drift or bool(drift) or override is not None
 
         results.append({
             "node_id": node.id,
@@ -85,6 +90,8 @@ def status(
             "host": host,
             "port": port,
             "drift": drift,
+            "override": override.note if override else None,
+            "overridden": override is not None,
         })
 
     if json_output:
@@ -139,6 +146,13 @@ def diff(
         return EXIT_ERROR
 
     print(f"diff {node_id}  ({host}:{node.port})")
+    override = load_board_override(node_id, project_root)
+    if override is not None:
+        print(f"  ⚠ active OVERRIDE"
+              + (f' — note: "{override.note}"' if override.note else "")
+              + f" (deployed {override.deployed_at}).")
+        print(f"    Diff below is vs. the staged baseline; run 'animon revert {node_id}' "
+              f"to restore it.")
     if changes:
         for c in changes:
             print(c)
@@ -287,6 +301,10 @@ def _print_status_table(results: list[dict]) -> None:
         if not r["reachable"]:
             status_str = "unreachable"
             drift_str = ""
+        elif r.get("overridden"):
+            status_str = "OVERRIDE"
+            note = r.get("override")
+            drift_str = f'"{note}"' if note else "ad-hoc config (revert to restore baseline)"
         elif r["drift"]:
             status_str = "DRIFTED"
             drift_str = r["drift"][0] + (f" (+{len(r['drift'])-1} more)" if len(r["drift"]) > 1 else "")

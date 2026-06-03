@@ -28,6 +28,7 @@ from core.models import (
     AnimonDefaults,
     AnimonNodeAccess,
     AnimonNodeEntry,
+    BoardOverride,
     NodeConfig,
     NodeDesiredState,
 )
@@ -201,6 +202,80 @@ def save_board_staging(
         encoding="utf-8",
     )
     return path
+
+
+# ---------------------------------------------------------------------------
+# Board override markers — config/boards/<id>.override.yaml
+# ---------------------------------------------------------------------------
+
+def board_override_path(node_id: str, project_root: Path | None = None) -> Path:
+    """Return the path to a board's override marker (may not exist)."""
+    root = project_root or _project_root()
+    return root / "config" / "boards" / f"{node_id}.override.yaml"
+
+
+def load_board_override(
+    node_id: str,
+    project_root: Path | None = None,
+) -> BoardOverride | None:
+    """Load the override marker for a board, or None if no override is active.
+
+    An override marker records an ad-hoc config deployed for testing/debugging/
+    rollback that deliberately deviates from the staged baseline.
+    """
+    path = board_override_path(node_id, project_root)
+    if not path.exists():
+        return None
+    raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+    return BoardOverride.model_validate(raw)
+
+
+def save_board_override(
+    node_id: str,
+    config: NodeConfig,
+    project_root: Path | None = None,
+    *,
+    source: str | None = None,
+    note: str | None = None,
+) -> Path:
+    """Record an active override for a board (does NOT touch the baseline).
+
+    Returns the path written.
+    """
+    from datetime import datetime, timezone
+
+    root = project_root or _project_root()
+    boards_dir = root / "config" / "boards"
+    boards_dir.mkdir(parents=True, exist_ok=True)
+
+    marker = BoardOverride(
+        deployed_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        source=source,
+        note=note,
+        config=config,
+    )
+    path = boards_dir / f"{node_id}.override.yaml"
+    header = (
+        "# Ad-hoc override — NOT the staged baseline (config/boards/"
+        f"{node_id}.yaml).\n"
+        f"# Restore the baseline with: animon revert {node_id}\n"
+    )
+    path.write_text(
+        header
+        + yaml.dump(marker.model_dump(exclude_none=True), default_flow_style=False,
+                    allow_unicode=True, sort_keys=False),
+        encoding="utf-8",
+    )
+    return path
+
+
+def clear_board_override(node_id: str, project_root: Path | None = None) -> bool:
+    """Delete a board's override marker if present. Returns True if one existed."""
+    path = board_override_path(node_id, project_root)
+    if path.exists():
+        path.unlink()
+        return True
+    return False
 
 
 # ---------------------------------------------------------------------------

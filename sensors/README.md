@@ -40,8 +40,11 @@ points at any node. Deploy just this directory to boards that need the sensor.
 ## Deploying a Sensor Package
 
 ```bash
-# deploy.sh reads config.yaml and copies only the needed packages
-./tools/maintenance/deploy.sh pi@<board-ip>
+# animon deploy reconciles config and copies only the needed packages
+python -m tools.fleet.animon deploy <node-id>
+
+# Bootstrap a board not yet in config/animon.yaml
+python -m tools.fleet.animon deploy <node-id> --host <board-ip>
 
 # Manual copy of a single package
 rsync -az sensors/tf_mini/ pi@<board-ip>:/opt/animontics/sensors/tf_mini/

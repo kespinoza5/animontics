@@ -47,8 +47,8 @@ The current sensor streaming API (`GET /sensors/{id}/stream`, `WS /sensors/{id}/
 - [ ] `tools/firmware/flash_micropython.sh`
 - [ ] `tools/ssh/gen_keys.sh` — generate node SSH key pairs
 - [ ] `tools/ssh/distribute_keys.sh` — push public keys to all fleet nodes
-- [ ] `tools/maintenance/update_apt.sh`
-- [ ] `tools/maintenance/update_pip.sh`
+- [ ] `animon update <node-id>` — remote apt/pip upgrade as a fleet subcommand
+      (folded into tools/fleet/ rather than a standalone maintenance script)
 
 ---
 

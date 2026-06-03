@@ -70,6 +70,37 @@ def _cmd_deploy(args: argparse.Namespace) -> int:
         animon_path=args.access,
         dry_run=args.dry_run,
         user_override=args.user,
+        host_override=args.host,
+        deploy_path_override=args.deploy_path,
+        config_override=args.config,
+        note=args.note,
+        assume_yes=args.yes,
+        verbose=args.verbose,
+    )
+
+
+def _cmd_revert(args: argparse.Namespace) -> int:
+    from core.config import load_board_override
+    from tools.fleet.deploy import deploy
+
+    override = load_board_override(args.node_id, _project_root())
+    if override is None:
+        print(f"No active override for '{args.node_id}' — nothing to revert.")
+        return 0
+
+    print(f"Reverting {args.node_id} to staged baseline"
+          + (f' (was: "{override.note}")' if override.note else "")
+          + ".")
+    return deploy(
+        node_id=args.node_id,
+        project_root=_project_root(),
+        nodes_dir=args.nodes,
+        animon_path=args.access,
+        dry_run=args.dry_run,
+        user_override=args.user,
+        host_override=args.host,
+        deploy_path_override=args.deploy_path,
+        is_revert=True,
         verbose=args.verbose,
     )
 
@@ -80,6 +111,7 @@ def _cmd_status(args: argparse.Namespace) -> int:
         nodes_dir=args.nodes,
         animon_path=args.access,
         node_id=args.node_id,
+        project_root=_project_root(),
         user_override=args.user,
         json_output=args.json,
     )
@@ -185,9 +217,10 @@ Examples:
         "deploy",
         help="Push desired state from animon.yaml to a board.",
         description=(
-            "Reconciles animon.yaml desired state with the board's current config "
-            "and deploys any necessary changes. Syncs code, updates config, restarts "
-            "the service, and waits for the node to come back online."
+            "Reconciles the node's desired state (config/nodes/<id>.yaml) with the "
+            "board's current config and deploys any necessary changes. Syncs code, "
+            "updates config, restarts the service, and waits for the node to come back "
+            "online. Pass --host to bootstrap a board not yet listed in config/animon.yaml."
         ),
     )
     p_deploy.add_argument("node_id", metavar="NODE-ID", help="Node ID (must exist in config/nodes/)")
@@ -195,9 +228,48 @@ Examples:
                           help="Show what would change without applying anything")
     p_deploy.add_argument("--user", metavar="USER",
                           help="Override SSH user (default: animon.yaml defaults.ssh_user)")
+    p_deploy.add_argument("--host", metavar="IP|HOSTNAME",
+                          help="Bootstrap: deploy to this address directly, bypassing "
+                               "animon.yaml. Use for a board not yet in the access config.")
+    p_deploy.add_argument("--deploy-path", metavar="PATH", dest="deploy_path",
+                          help="Override install path on the board "
+                               "(default: animon.yaml defaults.deploy_path, /opt/animontics)")
+    p_deploy.add_argument("--config", metavar="PATH", type=Path,
+                          help="Deploy this config.yaml verbatim (validated, not "
+                               "reconciled) as an override for testing/debugging/rollback. "
+                               "Baseline is preserved; revert with 'animon revert'.")
+    p_deploy.add_argument("--note", metavar="TEXT",
+                          help="Reason for an override deploy, recorded in the marker "
+                               "and shown by status (use with --config)")
+    p_deploy.add_argument("--yes", "-y", action="store_true",
+                          help="Skip the confirmation prompt when a normal deploy would "
+                               "discard an active override")
     p_deploy.add_argument("--verbose", "-v", action="store_true",
                           help="Show detailed progress")
     p_deploy.set_defaults(func=_cmd_deploy)
+
+    # ── revert ──────────────────────────────────────────────────────────────────
+    p_revert = subparsers.add_parser(
+        "revert",
+        help="Discard a board's active override and restore the staged baseline.",
+        description=(
+            "Reverts a board that is running an ad-hoc override (deployed with "
+            "'deploy --config') back to the staged baseline by reconciling from "
+            "config/nodes/ + config/boards/<id>.yaml, then deletes the override marker. "
+            "A no-op if the node has no active override."
+        ),
+    )
+    p_revert.add_argument("node_id", metavar="NODE-ID", help="Node ID (must exist in config/nodes/)")
+    p_revert.add_argument("--user", metavar="USER", help="Override SSH user")
+    p_revert.add_argument("--host", metavar="IP|HOSTNAME",
+                          help="Deploy to this address directly, bypassing animon.yaml")
+    p_revert.add_argument("--deploy-path", metavar="PATH", dest="deploy_path",
+                          help="Override install path on the board")
+    p_revert.add_argument("--dry-run", action="store_true",
+                          help="Show what reverting would change without applying anything")
+    p_revert.add_argument("--verbose", "-v", action="store_true",
+                          help="Show detailed progress")
+    p_revert.set_defaults(func=_cmd_revert)
 
     # ── status ────────────────────────────────────────────────────────────────
     p_status = subparsers.add_parser(

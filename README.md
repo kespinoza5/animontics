@@ -74,10 +74,11 @@ node/           Per-board node agent (FastAPI + uvicorn)
   routers/      HTTP/SSE/WebSocket route handlers
 config/         Per-board config.yaml + animon.yaml fleet topology
 tools/          Board management and provisioning scripts
+  fleet/        animon CLI — deploy, status, diff, pull, probe
+  dev/          Repo audit / conformance checks
   usb/usbport/  USB ethernet interface tool (standalone)
   network/      WiFi AP setup scripts
   board/        Hardware interface verification
-  maintenance/  Deploy and update scripts
 ```
 
 ## API

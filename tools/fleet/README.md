@@ -9,7 +9,9 @@ set up by manually cloning the repo onto each one.
 ## Quick reference
 
 ```
-animon deploy  <node-id>  [--dry-run] [--user USER] [--verbose]
+animon deploy  <node-id>  [--dry-run] [--user USER] [--host IP] [--deploy-path PATH]
+                          [--config PATH] [--note TEXT] [--yes] [--verbose]
+animon revert  <node-id>  [--user USER] [--host IP] [--dry-run] [--verbose]
 animon status  [<node-id>] [--json]
 animon diff    <node-id>  [--user USER] [--verbose]
 animon pull    <node-id>  [--user USER] [--dry-run]
@@ -71,7 +73,47 @@ animon deploy my_sbc_node --verbose   # show detailed rsync progress
 animon deploy my_sbc_node --user pi   # override SSH user
 ```
 
+**Bootstrap a board not yet in `animon.yaml`:** the desired state in
+`config/nodes/<id>.yaml` is enough — point `deploy` at the board's address
+directly. The full reconcile + validate + health-check flow still runs.
+
+```bash
+animon deploy my_sbc_node --host 192.168.1.50 --user pi
+# then record the board in config/animon.yaml so node-id alone works afterward
+```
+
+**Override deploy (testing / debugging / rollback):** push a pre-built
+`config.yaml` *verbatim* with `--config`. It is validated against METADATA but
+**not** reconciled, and the staged baseline (`config/boards/<id>.yaml`) is left
+untouched. Instead an override marker (`config/boards/<id>.override.yaml`) is
+written so the deviation shows up in `status`/`diff` and can be undone exactly.
+
+```bash
+animon deploy my_sbc_node --config experiments/lidar_230k.yaml \
+                          --note "test tf_mini @ 230400"
+```
+
+A plain `deploy` onto a board that has an active override prompts before
+discarding it (`--yes` to skip the prompt). Use `revert` to restore the
+baseline explicitly.
+
 **Exit codes:** `0` = success, `1` = error.
+
+---
+
+### `revert`
+
+Discard a board's active override and restore the staged baseline. Reconciles
+from `config/nodes/` + `config/boards/<id>.yaml` (the baseline the override
+never touched), redeploys, and deletes the override marker. A no-op if the node
+has no active override.
+
+```bash
+animon revert my_sbc_node
+animon revert my_sbc_node --dry-run   # show what reverting would change
+```
+
+**Exit codes:** `0` = success (nothing to revert is also 0), `1` = error.
 
 ---
 
@@ -80,7 +122,9 @@ animon deploy my_sbc_node --user pi   # override SSH user
 Compare desired state (`config/nodes/`) against every board's live state.
 
 Queries `GET /config` on each node.  Nodes that do not respond via HTTP are
-marked *unreachable*.
+marked *unreachable*. A board running an ad-hoc override (see `deploy --config`)
+is shown as `OVERRIDE` with its note — a tracked, intentional deviation, kept
+visually distinct from accidental `DRIFTED`.
 
 ```bash
 animon status                      # all nodes
@@ -88,7 +132,8 @@ animon status my_sbc_node          # one node
 animon status --json               # machine-readable JSON
 ```
 
-**Exit codes:** `0` = all in-sync, `1` = error, `2` = drift detected.
+**Exit codes:** `0` = all in-sync, `1` = error, `2` = drift *or* an active
+override detected (the board is not on its staged baseline).
 
 ---
 
