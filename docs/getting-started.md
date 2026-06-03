@@ -82,7 +82,7 @@ curl http://192.168.1.x:8080/
 curl -N http://192.168.1.x:8080/sensors/lidar_front/stream
 ```
 
-Open `sensors/tf_mini/viewer.html` in a browser, enter the board's IP, and you'll get a live chart.
+Open `web/viewers/tf_mini.html` in a browser, enter the board's IP and sensor id, and you'll get a live chart. The `web/viewers/` tree has a bench viewer for each sensor type.
 
 ## Adding a New Sensor
 

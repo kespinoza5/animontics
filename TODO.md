@@ -17,9 +17,18 @@ The current sensor streaming API (`GET /sensors/{id}/stream`, `WS /sensors/{id}/
 
 ## Dashboard / Frontend
 
+- [x] Centralized `web/` tree — viewers moved out of the sensor packages into
+      `web/viewers/`, opened from a dev machine against any node
+- [x] Shared modules in `web/shared/`: `viewer.css`, `stream.js` (`AnimStream`
+      SSE helper), `timeseries.js` (`AnimChart` rolling line chart)
+- [x] All five viewers rebuilt on the shared modules (tf_mini, lv_maxsonar,
+      vl53l1x, mlx90640, ir_xcvr)
+- [x] Binary frame lane (`/sensors/<id>/frames`) for high-rate array/image
+      sensors; thermal viewer consumes it
+- [ ] `web/shared/heatmap.js` — extract the thermal canvas/palette/crosshair
+      engine from `mlx90640.html` once a second array sensor (pressure grid) lands
+- [ ] Pressure-array viewer (RP2040 → USB CDC) — multi-channel grid archetype
 - [ ] `dashboard/` multi-node browser client — connects to multiple board IPs, aggregates sensor cards
-- [ ] Shared JS modules: `sensor-stream.js`, `distance-chart.js`, `thermal-canvas.js`
-- [ ] Per-sensor `viewer.html` files updated to use shared JS modules
 - [ ] Unified `index.html` dashboard with node IP management UI
 
 ---

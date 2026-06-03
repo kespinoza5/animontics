@@ -98,13 +98,18 @@ No extra startup calls. The router accesses `request.app.state.sensors` itself.
 2. `driver.py` — hardware I/O only, no threading, no HTTP
 3. `sensor.py` — `@register("type")` + `SensorBase` subclass
 4. `__init__.py` — `try/except` import + `METADATA` dict (see above)
-5. `viewer.html`, `README.md`, `test_*.py`
-6. Add to `config/animon.yaml` on the relevant node
-7. Add `docs/sensors/<type>.md` (one `include-markdown` line)
-8. Add to `mkdocs.yml` sensors nav
-9. If the sensor needs dedicated HTTP routes, add `node/routers/<type>.py`
+5. `README.md`, `test_*.py` (in the package)
+6. `web/viewers/<type>.html` — bench viewer in the centralized web/ tree, built
+   on `web/shared/` (viewer.css + AnimStream; AnimChart for scalar/timeseries).
+   Not in the sensor package — viewers are opened from a dev machine against any
+   node, so they live together. High-rate array/image sensors consume the
+   binary frame lane (`/sensors/<id>/frames`); scalars use the JSON SSE lane.
+7. Add to `config/animon.yaml` on the relevant node
+8. Add `docs/sensors/<type>.md` (one `include-markdown` line)
+9. Add to `mkdocs.yml` sensors nav
+10. If the sensor needs dedicated HTTP routes, add `node/routers/<type>.py`
 
-Steps 6-8 are easy to forget. The fleet tool and docs break silently without them.
+Steps 7-9 are easy to forget. The fleet tool and docs break silently without them.
 
 ---
 

@@ -66,11 +66,19 @@ Create `sensors/<type>/` with:
   3. `__all__ = ["<Class>", "METADATA"]`
   Without METADATA, `animon deploy` raises `ReconcileError` on fresh boards.
 - **`README.md`** — wiring, config example, data format.
-- **`viewer.html`** — copy/adapt the exemplar's diagnostic viewer.
 - **`test_*.py`** — unit tests for parsing/codec logic only (no hardware).
 
 Then the cross-file wiring:
 
+- **`web/viewers/<type>.html`** — the bench viewer lives in the centralized
+  repo-root `web/` tree, NOT in the sensor package. Build it on `web/shared/`
+  (link `../shared/viewer.css`; `<script src="../shared/stream.js">` for
+  `AnimStream`; add `../shared/timeseries.js` for `AnimChart` line charts).
+  Shared JS are classic globals, not ES modules (must load over `file://`).
+  Pick the archetype closest to your sensor: distance/scalar → copy
+  `web/viewers/tf_mini.html`; 2D array/image at high rate → consume the binary
+  frame lane like `web/viewers/mlx90640.html` (sensor sets `produces_frames`
+  and calls `self._broadcast_frame(bytes)`); event log → `web/viewers/ir_xcvr.html`.
 - Add `{id, type}` (only — no wiring) to the right node in `config/animon.yaml`.
 - Create `docs/sensors/<type>.md` as an `include-markdown` wrapper of the README.
 - Add the page to the Sensors nav in `mkdocs.yml`.

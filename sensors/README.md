@@ -30,11 +30,12 @@ sensors/
     ├── __init__.py    ← imports MySensor, triggers @register
     ├── driver.py      ← pure hardware protocol, no HTTP or threading
     ├── sensor.py      ← @register("my_sensor") class MySensor(SensorBase)
-    ├── viewer.html    ← desktop diagnostic viewer
     └── README.md
 ```
 
-No changes needed anywhere else. Deploy just this directory to boards that need it.
+The bench viewer lives in the repo-root `web/viewers/my_sensor.html` (shared
+shell in `web/shared/`), not in the package — it's a dev-machine tool that
+points at any node. Deploy just this directory to boards that need the sensor.
 
 ## Deploying a Sensor Package
 

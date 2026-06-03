@@ -24,10 +24,18 @@ sensors/my_sensor/
 ├── __init__.py     ← METADATA dict + platform-safe import
 ├── driver.py       ← low-level hardware protocol, no HTTP or threading
 ├── sensor.py       ← SensorBase implementation with @register
-├── viewer.html     ← desktop diagnostic viewer (connect via browser)
 ├── README.md       ← hardware wiring, config example, data format
 └── test_*.py       ← unit tests (codec/parsing logic, no hardware needed)
+
+web/viewers/my_sensor.html   ← bench viewer (centralized, not in the package)
 ```
+
+The bench viewer lives in the repo-root `web/` tree, not the sensor package:
+it's opened from a dev machine and points at any node, and it shares
+`web/shared/` (viewer.css + AnimStream; AnimChart for line charts). See the
+existing viewers for the archetype closest to your sensor — distance/scalar
+(`tf_mini`), heatmap over the binary frame lane (`mlx90640`), or event log
+(`ir_xcvr`).
 
 ### 2. Write `driver.py`
 
