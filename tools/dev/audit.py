@@ -3,7 +3,7 @@ Sensor-plugin conformance audit — a development tool.
 
 Checks every sensor package under sensors/ against the project's plugin
 contract (see CONTRIBUTING.md and CLAUDE.md), plus the cross-file wiring that
-a new sensor is supposed to touch (animon.yaml, docs, mkdocs nav, routers).
+a new sensor is supposed to touch (config/nodes/, docs, mkdocs nav, routers).
 
 Why this reads source as TEXT/AST instead of importing:
     Several sensors depend on Linux-only libraries (smbus2, fcntl). On a

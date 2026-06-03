@@ -144,7 +144,7 @@ def diff(
             print(c)
         return EXIT_DRIFT
     else:
-        print("  No changes — node is in sync with animon.yaml.")
+        print("  No changes — node is in sync with desired state.")
         return EXIT_OK
 
 
@@ -269,12 +269,12 @@ def _compute_drift(
             if live_sensor.type != ref.type:
                 drift.append(
                     f"type mismatch: {ref.id} is '{live_sensor.type}' on board, "
-                    f"'{ref.type}' in animon.yaml"
+                    f"'{ref.type}' in desired state"
                 )
 
     extra = live_ids - desired_ids
     for sid in extra:
-        drift.append(f"extra: {sid} is enabled on board but not in animon.yaml")
+        drift.append(f"extra: {sid} is enabled on board but not in desired state")
 
     return drift
 

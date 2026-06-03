@@ -71,6 +71,7 @@ def deploy(
 
     user = user_override or animon.effective_ssh_user(node)
     deploy_path = animon.effective_deploy_path(node)
+    config_path = f"{deploy_path}/config/config.yaml"  # path on the board
 
     log(f"Deploying {node_id} → {user}@{host}  (deploy path: {deploy_path})")
     if dry_run:
@@ -84,7 +85,6 @@ def deploy(
     if current_config:
         vlog(f"Using staging copy from config/boards/{node_id}.yaml")
     else:
-        config_path = f"{deploy_path}/config/config.yaml"
         vlog(f"No staging copy — reading {config_path} from board via SSH...")
         raw = read_remote_file(host, user, config_path)
         if raw:

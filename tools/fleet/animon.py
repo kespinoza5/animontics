@@ -18,7 +18,7 @@ Global options:
 Exit codes:
     0  success / all nodes in sync
     1  error   (config problem, connection failure, etc.)
-    2  drift   (nodes reachable but desired state differs from board reality)
+    2  drift   (nodes reachable but board state differs from desired state)
 """
 from __future__ import annotations
 
@@ -190,7 +190,7 @@ Examples:
             "the service, and waits for the node to come back online."
         ),
     )
-    p_deploy.add_argument("node_id", metavar="NODE-ID", help="Node ID from animon.yaml")
+    p_deploy.add_argument("node_id", metavar="NODE-ID", help="Node ID (must exist in config/nodes/)")
     p_deploy.add_argument("--dry-run", action="store_true",
                           help="Show what would change without applying anything")
     p_deploy.add_argument("--user", metavar="USER",
@@ -224,7 +224,7 @@ Examples:
             "falling back to SSH. No changes are made."
         ),
     )
-    p_diff.add_argument("node_id", metavar="NODE-ID", help="Node ID from animon.yaml")
+    p_diff.add_argument("node_id", metavar="NODE-ID", help="Node ID (must exist in config/nodes/)")
     p_diff.add_argument("--user", metavar="USER",
                         help="Override SSH user (for SSH fallback config read)")
     p_diff.add_argument("--verbose", "-v", action="store_true",
@@ -234,14 +234,16 @@ Examples:
     # ── pull ─────────────────────────────────────────────────────────────────
     p_pull = subparsers.add_parser(
         "pull",
-        help="Pull a board's current sensor config into animon.yaml.",
+        help="Pull a board's live config into boards/ staging and nodes/ desired state.",
         description=(
-            "Reads the board's live sensor config and adds any sensors not already "
-            "in animon.yaml. Does not remove sensors from animon.yaml. Useful after "
-            "manually editing a board's config.yaml directly."
+            "Fetches the board's live config.yaml and updates two local files: "
+            "config/boards/<id>.yaml (full wiring staging copy) and "
+            "config/nodes/<id>.yaml (adds any sensor {id,type} pairs not yet listed). "
+            "Does not remove sensors from desired state. Useful after manually editing "
+            "a board's config.yaml directly."
         ),
     )
-    p_pull.add_argument("node_id", metavar="NODE-ID", help="Node ID from animon.yaml")
+    p_pull.add_argument("node_id", metavar="NODE-ID", help="Node ID (must exist in config/nodes/)")
     p_pull.add_argument("--user", metavar="USER",
                         help="Override SSH user")
     p_pull.add_argument("--dry-run", action="store_true",
@@ -258,7 +260,7 @@ Examples:
             "sensor types are likely connected and on which ports/buses."
         ),
     )
-    p_probe.add_argument("node_id", metavar="NODE-ID", help="Node ID from animon.yaml")
+    p_probe.add_argument("node_id", metavar="NODE-ID", help="Node ID (must exist in config/nodes/)")
     p_probe.add_argument("--user", metavar="USER",
                          help="Override SSH user")
     p_probe.set_defaults(func=_cmd_probe)

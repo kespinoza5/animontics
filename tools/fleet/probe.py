@@ -263,7 +263,7 @@ def format_probe_report(
                 conn_str = f"rx={rx} tx={tx}"
             else:
                 conn_str = f"port={conn.get('port', 'TBD')} baud={conn.get('baud_rate')}"
-            desired_marker = " ✓" if m["sensor_type"] in desired_types else " (not in animon.yaml)"
+            desired_marker = " ✓" if m["sensor_type"] in desired_types else " (not in desired state)"
             lines.append(
                 f"  [{m['confidence'].upper():6}] {m['sensor_type']:20} "
                 f"{conn_str}{desired_marker}"
@@ -272,7 +272,7 @@ def format_probe_report(
 
     unmatched = [t for t in desired_types if not any(m["sensor_type"] == t for m in matches)]
     if unmatched:
-        lines.extend(["", "Not detected (in animon.yaml but no hardware match):"])
+        lines.extend(["", "Not detected (in desired state but no hardware match):"])
         for t in unmatched:
             lines.append(f"  ! {t}")
 

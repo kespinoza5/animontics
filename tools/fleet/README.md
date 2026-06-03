@@ -1,9 +1,8 @@
 # tools/fleet — Fleet Management CLI
 
-The `animon` CLI synchronises the distributed sensor network defined in
-`config/animon.yaml` with the live state of every board.  It is the primary
-deployment tool for animontics — boards are never set up by manually cloning
-the repo.
+The `animon` CLI keeps every board's software and config in sync with the
+desired fleet state.  It is the primary deployment tool — boards are never
+set up by manually cloning the repo onto each one.
 
 ---
 
@@ -17,7 +16,30 @@ animon pull    <node-id>  [--user USER] [--dry-run]
 animon probe   <node-id>  [--user USER]
 ```
 
-All commands accept `--config PATH` to point at a non-default `animon.yaml`.
+Global flags:
+
+```
+--access PATH   Path to animon.yaml access config   (default: config/animon.yaml)
+--nodes DIR     Path to nodes/ desired-state dir    (default: config/nodes/)
+```
+
+---
+
+## Four-layer config model
+
+`animon` negotiates four config layers on every operation:
+
+| Layer | File | In repo? | Contains |
+|-------|------|----------|----------|
+| **Desired state** | `config/nodes/<id>.yaml` | ✅ | Which sensors each node should run (id + type only), capabilities, role |
+| **Fleet access** | `config/animon.yaml` | ❌ | IPs, SSH users — how to reach each board |
+| **Board wiring** | `config/boards/<id>.yaml` + board's `config.yaml` | ❌ | Physical connections: port, bus, baud, address |
+| **Hardware constraints** | `sensors/<type>/__init__.py` METADATA | ✅ | Valid connection types, locked baud rates, I2C address ranges |
+
+Neither the desired-state file nor the board's wiring config is blindly
+overwritten.  The reconciler merges them: existing wiring is preserved,
+new sensors are bootstrapped from METADATA defaults, removed sensors are
+disabled.
 
 ---
 
@@ -25,31 +47,28 @@ All commands accept `--config PATH` to point at a non-default `animon.yaml`.
 
 ### `deploy`
 
-Push the desired state described in `animon.yaml` to a single board.
+Push the desired state from `config/nodes/<id>.yaml` to a single board.
 
 **What it does:**
 
-1. Loads the node's desired sensor list from `animon.yaml`.
-2. SSHes to the board and reads the current `config.yaml` (port / bus / baud wiring).
-3. **Reconciles** the two:
-   - Sensors in both → keep existing wiring unchanged.
-   - Sensors in `animon.yaml` but not on the board → add with defaults from sensor `METADATA`.
-   - Sensors on the board but removed from `animon.yaml` → mark `enabled: false`.
-4. Validates all enabled sensors against `METADATA` constraints (baud rate, I2C address, etc.).
-5. Rsyncs `core/`, `node/`, and the needed sensor packages.  Removes packages no longer needed.
-6. Writes the new `config.yaml` to the board.
-7. Runs `pip3 install -r requirements.txt` and restarts the `animontics-node` systemd service.
-8. Polls `GET /` until the node reports healthy (up to 10 attempts × 2 s).
+1. Load `config/nodes/<id>.yaml` — desired sensors for this node.
+2. Load `config/animon.yaml` — SSH credentials and IP.
+3. Read `config/boards/<id>.yaml` staging copy (or SSH for live config).
+4. **Reconcile**: keep existing wiring, add new sensors from METADATA defaults,
+   disable sensors removed from desired state.
+5. Validate all enabled sensors against METADATA constraints.
+6. Rsync `core/`, `node/`, and only the needed sensor packages.
+   Remove packages no longer needed.
+7. Write the new `config.yaml` to the board.
+8. Run `pip3 install -r requirements.txt` and restart `animontics-node`.
+9. Poll `GET /` until the node reports healthy (up to 10 attempts × 2 s).
+10. Update `config/boards/<id>.yaml` staging copy.
 
 ```bash
-# Show what would change — no files transferred
-animon deploy my_sbc_node --dry-run
-
-# Deploy for real, showing detailed rsync output
-animon deploy my_rpi_node --verbose
-
-# Deploy as a different SSH user
-animon deploy pi_zero_sonar --user ubuntu
+animon deploy my_sbc_node             # deploy
+animon deploy my_sbc_node --dry-run   # show what would change — no files transferred
+animon deploy my_sbc_node --verbose   # show detailed rsync progress
+animon deploy my_sbc_node --user pi   # override SSH user
 ```
 
 **Exit codes:** `0` = success, `1` = error.
@@ -58,15 +77,15 @@ animon deploy pi_zero_sonar --user ubuntu
 
 ### `status`
 
-Compare `animon.yaml` desired state against every node's live state.
+Compare desired state (`config/nodes/`) against every board's live state.
 
 Queries `GET /config` on each node.  Nodes that do not respond via HTTP are
 marked *unreachable*.
 
 ```bash
-animon status                    # all nodes
-animon status my_rpi_node          # one node
-animon status --json             # machine-readable JSON
+animon status                      # all nodes
+animon status my_sbc_node          # one node
+animon status --json               # machine-readable JSON
 ```
 
 **Exit codes:** `0` = all in-sync, `1` = error, `2` = drift detected.
@@ -90,15 +109,19 @@ animon diff my_sbc_node
 
 ### `pull`
 
-Read a board's live sensor config and merge new sensors into `animon.yaml`.
+Fetch a board's live `config.yaml` and update two local files:
 
-Useful after directly editing a board's `config.yaml` — brings the fleet
-record up to date without a full deploy cycle.  Only *adds* sensors to
-`animon.yaml`; never removes.
+- `config/boards/<id>.yaml` — full wiring staging copy (always updated)
+- `config/nodes/<id>.yaml` — adds any sensor `{id, type}` pairs enabled on the
+  board but not yet in desired state
+
+Never removes sensors from desired state.  Useful after manually editing a
+board's `config.yaml` directly — brings local staging and desired state up
+to date without a full deploy cycle.
 
 ```bash
-animon pull pi_zero_sonar --dry-run   # preview additions
-animon pull pi_zero_sonar             # write animon.yaml
+animon pull my_sbc_node --dry-run   # preview additions
+animon pull my_sbc_node             # write both files
 ```
 
 **Exit codes:** `0` = success (nothing to pull is also 0), `1` = error.
@@ -109,10 +132,10 @@ animon pull pi_zero_sonar             # write animon.yaml
 
 SSH into a board and detect connected hardware.
 
-Scans I2C buses (`i2cdetect`), UART devices (`/dev/ttyAMA*`), and USB CDC
-devices (`/dev/ttyACM*`, `/dev/ttyUSB*`).  Matches findings against sensor
-`METADATA` and reports probable sensor types, connection parameters, and
-whether each is already in `animon.yaml`.
+Scans I2C buses (`i2cdetect`), UART devices (`/dev/ttyAMA*`), LIRC IR devices,
+and USB CDC devices (`/dev/ttyACM*`, `/dev/ttyUSB*`).  Matches findings against
+sensor METADATA and reports probable sensor types, connection parameters, and
+whether each matches the node's desired state.
 
 ```bash
 animon probe my_sbc_node
@@ -124,34 +147,21 @@ Example output:
 Probe report: my_sbc_node
 ──────────────────────────────────────────────────
 Detected hardware:
-  I2C /dev/i2c-3: 0x29, 0x33
+  I2C /dev/i2c-1: 0x29, 0x33
   UART: /dev/ttyAMA0
   USB CDC: none found
+  LIRC: none found
 
 Sensor matches:
-  [HIGH  ] vl53l1x              bus=3 addr=0x29 ✓
-           I2C bus 3 address 0x29 matches VL53L1X Time-of-Flight default address
-  [HIGH  ] mlx90640             bus=3 addr=0x33 ✓
-           I2C bus 3 address 0x33 matches MLX90640 Thermal Camera default address
-  [MEDIUM] tf_mini              port=/dev/ttyAMA0 baud=115200 (not in animon.yaml)
+  [HIGH  ] vl53l1x              bus=1 addr=0x29 ✓
+           I2C bus 1 address 0x29 matches VL53L1X Time-of-Flight default address
+  [HIGH  ] mlx90640             bus=1 addr=0x33 ✓
+           I2C bus 1 address 0x33 matches MLX90640 Thermal Camera default address
+  [MEDIUM] tf_mini              port=/dev/ttyAMA0 baud=115200 (not in desired state)
            UART device /dev/ttyAMA0 could be Benewake TF Mini Plus LiDAR — verify wiring
 ```
 
 **Exit codes:** `0` = completed, `1` = error.
-
----
-
-## How it works — the three-layer config
-
-| Layer | File | Owner | Contains |
-|-------|------|-------|----------|
-| Fleet desired state | `config/animon.yaml` | Repo | Which sensors each node *should* have |
-| Board wiring reality | `<deploy_path>/config/config.yaml` | Board | Port, bus, baud, address for each sensor |
-| Hardware constraints | `sensors/<type>/__init__.py` `METADATA` | Repo | Valid connection types, addresses, baud rates |
-
-`deploy` negotiates between all three layers.  Neither the fleet config nor
-the board config is blindly overwritten — the reconciler merges them
-intelligently, and the board's physical wiring decisions are always preserved.
 
 ---
 
@@ -160,10 +170,10 @@ intelligently, and the board's physical wiring decisions are always preserved.
 From the project root:
 
 ```bash
-# As a module
+# As a module (always works)
 python -m tools.fleet.animon deploy my_sbc_node
 
-# Or add an alias to your shell profile
+# Or add a shell alias
 alias animon="python -m tools.fleet.animon"
 animon status
 ```
@@ -172,12 +182,11 @@ animon status
 
 ## SSH prerequisites
 
-- SSH key pair set up with `ssh-copy-id user@board` (or equivalent).
-- SSH agent running with the key loaded (`ssh-add`).
-- No passwords — the tool uses `BatchMode=yes` and will fail fast if key auth
+- SSH key pair set up: `ssh-copy-id user@<board-ip>` (or equivalent).
+- SSH agent running with the key loaded: `ssh-add`.
+- No passwords — the tool uses `BatchMode=yes` and fails fast if key auth
   is not configured.
-
-See `tools/board/verify_comms.sh` for a pre-flight connectivity check.
+- `rsync` available on the dev machine.
 
 ---
 
@@ -185,9 +194,9 @@ See `tools/board/verify_comms.sh` for a pre-flight connectivity check.
 
 | File | Purpose |
 |------|---------|
-| `animon.py` | CLI entry point — argparse dispatch |
+| `animon.py` | CLI entry point — argparse, subcommand dispatch |
 | `deploy.py` | `deploy()` — full deploy flow |
 | `sync.py` | `status()`, `diff()`, `pull()` |
-| `probe.py` | Hardware detection and sensor matching |
-| `reconcile.py` | Config negotiation logic; `METADATA` loader |
+| `probe.py` | Hardware detection and sensor-type matching |
+| `reconcile.py` | Config negotiation logic; METADATA loader |
 | `ssh.py` | SSH/rsync transport (wraps system `ssh`/`rsync`) |

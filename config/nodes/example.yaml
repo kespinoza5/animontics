@@ -1,42 +1,35 @@
 # config/nodes/example.yaml — desired-state template
 #
 # Copy to config/nodes/<your-node-id>.yaml and fill in your values.
-# These files are committed to the repo. They contain NO secrets —
+# Create one file per node — each file is a single YAML document.
+#
+# These files ARE committed to the repo. They contain NO secrets:
 # no IPs, no SSH users, no port paths, no I2C addresses.
 #
 # Schema reference:
 #   id           — unique node identifier, used as the key in animon.yaml
-#   type         — board type (orangepi_zero2 / raspberry_pi_5 / raspberry_pi_zero_2w / etc.)
+#   type         — board type (orangepi_zero2 / raspberry_pi_5 /
+#                  raspberry_pi_zero_2w / neocore2 / etc.)
 #   hostname     — network hostname of this board
 #   port         — HTTP port the node agent listens on (default: 8080)
 #   role         — free-text role label for documentation / tooling
 #   capabilities — list of optional hardware capabilities
 #   sensors      — list of {id, type} pairs — NO wiring details here
 #
-# Wiring details (port paths, I2C bus/address, baud rates) go in config/boards/<id>.yaml
-# or are bootstrapped from sensor METADATA defaults by 'animon deploy'.
+# Wiring details (port paths, I2C bus/address, baud rates) go in
+# config/boards/<id>.yaml, or are bootstrapped from sensor METADATA
+# defaults by 'animon deploy'.
+#
+# For additional nodes: copy this file to config/nodes/<other-id>.yaml.
 
 id:       my_sbc_node
 type:     raspberry_pi_5
 hostname: animontics-node
 port:     8080
-role:     example
+role:     vision
 
 sensors:
   - id: lidar_front
     type: tf_mini
   - id: thermal_rear
     type: mlx90640
-
----
-# Second node example — a Pi Zero routed through a USB gadget connection
-
-id:       my_pizero_node
-type:     raspberry_pi_zero_2w
-hostname: animontics-node
-port:     8080
-role:     example
-
-sensors:
-  - id: sonar_side
-    type: lv_maxsonar

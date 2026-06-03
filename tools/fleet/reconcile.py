@@ -125,13 +125,13 @@ def reconcile(
     """Merge desired fleet state with current board config.
 
     Rules:
-      - Sensors in animon.yaml + in board config → keep existing wiring
-      - Sensors in animon.yaml + NOT in board config → add with METADATA defaults
-      - Sensors in board config + NOT in animon.yaml → disable (set enabled=False)
+      - Sensors in desired state + in board config → keep existing wiring
+      - Sensors in desired state + NOT in board config → add with METADATA defaults
+      - Sensors in board config + NOT in desired state → disable (set enabled=False)
       - All results are validated against METADATA constraints
 
     Args:
-        desired:   The AnimonNodeEntry from animon.yaml.
+        desired:   The AnimonNodeEntry assembled from config/nodes/<id>.yaml.
         current:   The board's current NodeConfig, or None if no config exists yet.
         metadata:  Loaded sensor METADATA dicts keyed by sensor type.
         node_type: Board type string (used if current is None).
@@ -165,7 +165,7 @@ def reconcile(
                 )
                 new_sensors.append(existing.model_copy(update={"type": ref.type, "enabled": True}))
             elif not existing.enabled:
-                changes.append(f"  ↑ {ref.id} ({ref.type}): re-enabled")
+                changes.append(f"  ↑ {ref.id} ({ref.type}): re-enabled (present in desired state)")
                 new_sensors.append(existing.model_copy(update={"enabled": True}))
             else:
                 new_sensors.append(existing)  # no change
@@ -187,12 +187,12 @@ def reconcile(
                 + ")"
             )
 
-    # 2. Disable sensors present on board but removed from animon.yaml
+    # 2. Disable sensors present on board but removed from desired state
     desired_ids = {ref.id for ref in desired.sensors}
     for sid, sc in current_by_id.items():
         if sid not in desired_ids and sc.enabled:
             new_sensors.append(sc.model_copy(update={"enabled": False}))
-            changes.append(f"  - {sid} ({sc.type}): disabled (not in animon.yaml)")
+            changes.append(f"  - {sid} ({sc.type}): disabled (not in desired state)")
 
     # 3. Validate all enabled sensors
     for sc in new_sensors:
