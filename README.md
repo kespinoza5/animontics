@@ -397,5 +397,7 @@ python3 sensors/ir_xcvr/test_hardware.py tx --addr 0x04 --cmd 0x08
 # Loopback: emit and receive back (aim emitter at receiver, < 10 cm):
 python3 sensors/ir_xcvr/test_hardware.py loopback
 
-# Open viewer.html in a browser, enter the board IP
+# Bench viewer: open web/viewers/ir_xcvr.html (repo root) in a browser,
+# enter the board IP + sensor id. Live RX log via the node's
+# /sensors/{id}/stream SSE on port 8080, plus a TX panel (/ir/transmit).
 ```
