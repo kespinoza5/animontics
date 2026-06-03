@@ -35,6 +35,10 @@ The current sensor streaming API (`GET /sensors/{id}/stream`, `WS /sensors/{id}/
 
 ## Tools
 
+- [ ] `tools/dev/audit.py` — shape-aware router check: detect module-level mutable dicts
+      that handlers close over (the `register_sensors` anti-pattern by another name) rather
+      than relying solely on the literal string `"register_sensors"`. Requires AST analysis
+      of each router file's module scope.
 - [ ] `tools/board/setup_i2c.sh` — enable I2C, set bus speed via `/boot/config.txt`
 - [ ] `tools/board/setup_uart.sh` — enable UART, disable serial console
 - [ ] `tools/board/setup_spi.sh` — enable SPI
