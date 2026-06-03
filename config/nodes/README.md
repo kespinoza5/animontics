@@ -1,36 +1,47 @@
-# config/nodes/ — per-board staging configs
+# config/nodes/ — node desired state
 
-This directory holds dev-machine copies of each board's `config.yaml`.
-It is **gitignored** — these files contain real wiring details (ports, bus
-addresses, baud rates) specific to your hardware.
+**These files are committed to the repo. They contain no secrets.**
 
-## Purpose
+One YAML file per node in the fleet. Each file describes what a node *should*
+run — its sensor assignments, board type, role, and capabilities. No IPs, no
+SSH users, no port paths or bus addresses.
 
-`animon deploy` and `animon diff` normally read the live config from the board
-over SSH. Keeping a local copy here lets you:
+## What belongs here
 
-- Plan and review changes offline before deploying
-- Run `animon deploy --dry-run` without an active SSH connection
-- Track wiring changes in your local notes without committing to the repo
-
-## Naming
-
-One file per node, named `<node-id>.yaml` where `node-id` matches the `id`
-field in `config/animon.yaml`. Example:
-
-```
-config/nodes/
-├── my_other_node.yaml
-├── my_pizero_node.yaml
-├── my_sbc_node.yaml
-└── my_hub_node.yaml
+```yaml
+# config/nodes/my_sbc_node.yaml
+id:   my_sbc_node
+type: raspberry_pi_5
+role: vision
+capabilities: [hailo_inference, coral_usb]
+sensors:
+  - id: lidar_front
+    type: tf_mini
+  - id: thermal_rear
+    type: mlx90640
 ```
 
-## Populating
+**What does NOT belong here:** IPs, SSH users, port paths, I2C bus/address,
+baud rates. Those are wiring details — they go in `config/boards/<id>.yaml`
+(dev-machine staging, gitignored) or the board's own `config.yaml`.
 
-Run `animon pull <node-id>` to fetch the board's live config and write it here.
-Or copy `config/config.example.yaml` and fill in the wiring manually.
+## When to edit
 
-## Schema
+- Adding a sensor to a node → add `{id, type}` to the relevant file
+- Removing a sensor → remove the entry (next `animon deploy` disables it)
+- New node joining the fleet → create a new `<node-id>.yaml` here,
+  add access details to `config/animon.yaml`
 
-Same schema as the board's `config.yaml` — see `config/config.example.yaml`.
+## Relationship to other config files
+
+```
+config/nodes/<id>.yaml     YOU ARE HERE — desired state (in repo)
+         +
+config/animon.yaml         access layer: IPs, SSH users (gitignored)
+         │
+         ▼  animon deploy
+config/boards/<id>.yaml    wiring staging copy (gitignored, auto-updated)
+         │
+         ▼  rsync to board
+<board>/config/config.yaml live board config (gitignored, on the board)
+```

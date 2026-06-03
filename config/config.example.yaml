@@ -1,18 +1,34 @@
-# Animontics per-board node configuration
-# Copy this file to config/config.yaml and edit for your hardware.
-# config/config.yaml is gitignored — each board holds its own copy.
+# config/config.example.yaml — per-board wiring template
+#
+# Copy to config/config.yaml on the target board (or let 'animon deploy'
+# generate it from config/nodes/ + sensor METADATA defaults).
+#
+# This file documents the WIRING REALITY for one board: which physical ports,
+# buses, and addresses each sensor is connected to. It does NOT describe what
+# the board *should* run — that's config/nodes/<node-id>.yaml in the repo.
+#
+# Schema reference:
+#   node_id    — must match the id in config/nodes/<node-id>.yaml
+#   node_type  — board type, e.g. orangepi_zero2 / raspberry_pi_5
+#   hostname   — network hostname of this board
+#
+# Sensor connection types:
+#   uart    — hardware UART or USB-to-serial adapter  (port, baud_rate)
+#   usb_cdc — USB CDC device, e.g. RP2040/SAMD       (port, baud_rate)
+#   i2c     — I2C bus                                 (bus, address)
+#   ir      — Linux LIRC IR transceiver               (rx_device, tx_device)
 
-# ── Node identity ─────────────────────────────────────────────────────────────
-node_id:   my_node              # unique ID within the fleet
-node_type: raspberry_pi_4       # board type (used for tooling and docs)
-hostname:  animontics-node      # network hostname
+# ── Node identity ──────────────────────────────────────────────────────────────
+node_id:   my_node
+node_type: raspberry_pi_5
+hostname:  animontics-node
 
-# ── HTTP server ───────────────────────────────────────────────────────────────
+# ── HTTP server ────────────────────────────────────────────────────────────────
 network:
   host: "0.0.0.0"
   port: 8080
 
-# ── Camera (optional) ─────────────────────────────────────────────────────────
+# ── Camera (optional — RPi5 / Jetson only) ────────────────────────────────────
 # camera:
 #   enabled: true
 #   device:  /dev/video0
@@ -21,19 +37,15 @@ network:
 #   fps:     30
 
 # ── Sensors ───────────────────────────────────────────────────────────────────
-# List only the sensors physically connected to this board.
-# Only the packages for enabled sensor types need to be deployed here.
-#
-# Connection types:
-#   uart    — hardware UART or USB-to-serial adapter
-#   usb_cdc — USB CDC (e.g. RP2040 running CircuitPython): appears as /dev/ttyACM*
-#   i2c     — I2C bus with device address
-
 sensors: []
 
-# ── Sensor examples (uncomment as needed) ────────────────────────────────────
+# Uncomment and edit the entries below for sensors physically connected to this
+# board. Run 'animon probe <node-id>' to detect hardware automatically.
 
-# Benewake TF Mini Plus LiDAR
+# ── Benewake TF Mini Plus LiDAR (UART) ────────────────────────────────────────
+# RPi5: hardware UART on /dev/ttyAMA0 (GPIO 14/15, enable uart in config.txt)
+# OrangePi Zero 2: /dev/ttyS0 or /dev/ttyAMA0 depending on overlay
+#
 # - id: lidar_front
 #   type: tf_mini
 #   enabled: true
@@ -42,7 +54,9 @@ sensors: []
 #     port:      /dev/ttyAMA0
 #     baud_rate: 115200
 
-# MaxBotix LV-MaxSonar-EZ
+# ── MaxBotix LV-MaxSonar-EZ (UART) ────────────────────────────────────────────
+# Pi Zero 2W: /dev/ttyS0 (enable uart0 overlay, disable console on serial)
+#
 # - id: sonar_side
 #   type: lv_maxsonar
 #   enabled: true
@@ -51,7 +65,11 @@ sensors: []
 #     port:      /dev/ttyS0
 #     baud_rate: 9600
 
-# ST VL53L1X time-of-flight
+# ── ST VL53L1X Time-of-Flight (I2C) ───────────────────────────────────────────
+# OrangePi Zero 2: I2C bus 3 (pins 3/5 on the 26-pin header, enable i2c3 overlay)
+# RPi5: I2C bus 1 (GPIO 2/3, enabled by default on most Pi OS images)
+# Default I2C address: 0x29
+#
 # - id: tof_top
 #   type: vl53l1x
 #   enabled: true
@@ -60,11 +78,28 @@ sensors: []
 #     bus:     3
 #     address: 0x29
 
-# Melexis MLX90640 thermal camera
+# ── Melexis MLX90640 Thermal Camera (I2C) ─────────────────────────────────────
+# RPi5: I2C bus 1 (GPIO 2/3)
+# Requires 400 kHz I2C clock minimum; 1 MHz recommended for 32fps.
+# Fixed I2C address: 0x33
+#
 # - id: thermal_rear
 #   type: mlx90640
 #   enabled: true
 #   connection:
 #     type:    i2c
-#     bus:     3
+#     bus:     1
 #     address: 0x33
+
+# ── IR Transceiver (LIRC) ──────────────────────────────────────────────────────
+# OrangePi Zero 2: TSOP38238 receiver on IR_RX pin, TSAL6200 transmitter on PWM3
+# Requires lirc kernel module + /dev/lirc* devices.
+# Omit rx_device to disable receive; omit tx_device to disable transmit.
+#
+# - id: ir_xcvr
+#   type: ir_xcvr
+#   enabled: true
+#   connection:
+#     type:      ir
+#     rx_device: /dev/lirc0
+#     tx_device: /dev/lirc1
