@@ -120,6 +120,8 @@ work. The tools are grouped by concern:
 |------|---------|---------------|
 | **Fleet CLI** | `python -m tools.fleet.animon` | Keep boards in sync from desired state — `deploy`, `status`, `diff`, `pull`, `probe`, `revert`. The primary interface. See [tools/fleet/README.md](tools/fleet/README.md). |
 | **Repo audit** | `python tools/dev/audit.py` | Conformance checks — verifies sensor packages and routers follow the plugin contract (METADATA present, no `register_sensors` anti-pattern). Static analysis, safe to run on any OS. |
+| **SSH keys** | `tools/ssh/gen_keys.sh` · `distribute_keys.sh` | Generate an Ed25519 fleet key and push it to every board in `animon.yaml` — the key auth the CLI requires. Run on your dev machine. |
+| **Board setup** | `tools/board/setup_{i2c,uart,spi,i2s}.sh` | Enable a hardware bus on the board (idempotent edits to `config.txt`; run as root, reboot after). Raspberry Pi OS. |
 | **Comms check** | `tools/board/verify_comms.sh` | On-board scan of I2C buses and UART/USB devices — sanity-check wiring before deploy. |
 | **WiFi AP** | `tools/network/setup_ap.sh` / `undo_ap.sh` | Bring a board up as / down from a WiFi access point. |
 | **USB networking** | `tools/usb/usbport/` | Standalone USB-ethernet interface tool for the USB-gadget Pi Zero link. |

@@ -39,14 +39,20 @@ The current sensor streaming API (`GET /sensors/{id}/stream`, `WS /sensors/{id}/
       that handlers close over (the `register_sensors` anti-pattern by another name) rather
       than relying solely on the literal string `"register_sensors"`. Requires AST analysis
       of each router file's module scope.
-- [ ] `tools/board/setup_i2c.sh` — enable I2C, set bus speed via `/boot/config.txt`
-- [ ] `tools/board/setup_uart.sh` — enable UART, disable serial console
-- [ ] `tools/board/setup_spi.sh` — enable SPI
-- [ ] `tools/board/setup_i2s.sh` — enable I2S audio
+- [x] `tools/board/setup_i2c.sh` — enable I2C, set bus speed via `config.txt`
+      (idempotent; `--baudrate`; loads i2c-dev)
+- [x] `tools/board/setup_uart.sh` — enable UART, strip serial console from
+      cmdline.txt, disable serial-getty
+- [x] `tools/board/setup_spi.sh` — enable SPI
+- [x] `tools/board/setup_i2s.sh` — enable I2S audio (`--overlay` for device overlays)
+- [ ] `tools/board/setup_*.sh` — Armbian/Orange Pi support. The current scripts
+      edit Raspberry Pi `config.txt`; Orange Pi Zero 2 uses `armbianEnv.txt` +
+      overlays (`armbian-config`). Add a parallel path or detect the platform.
 - [ ] `tools/firmware/flash_circuitpython.sh` — flash RP2040/SAMD20 via UF2
 - [ ] `tools/firmware/flash_micropython.sh`
-- [ ] `tools/ssh/gen_keys.sh` — generate node SSH key pairs
-- [ ] `tools/ssh/distribute_keys.sh` — push public keys to all fleet nodes
+- [x] `tools/ssh/gen_keys.sh` — generate a dedicated Ed25519 fleet key pair
+- [x] `tools/ssh/distribute_keys.sh` — ssh-copy-id the fleet key to every node
+      in `animon.yaml`
 - [ ] `animon update <node-id>` — remote apt/pip upgrade as a fleet subcommand
       (folded into tools/fleet/ rather than a standalone maintenance script)
 - [ ] `tools/fleet/deploy.py` — `deploy --dry-run` still makes one SSH call

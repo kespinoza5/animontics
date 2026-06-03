@@ -22,12 +22,20 @@ See [`fleet/README.md`](fleet/README.md) for full documentation.
 
 | Tool | Purpose |
 |------|---------|
-| `fleet/` | Full fleet management CLI (deploy, status, diff, pull, probe) |
+| `fleet/` | Full fleet management CLI (deploy, status, diff, pull, probe, revert) |
 | `board/verify_comms.sh` | Scan I2C buses, list UART and USB serial devices |
+| `board/setup_i2c.sh` · `setup_uart.sh` · `setup_spi.sh` · `setup_i2s.sh` | Enable a hardware bus on the board (run as root; reboot required) |
+| `ssh/gen_keys.sh` | Generate an Ed25519 key pair for fleet access |
+| `ssh/distribute_keys.sh` | Push the fleet public key to every node in `animon.yaml` |
 | `network/setup_ap.sh` | Configure node as a WiFi access point |
 | `network/undo_ap.sh` | Revert AP configuration |
 | `usb/usbport/` | Manage USB ethernet gadget interfaces (standalone binary) |
 | `dev/audit.py` | Audit sensor packages against the plugin contract |
+
+Where a script runs matters: `board/` scripts run **on the board** (the setup
+ones need root), `ssh/` scripts run **on your dev machine**, and `fleet/` drives
+everything remotely. See [`board/README.md`](board/README.md) and
+[`ssh/README.md`](ssh/README.md) for details.
 
 ---
 
@@ -51,10 +59,13 @@ alone. (This replaces the old `maintenance/deploy.sh` shell script.)
 
 ## Pre-flight checklist before first deploy
 
-1. SSH key auth configured: `ssh-copy-id pi@<board-ip>`
-2. SSH agent running: `eval $(ssh-agent) && ssh-add`
-3. Board reachable: `tools/board/verify_comms.sh` (run on the board itself)
-4. Node desired state in `config/nodes/<id>.yaml` (access in `config/animon.yaml`,
+1. SSH key generated and distributed: `tools/ssh/gen_keys.sh` then
+   `tools/ssh/distribute_keys.sh` (or `ssh-copy-id pi@<board-ip>` by hand)
+2. SSH agent running: `eval $(ssh-agent) && ssh-add ~/.ssh/animontics_ed25519`
+3. Hardware buses enabled on the board: `tools/board/setup_i2c.sh` /
+   `setup_uart.sh` / `setup_spi.sh` as needed (run on the board, then reboot)
+4. Board reachable: `tools/board/verify_comms.sh` (run on the board itself)
+5. Node desired state in `config/nodes/<id>.yaml` (access in `config/animon.yaml`,
    or pass `--host` to bootstrap)
 
 ```bash

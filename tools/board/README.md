@@ -1,8 +1,36 @@
 # tools/board
 
-Scripts for verifying and configuring hardware interfaces on a board.
+Scripts for verifying and configuring hardware interfaces on a board. Run these
+**on the board itself** (the setup scripts need root). They are Raspberry Pi OS
+only — Orange Pi / Armbian boards use `armbian-config` for the same toggles.
 
 ## Tools
+
+### Interface setup — `setup_i2c.sh`, `setup_uart.sh`, `setup_spi.sh`, `setup_i2s.sh`
+
+Enable a hardware bus and create its device nodes by editing the firmware
+`config.txt` (`/boot/firmware/config.txt` on Bookworm, `/boot/config.txt` on
+older releases). All four are **idempotent** — re-running never duplicates a
+line — and make a one-time `.anim.bak` backup the first time they touch a file.
+A reboot is required for changes to take effect.
+
+```bash
+sudo ./setup_i2c.sh                      # enable I2C at 100 kHz
+sudo ./setup_i2c.sh --baudrate 400000    # fast-mode I2C
+sudo ./setup_uart.sh                     # enable UART + free it from the login console
+sudo ./setup_spi.sh                      # enable SPI (/dev/spidev*)
+sudo ./setup_i2s.sh                      # enable I2S audio
+sudo ./setup_i2s.sh --overlay googlevoicehat-soundcard   # + a device overlay
+```
+
+`setup_uart.sh` additionally strips the serial console from `cmdline.txt` and
+disables the `serial-getty` login service, so UART sensors (TF Mini,
+LV-MaxSonar) get a clean port.
+
+Shared logic (config-file editing, root check, reboot notice) lives in
+`lib_config.sh`, which the four scripts source — it is not run directly.
+
+After a reboot, confirm the interfaces with `verify_comms.sh`.
 
 ### `verify_comms.sh`
 
