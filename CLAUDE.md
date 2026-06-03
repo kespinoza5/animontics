@@ -188,8 +188,28 @@ python -m tools.fleet.animon status <node-id> --json
 python -m tools.fleet.animon diff   <node-id>
 python -m tools.fleet.animon deploy <node-id> --dry-run
 python -m tools.fleet.animon deploy <node-id> --verbose
+python -m tools.fleet.animon deploy <node-id> --host <ip>          # bootstrap: not yet in animon.yaml
+python -m tools.fleet.animon deploy <node-id> --config <file> --note "..."  # ad-hoc override
+python -m tools.fleet.animon revert <node-id>                      # discard override, restore baseline
 python -m tools.fleet.animon pull   <node-id>
 python -m tools.fleet.animon probe  <node-id>
 ```
 
-Exit codes: `0` = success/in-sync, `1` = error, `2` = drift detected.
+Exit codes: `0` = success/in-sync, `1` = error, `2` = drift or active override.
+
+An override deploy (`deploy --config`) pushes a verbatim, METADATA-validated
+config for testing/debugging/rollback. It never overwrites the staged baseline
+(`config/boards/<id>.yaml`); it writes a gitignored marker
+(`config/boards/<id>.override.yaml`) that `status` surfaces as `OVERRIDE`.
+`revert` restores the baseline and clears the marker.
+
+---
+
+## Deferred work — TODO.md
+
+When you defer something, notice out-of-scope work, or leave a known rough edge,
+record it as a `- [ ]` item in `TODO.md` under the matching area heading
+(API Design / Dashboard / Tools / Sensor Packages / Infrastructure / FPGA) —
+don't leave it only in chat, where it's lost when the session ends. Prefix each
+item with the file or command it concerns. Mark finished items `- [x]` rather
+than deleting them, so the history of decisions stays visible.

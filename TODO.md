@@ -49,6 +49,11 @@ The current sensor streaming API (`GET /sensors/{id}/stream`, `WS /sensors/{id}/
 - [ ] `tools/ssh/distribute_keys.sh` — push public keys to all fleet nodes
 - [ ] `animon update <node-id>` — remote apt/pip upgrade as a fleet subcommand
       (folded into tools/fleet/ rather than a standalone maintenance script)
+- [ ] `tools/fleet/deploy.py` — `deploy --dry-run` still makes one SSH call
+      (`_remote_packages`) to compute packages-to-remove, so an offline dry-run
+      (e.g. previewing a `--config` override) pauses on the connect timeout.
+      Skip the remote query under `dry_run` and report removals as
+      "unknown (offline)".
 
 ---
 
