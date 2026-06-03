@@ -20,12 +20,13 @@ METADATA = {
         },
         "notes": "Requires I2C Fast Mode (400 kHz) or Fast Mode+ (1 MHz).",
     },
+    # JSON reading lane (/stream, /ws) — lean summary only. The 768-pixel array
+    # is delivered on the binary frame lane (/sensors/<id>/frames), not here.
     "data_keys": {
-        "pixels":   "list[float] — 768 temperature values (32×24, row-major) in °C",
-        "min_temp": "float       — minimum pixel temperature in °C",
-        "max_temp": "float       — maximum pixel temperature in °C",
-        "width":    "int         — always 32",
-        "height":   "int         — always 24",
+        "min_temp": "float — minimum pixel temperature in °C",
+        "max_temp": "float — maximum pixel temperature in °C",
+        "width":    "int   — always 32",
+        "height":   "int   — always 24",
     },
 }
 

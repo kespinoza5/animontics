@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import array
 import logging
+import struct
+import sys
 import threading
 import time
 
@@ -17,6 +20,15 @@ _WIDTH  = 32
 _HEIGHT = 24
 _PIXELS = _WIDTH * _HEIGHT
 
+# Binary frame layout (little-endian), consumed by web/viewers/mlx90640.html:
+#   offset 0   uint32   frame_id   (monotonic, lets the client drop dupes)
+#   offset 4   float32  min_temp °C
+#   offset 8   float32  max_temp °C
+#   offset 12  float32 × 768  pixels, row-major 32×24, °C
+# Total = 12 + 768*4 = 3084 bytes.
+_FRAME_HEADER = struct.Struct("<Iff")
+_LITTLE_ENDIAN = sys.byteorder == "little"
+
 
 @register("mlx90640")
 class MLX90640Sensor(SensorBase):
@@ -28,19 +40,24 @@ class MLX90640Sensor(SensorBase):
       bus:     3       (I2C bus number)
       address: 0x33    (default MLX90640 address)
 
-    SensorReading data keys:
-      pixels:   list[float]  (768 values, row-major 32×24, °C)
-      min_temp: float
-      max_temp: float
-      width:    int (32)
-      height:   int (24)
+    Two output lanes:
+      JSON reading (/sensors/<id>/stream, /ws) — lean per-frame summary:
+        {min_temp, max_temp, width, height}. No pixel array, so serialising it
+        32×/s stays cheap and GET /sensors/<id> is a light snapshot.
+      Binary frames (/sensors/<id>/frames) — the full 768-pixel array as a
+        packed little-endian frame (see _FRAME_HEADER above). This is the lane
+        the thermal viewer consumes; it skips json.dumps server-side and a big
+        array parse + GC client-side.
     """
+
+    produces_frames = True
 
     def __init__(self, sensor_id: str, config: SensorConfig) -> None:
         super().__init__(sensor_id, config)
         self._thread: threading.Thread | None = None
         self._stop_event = threading.Event()
         self._healthy = False
+        self._frame_id = 0
 
     def start(self) -> None:
         self._stop_event.clear()
@@ -88,12 +105,23 @@ class MLX90640Sensor(SensorBase):
                 sensor.get_frame(buf)
                 mn = min(buf)
                 mx = max(buf)
+
+                # Binary lane: full array, packed once at C speed (no per-float
+                # Python call). byteswap only on the rare big-endian host.
+                self._frame_id = (self._frame_id + 1) & 0xFFFFFFFF
+                pix = array.array("f", buf)
+                if not _LITTLE_ENDIAN:
+                    pix.byteswap()
+                self._broadcast_frame(
+                    _FRAME_HEADER.pack(self._frame_id, mn, mx) + pix.tobytes()
+                )
+
+                # JSON lane: lean summary only — the array lives on /frames.
                 reading = SensorReading(
                     sensor_id=self.id,
                     sensor_type="mlx90640",
                     timestamp=time.time(),
                     data={
-                        "pixels":   [round(v, 2) for v in buf],
                         "min_temp": round(mn, 2),
                         "max_temp": round(mx, 2),
                         "width":    _WIDTH,
