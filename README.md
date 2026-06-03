@@ -54,7 +54,19 @@ Default I2C address: `0x29`. Multiple sensors on one bus require address reassig
 | 2 (medium) | ~2.0 m | 50 ms timing budget |
 | 3 (long)   | ~4.0 m | 100 ms timing budget — **default** |
 
-The driver starts in mode 3. Mode switching via the sensor object's `set_distance_mode()` — future API endpoint will expose this.
+The driver starts in mode 3. Modes can be switched live at runtime — no
+reinit — via the node's `vl53l1x` router:
+
+```
+GET  /vl53l1x/state            → {mode, label, max_mm, auto, healthy}
+POST /vl53l1x/mode  {mode:1|2|3}  → pin a fixed mode (turns auto off)
+POST /vl53l1x/auto  {enabled:bool} → distance-driven auto-ranging
+```
+
+Auto-ranging picks the tightest mode that covers the current distance, with a
+hysteresis deadband so a reading sitting on a boundary doesn't flap. Mode
+changes are also pushed to stream subscribers as named SSE `mode` events, so the
+viewer reflects switches it didn't initiate.
 
 ## Driver
 
@@ -68,5 +80,7 @@ The driver starts in mode 3. Mode switching via the sensor object's `set_distanc
 # Test Blinka/CircuitPython I2C access
 python3 test_blinka.py
 
-# Open viewer.html in browser, enter board IP
+# Bench viewer: open web/viewers/vl53l1x.html (repo root) in a browser,
+# enter the board IP + sensor id. Connects to the node's
+# /sensors/{id}/stream SSE on port 8080, with Short/Medium/Long/Auto controls.
 ```
