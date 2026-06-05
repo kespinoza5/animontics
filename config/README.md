@@ -12,6 +12,10 @@ config/
 ├── boards/                     ← GITIGNORED — dev-machine wiring staging copies
 │   ├── example.yaml            ← IN REPO — board wiring template
 │   └── <node-id>.yaml          ← GITIGNORED — auto-populated by animon pull/deploy
+├── mcus/                       ← MCU firmware build contracts (for tools/forge)
+│   ├── example.yaml            ← IN REPO — contract template
+│   ├── README.md               ← IN REPO — contract reference
+│   └── <mcu-id>.yaml           ← GITIGNORED — real per-unit contracts/calibration
 └── config.yaml                 ← GITIGNORED — active per-board config on board
 ```
 
@@ -92,13 +96,31 @@ has no wiring entry in `boards/` — it bootstraps from these defaults.
 
 ---
 
+## MCU build contracts (`config/mcus/<id>.yaml`)
+
+**Per-unit; gitignored (only `example.yaml` is tracked).** Not part of the
+four-layer *sensor* model — this is the input to `tools/forge`, which composes,
+compiles, and flashes a microcontroller's firmware. One file per MCU: which
+reusable modules to build in (analog inputs, PWM, transport, …), their pins, and
+the channel→signal map the node-side array sensor reads. Built artifacts land in
+the gitignored `firmware/<id>/`.
+
+See [`config/mcus/README.md`](mcus/README.md) for the full contract reference and
+[`docs/forge.md`](../docs/forge.md) for the design.
+
+---
+
 ## Connection Types
 
 | Type | Description | Required wiring fields |
 |------|-------------|------------------------|
-| `uart` | Hardware UART or USB-to-serial | `port`, `baud_rate` |
+| `uart` | Hardware UART or USB-to-serial (incl. an MCU uplink) | `port`, `baud_rate` |
 | `usb_cdc` | USB CDC (RP2040/SAMD CircuitPython) | `port`, `baud_rate` |
 | `i2c` | I2C bus | `bus`, `address` |
+
+Array sensors (`mq_array`, future `pressure_array`) add a `channels` list to
+their wiring entry — the index→signal+calibration map for the analog vector they
+read. See `config/boards/example.yaml`.
 
 ---
 

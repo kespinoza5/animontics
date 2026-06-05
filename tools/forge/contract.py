@@ -195,19 +195,19 @@ def validate(target: McuTarget, platform: dict, manifests: dict[str, dict]) -> l
     if len(transports) != 1:
         errors.append(f"exactly one transport module required, found {len(transports)}: {transports}")
 
+    # Channels are hand-authored (so the file stays readable + commented). They
+    # must match the order the modules provide — `forge channels` prints the
+    # canonical block to paste/check against.
     expected = provided_sources(target, manifests)
-    if target.channels and len(target.channels) != len(expected):
-        errors.append(
-            f"channels: contract lists {len(target.channels)} but modules provide "
-            f"{len(expected)} (run `forge build` to reassign)"
-        )
+    if target.channels:
+        authored = [c.source for c in target.channels]
+        if len(authored) != len(expected):
+            errors.append(
+                f"channels: contract lists {len(authored)} but modules provide {len(expected)}"
+            )
+        elif authored != expected:
+            errors.append(
+                f"channels: source order does not match module/pin order — "
+                f"expected {expected}, got {authored}"
+            )
     return errors
-
-
-# ── Writeback ───────────────────────────────────────────────────────────────
-
-def save_contract(target: McuTarget, project_root: Path) -> None:
-    """Write the contract back to disk (used to persist assigned channels)."""
-    path = contract_path(target.id, project_root)
-    data = target.model_dump(exclude_none=True)
-    path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")

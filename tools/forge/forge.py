@@ -67,10 +67,6 @@ def _cmd_build(args: argparse.Namespace) -> int:
         print(f"error: {args.mcu_id} has {len(issues)} validation issue(s); run `forge validate {args.mcu_id}`")
         return 1
 
-    # Composer owns channel assignment: derive indices, persist signal/calibration.
-    target.channels = contract_mod.assign_channels(target, _manifests(target, ctx))
-    contract_mod.save_contract(target, ctx.project_root)
-
     builder = get_builder(target.target)
     try:
         artifact = builder.build(ctx)
@@ -95,6 +91,18 @@ def _cmd_flash(args: argparse.Namespace) -> int:
     except BuildError as exc:
         print(f"error: {exc}")
         return 1
+    return 0
+
+
+def _cmd_channels(args: argparse.Namespace) -> int:
+    """Print the canonical channels block derived from the modules (non-destructive)."""
+    import yaml
+
+    target, ctx = _load(args.mcu_id)
+    channels = contract_mod.assign_channels(target, _manifests(target, ctx))
+    block = {"channels": [c.model_dump() for c in channels]}
+    print(f"# canonical channel order for {args.mcu_id} — paste into config/mcus/{args.mcu_id}.yaml")
+    print(yaml.safe_dump(block, sort_keys=False).rstrip())
     return 0
 
 
@@ -178,6 +186,11 @@ def _build_parser() -> argparse.ArgumentParser:
                          default=_project_root() / "config" / "nodes",
                          help="Path to nodes/ directory (default: config/nodes/)")
     p_flash.set_defaults(func=_cmd_flash)
+
+    p_chan = sub.add_parser("channels",
+                            help="Print the canonical channel block for a contract (paste-in helper).")
+    p_chan.add_argument("mcu_id", metavar="MCU-ID")
+    p_chan.set_defaults(func=_cmd_channels)
 
     p_clean = sub.add_parser("clean", help="Remove firmware/<id>/.")
     p_clean.add_argument("mcu_id", metavar="MCU-ID")
