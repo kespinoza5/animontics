@@ -105,8 +105,8 @@ reusable modules to build in (analog inputs, PWM, transport, …), their pins, a
 the channel→signal map the node-side array sensor reads. Built artifacts land in
 the gitignored `firmware/<id>/`.
 
-See [`config/mcus/README.md`](mcus/README.md) for the full contract reference and
-[`docs/forge.md`](../docs/forge.md) for the design.
+See `config/mcus/README.md` for the full contract reference and
+[the forge design](../docs/forge.md).
 
 ---
 

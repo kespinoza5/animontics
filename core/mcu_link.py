@@ -37,6 +37,17 @@ MAX_CHANNELS = 255
 _HEADER = struct.Struct("<2sBBB")   # magic, version, seq, count
 _MIN_FRAME = _HEADER.size + 1       # header + checksum, with zero channels
 
+# ── Command frames (node → MCU) ───────────────────────────────────────────────
+# A separate, opposite-direction frame so the MCU can take simple actuator
+# commands. Distinct magic ('AC') so neither end mistakes one for an uplink
+# sample frame. Layout mirrors the uplink frame; args are int16 (e.g. set_duty
+# takes [channel, duty]).
+CMD_MAGIC = b"AC"
+CMD_VERSION = 1
+CMD_SET_DUTY = 1                     # args: [channel, duty(0..255)]
+
+_CMD_HEADER = struct.Struct("<2sBBB")   # magic, version, cmd_id, nargs
+
 
 @dataclass(frozen=True)
 class Frame:
@@ -129,3 +140,38 @@ class FrameStream:
         del buf[:total]
         out.append(frame)
         return True
+
+
+# ── Command codec (node → MCU) ────────────────────────────────────────────────
+
+@dataclass(frozen=True)
+class Command:
+    """A decoded command frame: an opcode and its int16 arguments."""
+
+    cmd_id: int
+    args: tuple[int, ...]
+    version: int = CMD_VERSION
+
+
+def encode_command(cmd_id: int, args: Sequence[int] = ()) -> bytes:
+    """Serialize a command frame (e.g. encode_command(CMD_SET_DUTY, [ch, duty]))."""
+    n = len(args)
+    if n > MAX_CHANNELS:
+        raise ValueError(f"too many args: {n} (max {MAX_CHANNELS})")
+    body = _CMD_HEADER.pack(CMD_MAGIC, CMD_VERSION, cmd_id & 0xFF, n)
+    body += struct.pack(f"<{n}h", *args)
+    return body + bytes([sum(body) & 0xFF])
+
+
+def decode_command(frame: bytes) -> Command | None:
+    """Decode one complete command frame, or None if malformed."""
+    if len(frame) < _CMD_HEADER.size + 1:
+        return None
+    magic, version, cmd_id, n = _CMD_HEADER.unpack_from(frame, 0)
+    if magic != CMD_MAGIC or version != CMD_VERSION:
+        return None
+    if len(frame) != _CMD_HEADER.size + 2 * n + 1:
+        return None
+    if (sum(frame[:-1]) & 0xFF) != frame[-1]:
+        return None
+    return Command(cmd_id, struct.unpack_from(f"<{n}h", frame, _CMD_HEADER.size))

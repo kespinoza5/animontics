@@ -89,7 +89,9 @@ format lives once in `core/mcu_link.py` and is versioned.
 
 Implemented: the forge core (validate/build/flash/clean), the AVR/Arduino target
 (`analog_in`, `pwm_out`, `gpio_out`, `transport_serial`), compose **+** compile to
-a real `.hex`, and the node-side [`mq_array`](sensors/mq_array.md) sensor.
-Deferred (reserved behind seams): flash-over-SSH against live hardware, inbound
-actuator commands (fans), SPI transport, the SAMD21/RP2040/FPGA/accelerator
-builders, `animon`↔`forge` reconcile, and protocol v2. See `TODO.md`.
+a real `.hex`, the node-side [`mq_array`](sensors/mq_array.md) sensor, and the
+**inbound command lane** — the node can drive the MCU's PWM outputs over the same
+link (`POST /mq_array/{id}/pwm`; firmware decodes `AC` command frames). Deferred
+(reserved behind seams): flash-over-SSH against live hardware, SPI transport, the
+SAMD21/RP2040/FPGA/accelerator builders, `animon`↔`forge` reconcile, and protocol
+v2. See `TODO.md`.

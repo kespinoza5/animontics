@@ -8,12 +8,16 @@ authoritative spec has one home.
 from __future__ import annotations
 
 from core.mcu_link import (  # noqa: F401
+    CMD_SET_DUTY,
     MAGIC,
     MAX_CHANNELS,
     VERSION,
+    Command,
     Frame,
     FrameStream,
     decode,
+    decode_command,
     encode,
+    encode_command,
     frame_size,
 )

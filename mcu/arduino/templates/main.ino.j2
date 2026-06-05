@@ -12,6 +12,12 @@ static const unsigned long SAMPLE_PERIOD_MS = {{ sample_period_ms }};
 
 {{ declarations }}
 
+// Inbound command dispatch (node → MCU). Empty when no actuators are composed in.
+static void onCommand(uint8_t cmd, const int16_t *args, uint8_t n) {
+  (void)cmd; (void)args; (void)n;
+{{ commands }}
+}
+
 void setup() {
 {{ setups }}
 }

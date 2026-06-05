@@ -4,7 +4,16 @@ from __future__ import annotations
 import pytest
 
 from tools.forge import protocol
-from tools.forge.protocol import Frame, FrameStream, decode, encode, frame_size
+from tools.forge.protocol import (
+    CMD_SET_DUTY,
+    Frame,
+    FrameStream,
+    decode,
+    decode_command,
+    encode,
+    encode_command,
+    frame_size,
+)
 
 
 class TestRoundTrip:
@@ -100,3 +109,25 @@ class TestFrameStream:
         for _ in range(100):
             stream.feed(b"\x00\x01\x02\x03" * 8)
         assert len(stream._buf) <= 64
+
+
+class TestCommandCodec:
+    def test_round_trip(self):
+        cmd = decode_command(encode_command(CMD_SET_DUTY, [2, 200]))
+        assert cmd is not None
+        assert cmd.cmd_id == CMD_SET_DUTY
+        assert list(cmd.args) == [2, 200]
+
+    def test_no_args(self):
+        cmd = decode_command(encode_command(9))
+        assert cmd is not None and cmd.cmd_id == 9 and cmd.args == ()
+
+    def test_bad_checksum(self):
+        b = bytearray(encode_command(CMD_SET_DUTY, [1, 1]))
+        b[-1] ^= 0xFF
+        assert decode_command(bytes(b)) is None
+
+    def test_command_and_sample_frames_dont_cross_decode(self):
+        # distinct magic ('AC' vs 'AM') so neither end mistakes one for the other
+        assert decode(encode_command(CMD_SET_DUTY, [1, 2])) is None
+        assert decode_command(encode([1, 2], seq=0)) is None

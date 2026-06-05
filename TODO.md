@@ -125,8 +125,11 @@ an existing seam:
 
 - [ ] Flash over SSH against live hardware — `ArduinoBuilder.deploy` is written
       (rsync `.hex` + `avrdude`) but unexercised without a board.
-- [ ] Inbound command lane — wire `pwm_out.set_duty` to a node→MCU control path
-      (fan actuation). Firmware accepts it; the link is RX-only today.
+- [x] Inbound command lane — node→MCU `AC` command frames (`core/mcu_link.py`),
+      firmware `transport_serial.poll()` + generated `onCommand` dispatch, and
+      `POST /mq_array/{id}/pwm` driving `pwm_out.set_duty`. Verified offline
+      (codec round-trip, firmware compiles, command-guard test); flashing to a
+      live board still pending hardware.
 - [ ] SPI transport — a `transport_spi` module + node-side reader; isolated to the
       transport module + `core/mcu_link.py` consumers.
 - [ ] `mcu/samd21/` and `mcu/rp2040/` families; FPGA (`fpga.ice40`) and

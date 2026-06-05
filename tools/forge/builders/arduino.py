@@ -28,6 +28,8 @@ _FRAGMENTS = {
     "read.j2": "sample_reads",
     "send.j2": "transport_send",
     "loop.j2": "loops",
+    "poll.j2": "loops",         # transport: drain inbound commands each loop
+    "cmd.j2": "commands",       # actuator: a case in the generated onCommand()
 }
 _INDENT = {
     "declarations": "",
@@ -35,6 +37,7 @@ _INDENT = {
     "sample_reads": "    ",
     "transport_send": "    ",
     "loops": "  ",
+    "commands": "  ",
 }
 _DEFAULT_BAUD = 115200
 _DEFAULT_SAMPLE_HZ = 2
@@ -97,7 +100,8 @@ class ArduinoBuilder(Builder):
         includes: list[str] = []
         sources: set[tuple[str, str]] = set()
         channel_count = len(contract_mod.provided_sources(target, manifests))
-        offset = 0
+        offset = 0          # running sensor-channel offset (frame slot)
+        cmd_offset = 0      # running actuator command-channel offset
         type_counts: dict[str, int] = {}
         sample_hz: list[int] = []
 
@@ -124,12 +128,16 @@ class ArduinoBuilder(Builder):
                 "params": params,
                 "offset": offset,
                 "count": count,
+                "npins": len(mod.pins),
+                "cmd_offset": cmd_offset,
                 "channel_count": channel_count,
                 "baud": baud,
                 "board": target.board,
                 "fqbn": fqbn,
             }
             offset += count
+            if manifest.get("accepts"):
+                cmd_offset += len(mod.pins)   # command channels span actuator modules
 
             mod_dir = src_root / "modules" / mod.module
             for frag_file, bucket in _FRAGMENTS.items():
@@ -168,6 +176,7 @@ class ArduinoBuilder(Builder):
             sample_reads=block("sample_reads"),
             transport_send=block("transport_send"),
             loops=block("loops"),
+            commands=block("commands"),
         )
 
         sketch = ctx.out_dir
