@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MQ Gas Array</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="../shared/viewer.css" />
+  <style>
+    /* Viewer-specific: a responsive grid of per-channel cards. */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 12px;
+      margin: 12px 0;
+    }
+    .card {
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 10px 12px;
+      background: #0d1117;
+    }
+    .card .sig { font-size: 0.85rem; color: #8b949e; text-transform: uppercase; letter-spacing: 0.04em; }
+    .card .raw { font-size: 1.7rem; font-weight: 600; }
+    .card .ratio { font-size: 0.8rem; color: #58a6ff; min-height: 1em; }
+    .card canvas { margin-top: 6px; }
+    #seq { color: #8b949e; }
+  </style>
+</head>
+<body>
+  <h1>MQ Gas Array</h1>
+  <div class="meta"><span id="seq">seq: —</span></div>
+
+  <div class="grid" id="grid"></div>
+
+  <div class="bottom-bar">
+    <div class="conn-bar">
+      <label for="ip">Host IP</label>
+      <input id="ip" type="text" value="192.168.1.x" spellcheck="false" />
+      <input id="sid" type="text" value="gas_array" style="width:11ch"
+             spellcheck="false" title="Sensor ID" />
+      <button class="btn" id="reconnect">Connect</button>
+    </div>
+    <span class="status" id="status">connecting…</span>
+  </div>
+
+<script src="../shared/stream.js"></script>
+<script src="../shared/timeseries.js"></script>
+<script>
+  // Channels are discovered from the stream: the node emits data.raw keyed by
+  // gas signal (mq135, mq2, …), so we build one card + sparkline per signal the
+  // first time we see it. Raw counts are always present; ratio (Rs/R0) appears
+  // only for channels the board has calibrated.
+  const ADC_MAX = 1023;
+  const gridEl = document.getElementById("grid");
+  const cards = {};   // signal → { rawEl, ratioEl, chart }
+
+  function cardFor(signal) {
+    if (cards[signal]) return cards[signal];
+    const el = document.createElement("div");
+    el.className = "card";
+    el.innerHTML =
+      `<div class="sig">${signal}</div>` +
+      `<div class="raw">—</div>` +
+      `<div class="ratio"></div>` +
+      `<canvas height="60"></canvas>`;
+    gridEl.appendChild(el);
+    const chart = AnimChart.makeLine(el.querySelector("canvas"), {
+      color: "#3fb950",
+      max: ADC_MAX,
+      tickFmt: (v) => String(v),
+      tipFmt: (v) => v + " adc",
+    });
+    return (cards[signal] = {
+      rawEl: el.querySelector(".raw"),
+      ratioEl: el.querySelector(".ratio"),
+      chart,
+    });
+  }
+
+  let conn = null;
+  function start() {
+    if (conn) conn.close();
+    conn = AnimStream.connect({
+      hostInput: document.getElementById("ip"),
+      sensorId: document.getElementById("sid").value.trim(),
+      onStatus: (text, cls) => {
+        const s = document.getElementById("status");
+        s.textContent = text; s.className = "status " + cls;
+      },
+      onReading: (d) => {
+        if (d.seq != null) document.getElementById("seq").textContent = `seq: ${d.seq}`;
+        const raw = d.raw || {};
+        const ratio = d.ratio || {};
+        for (const signal of Object.keys(raw)) {
+          const c = cardFor(signal);
+          c.rawEl.textContent = raw[signal];
+          c.chart.push(raw[signal]);
+          c.ratioEl.textContent = signal in ratio ? `Rs/R0: ${ratio[signal].toFixed(3)}` : "";
+        }
+      },
+    });
+  }
+
+  document.getElementById("reconnect").addEventListener("click", start);
+  start();
+</script>
+</body>
+</html>

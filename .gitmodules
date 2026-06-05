@@ -13,3 +13,6 @@
 [submodule "sensors/ir_xcvr"]
 	path = sensors/ir_xcvr
 	url = ./sensors/ir_xcvr
+[submodule "sensors/mq_array"]
+	path = sensors/mq_array
+	url = ./sensors/mq_array

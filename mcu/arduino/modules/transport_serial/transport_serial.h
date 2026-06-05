@@ -3,8 +3,8 @@
 
 // Uplink framing — protocol v1.
 //
-// The on-wire layout MUST stay identical to tools/forge/protocol.py (that file
-// is the authoritative spec; the node decodes with it). If you change one, bump
+// The on-wire layout MUST stay identical to core/mcu_link.py (that file is the
+// authoritative spec; the node decodes with it). If you change one, bump
 // PROTOCOL_VERSION in both.
 //
 //   magic 'A''M' | version | seq | count | int16[count] LE | checksum(uint8)
