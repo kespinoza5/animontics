@@ -1,0 +1,2 @@
+static const uint8_t {{ inst }}_pins[] = { {{ pins | join(', ') }} };
+static AnalogIn {{ inst }}({{ inst }}_pins, {{ pins | length }});

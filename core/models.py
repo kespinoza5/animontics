@@ -21,6 +21,21 @@ class ConnectionConfig(BaseModel):
     tx_device: str | None = None   # e.g. /dev/lirc1  — omit to disable TX
 
 
+class SensorChannel(BaseModel):
+    """One channel of an array sensor — index, meaning, and calibration.
+
+    Used by array sensors (mq_array, future pressure_array) whose data arrives
+    as a flat vector of raw values from an MCU. `index` is the wire position in
+    the uplink frame; `signal` is the node-side name; `calibration` is applied in
+    Python. Authored consistently with the MCU's config/mcus/<id>.yaml contract
+    (auto-propagation between the two is deferred — see docs/forge.md).
+    """
+
+    index: int                          # position in the uplink frame
+    signal: str                         # human signal name, e.g. "mq135"
+    calibration: dict[str, Any] = {"type": "raw"}
+
+
 class SensorConfig(BaseModel):
     """Configuration for a single sensor instance on this node."""
 
@@ -28,6 +43,7 @@ class SensorConfig(BaseModel):
     type: str                   # maps to a @register key in the sensor registry
     enabled: bool = True
     connection: ConnectionConfig
+    channels: list[SensorChannel] = []  # array sensors only; empty for scalars
 
 
 class NetworkConfig(BaseModel):
@@ -69,11 +85,18 @@ class AnimonSensorRef(BaseModel):
 
 
 class AnimonUsbMcu(BaseModel):
-    """A microcontroller attached via USB hub."""
+    """A microcontroller attached via USB hub.
+
+    The optional `id` names this MCU instance and links it to its forge build
+    contract at config/mcus/<id>.yaml; `contract` overrides that path stem if it
+    differs from `id`. Both are optional so existing node files stay valid.
+    """
 
     type: str                    # e.g. "rp2040", "samd20", "arduino"
     usb_port: str                # hub port identifier, e.g. "1-1"
     role: str | None = None      # optional role label, e.g. "power_control"
+    id: str | None = None        # instance id; matches config/mcus/<id>.yaml
+    contract: str | None = None  # forge contract stem (defaults to id)
 
 
 class AnimonNodeConnection(BaseModel):

@@ -1,0 +1,40 @@
+# config/mcus/<id>.yaml — MCU build contract (the forge source of truth)
+#
+# Consumed twice:
+#   • build time — forge composes + compiles firmware from the modules below
+#   • run time   — the node-side array sensor reads `channels` to interpret the stream
+#
+# Real per-instance contracts are gitignored (they name physical units and hold
+# calibration). Copy this template to config/mcus/<your-mcu-id>.yaml and edit.
+# See docs/forge.md for the full model and the firmware↔Python boundary.
+
+id: example_mcu
+target: mcu.arduino          # builder key — selects ArduinoBuilder + mcu/arduino
+board: nano                  # board profile in mcu/arduino/platform.yaml → FQBN
+
+transport:                   # MCU → node uplink (how the node reads the stream)
+  type: serial               # serial (now); spi reserved
+  baud: 115200
+
+# Reusable source modules to compose into this firmware. Each module declares
+# its own config + pin/bus claims in mcu/<family>/modules/<name>/manifest.yaml;
+# forge validates these against the board's platform.yaml.
+modules:
+  - module: analog_in        # sample ADC pins → uplink frame channels
+    pins: [A0, A1, A2, A3]
+    sample_hz: 2
+  - module: pwm_out          # actuator outputs, driven by inbound commands
+    pins: [D3, D5, D6]
+    freq_hz: 25000
+  - module: gpio_out         # simple on/off lines (e.g. a status LED)
+    pins: [D13]
+  - module: transport_serial # uplink framing (singleton; protocol v1)
+
+# channels: ASSIGNED by `forge build` / `forge validate` from the modules above
+# and written back here — the index→signal binding the node-side sensor consumes.
+# Edit `signal` and `calibration`; do not renumber `index` (it is the wire order).
+channels:
+  - {index: 0, source: analog_in.A0, signal: example_0, calibration: {type: raw}}
+  - {index: 1, source: analog_in.A1, signal: example_1, calibration: {type: raw}}
+  - {index: 2, source: analog_in.A2, signal: example_2, calibration: {type: raw}}
+  - {index: 3, source: analog_in.A3, signal: example_3, calibration: {type: raw}}

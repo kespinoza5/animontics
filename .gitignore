@@ -34,6 +34,16 @@ config/boards/*.yaml
 config/nodes/*.yaml
 !config/nodes/example.yaml
 
+# MCU build contracts — per-instance module selection, wiring, calibration.
+# Use config/mcus/example.yaml as the template (that file IS tracked)
+config/mcus/*.yaml
+!config/mcus/example.yaml
+
+# Firmware build output — forge composes + compiles here (deterministic rebuild).
+# The directory and its README are tracked; built artifacts are not.
+firmware/*
+!firmware/README.md
+
 # Secrets and credentials
 .env
 *.key

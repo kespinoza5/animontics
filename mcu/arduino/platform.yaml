@@ -1,0 +1,31 @@
+# mcu/arduino/platform.yaml — AVR/Arduino family capabilities for forge.
+#
+# Declares board profiles (→ FQBN), which physical pins support which function,
+# and the toolchain commands. forge validates a contract's module pin claims
+# against `pins` and dispatches compilation/flashing to the declared tools.
+
+family: arduino
+
+boards:
+  nano:
+    fqbn: arduino:avr:nano
+  nano_old:                       # older Nanos with the legacy bootloader
+    fqbn: arduino:avr:nano:cpu=atmega328old
+  uno:
+    fqbn: arduino:avr:uno
+
+# Physical pin sets, keyed by claim "kind". A pin may appear in several sets
+# (e.g. D3 is both pwm- and gpio-capable); cross-module conflicts are caught by
+# the single-claim rule in contract.validate, not by the sets.
+pins:
+  adc:  [A0, A1, A2, A3, A4, A5, A6, A7]
+  pwm:  [D3, D5, D6, D9, D10, D11]
+  gpio: [D2, D3, D4, D5, D6, D7, D8, D9, D10, D11, D12, D13]
+  uart: [D0, D1]                  # hardware UART / USB-CDC uplink
+
+adc_bits: 10                      # ATmega328P ADC resolution (0..1023)
+
+compile:
+  tool: arduino-cli               # forge auto-uses WSL if not on PATH (see arduino.py)
+flash:
+  tool: avrdude

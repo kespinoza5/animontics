@@ -7,8 +7,12 @@ pyyaml>=6.0
 
 # Sensor dependencies — only install what the board actually uses.
 # The node agent gracefully skips sensor packages that are missing deps.
-pyserial>=3.5       # tf_mini, lv_maxsonar, usb_cdc sensors
+pyserial>=3.5       # tf_mini, lv_maxsonar, usb_cdc, mq_array sensors
 smbus2>=0.4.3       # vl53l1x, mlx90640, other I2C sensors
+
+# Build tooling — dev machine only (tools/forge firmware composition).
+# Not needed on boards running the node agent.
+jinja2>=3.1         # forge: render mcu/<family> templates → firmware projects
 
 # Camera (optional — only if camera is enabled in config)
 # opencv-python-headless>=4.9.0

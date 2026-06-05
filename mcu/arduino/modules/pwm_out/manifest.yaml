@@ -1,0 +1,11 @@
+module: pwm_out
+platforms: [arduino]
+role: actuator
+description: PWM outputs (e.g. fan control), driven by inbound set_duty commands.
+claims:
+  kind: pwm                 # `pins` must be pwm-capable pins on the board
+accepts:
+  set_duty: {channel: int, duty: int}   # 0..255 — inbound dispatch is deferred (Phase 5)
+config:
+  freq_hz: 0                # 0 = leave the core default PWM frequency
+sources: [pwm_out.h, pwm_out.cpp]

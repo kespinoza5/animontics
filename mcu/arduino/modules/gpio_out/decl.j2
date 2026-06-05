@@ -1,0 +1,2 @@
+static const uint8_t {{ inst }}_pins[] = { {{ pins | join(', ') }} };
+static GpioOut {{ inst }}({{ inst }}_pins, {{ pins | length }}, {{ params.blink_ms | default(0) }}UL);

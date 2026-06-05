@@ -1,0 +1,11 @@
+module: analog_in
+platforms: [arduino]
+role: sensor
+description: Sample one or more ADC pins into uplink frame channels.
+claims:
+  kind: adc                 # `pins` must be valid adc pins on the board
+provides:
+  channels: per_pin         # one frame channel per configured pin (wire order = pin order)
+config:
+  sample_hz: 2              # informs the firmware's global sample period
+sources: [analog_in.h, analog_in.cpp]
