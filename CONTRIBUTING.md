@@ -243,6 +243,64 @@ established pattern for all routers.
 
 ---
 
+## Adding an MCU target / firmware module
+
+Microcontrollers are built and flashed with `tools/forge`, not deployed like
+Python sensors. Firmware is *composed* at build time from a per-instance contract
+plus reusable source modules. See [docs/forge.md](docs/forge.md) for the design.
+
+**Keep the boundary:** firmware streams raw bytes; all meaning (calibration,
+units, curves) lives in the node-side Python sensor. A firmware module never
+interprets its samples.
+
+### Add a module to an existing family (e.g. `mcu/arduino/`)
+
+A module is a hand-written lean C++ library plus a manifest and jinja fragments:
+
+```
+mcu/arduino/modules/my_module/
+├── manifest.yaml      # platforms, role, claims{kind}, provides{channels}, config, sources
+├── my_module.h        # a small class — setup() + its work method(s), no framing
+├── my_module.cpp
+├── decl.j2            # instance declaration   → main.ino globals
+├── setup.j2           # init call              → setup()
+└── read.j2 | loop.j2 | send.j2   # role-specific body → loop()
+```
+
+`manifest.yaml` shape:
+
+```yaml
+module: my_module
+platforms: [arduino]
+role: sensor              # sensor | actuator | transport
+claims: {kind: adc}       # pins must be valid <kind> pins in platform.yaml; one claim per pin
+provides: {channels: per_pin}   # sensors only: per_pin or an integer count
+config: {sample_hz: 2}    # defaults, overridable per instance in the contract
+sources: [my_module.h, my_module.cpp]
+```
+
+Fragments render with a uniform context: `inst`, `pins` (Arduino-translated),
+`params`, `offset` (this module's first channel index), `count`, `channel_count`,
+`baud`. The composer buckets each fragment into `main.ino` — no per-module logic
+lives in the builder. Validate with `python -m tools.forge.forge validate <id>`.
+
+### Add a new family or target category
+
+- A new **family** (e.g. `mcu/samd21/`) is another source tree with its own
+  `platform.yaml` + modules, driven by the existing `ArduinoBuilder`-style flow.
+- A new **category** (FPGA, accelerator) is a new `Builder` subclass in
+  `tools/forge/builders/` registered with `@register_builder("fpga.ice40")` and
+  imported in `tools/forge/builders/__init__.py`. Implement `validate / compose /
+  build / deploy`; nothing else in forge changes.
+
+### Surfacing the data on a node
+
+An MCU that streams channels is read by an **array sensor** that subclasses
+`core.analog_array.AnalogArrayBase` (see `sensors/mq_array/`). The base owns the
+serial loop and frame decode (`core/mcu_link.py`); your subclass overrides
+`enrich()` to add calibrated values on top of the always-present raw lane. Follow
+the normal [new-sensor steps](#adding-a-new-sensor) for that package.
+
 ## Standardized data keys
 
 All sensors should emit readings with these standardized keys where applicable.

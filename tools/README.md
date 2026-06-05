@@ -18,11 +18,28 @@ See [`fleet/README.md`](fleet/README.md) for full documentation.
 
 ---
 
+## Firmware Composition — `forge/`
+
+The MCU-tier counterpart to `animon`. `forge` composes microcontroller firmware
+from a per-instance contract (`config/mcus/<id>.yaml`) plus reusable source
+modules (`mcu/<family>/`), compiles it, and flashes it over the host node's SSH.
+
+```bash
+python -m tools.forge.forge validate <mcu-id>
+python -m tools.forge.forge build    <mcu-id>     # → firmware/<id>/
+python -m tools.forge.forge flash    <mcu-id>
+```
+
+See [`forge/README.md`](forge/README.md) for the contract, modules, and toolchain.
+
+---
+
 ## Other Tools
 
 | Tool | Purpose |
 |------|---------|
 | `fleet/` | Full fleet management CLI (deploy, status, diff, pull, probe, revert) |
+| `forge/` | Compose/compile/flash MCU firmware from a contract (validate, build, flash, clean) |
 | `board/verify_comms.sh` | Scan I2C buses, list UART and USB serial devices |
 | `board/setup_i2c.sh` · `setup_uart.sh` · `setup_spi.sh` · `setup_i2s.sh` | Enable a hardware bus on the board (run as root; reboot required) |
 | `ssh/fleet_access.sh` | One-command access setup/refresh/rotate — wraps the scripts below |

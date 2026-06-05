@@ -119,6 +119,7 @@ work. The tools are grouped by concern:
 | Tool | Command | What it's for |
 |------|---------|---------------|
 | **Fleet CLI** | `python -m tools.fleet.animon` | Keep boards in sync from desired state — `deploy`, `status`, `diff`, `pull`, `probe`, `revert`. The primary interface. See [tools/fleet/README.md](tools/fleet/README.md). |
+| **Firmware (forge)** | `python -m tools.forge.forge` | Compose + compile + flash microcontroller firmware from a contract — `validate`, `build`, `flash`, `clean`. The MCU-tier counterpart to `animon`. See [tools/forge/README.md](tools/forge/README.md) and [docs/forge.md](docs/forge.md). |
 | **Repo audit** | `python tools/dev/audit.py` | Conformance checks — verifies sensor packages and routers follow the plugin contract (METADATA present, no `register_sensors` anti-pattern). Static analysis, safe to run on any OS. |
 | **SSH access** | `tools/ssh/fleet_access.sh setup` | One command to generate the Ed25519 fleet key, push it to every board in `animon.yaml`, and write `~/.ssh/config` aliases so `ssh`/`scp <node-id>` just work (no `-i`, no `ssh-add`) — the key auth the CLI requires. Also `refresh`, `rotate`, and `--harden` to disable board password auth. Run on your dev machine. |
 | **Board setup** | `tools/board/setup_{i2c,uart,spi,i2s}.sh` | Enable a hardware bus on the board (idempotent edits to `config.txt`; run as root, reboot after). Raspberry Pi OS. |
@@ -137,18 +138,23 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). The short version: create a package unde
 ## Project Layout
 
 ```
-core/           Shared infrastructure: SensorBase, models, config loader, registry
+core/           Shared infrastructure: SensorBase, AnalogArrayBase, mcu_link, models, registry
 sensors/        Sensor plugin packages (each its own git repo)
   tf_mini/      Benewake TF Mini Plus LiDAR
   lv_maxsonar/  MaxBotix LV-MaxSonar-EZ ultrasonic
   vl53l1x/      ST VL53L1X time-of-flight
   mlx90640/     Melexis MLX90640 32×24 thermal array
+  mq_array/     MQ gas sensor array (read over an MCU serial uplink)
+mcu/            Firmware source by chip family (composed by forge)
+  arduino/      platform.yaml, modules/, templates/ for AVR/Arduino targets
+firmware/       Build output — composed + compiled artifacts (gitignored)
 node/           Per-board node agent (FastAPI + uvicorn)
   app.py        App factory: loads config, starts sensors, mounts routers
   routers/      HTTP/SSE/WebSocket route handlers
-config/         Per-board config.yaml + animon.yaml fleet topology
+config/         Per-board config.yaml + animon.yaml fleet topology + mcus/ contracts
 tools/          Board management and provisioning scripts
   fleet/        animon CLI — deploy, status, diff, pull, probe
+  forge/        forge CLI — compose/compile/flash MCU firmware
   ssh/          Fleet SSH access — key gen/distribute/rotate, ~/.ssh/config setup
   dev/          Repo audit / conformance checks
   usb/usbport/  USB ethernet interface tool (standalone)

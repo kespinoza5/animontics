@@ -284,6 +284,21 @@ SSH uses key auth only (`BatchMode=yes`). Credentials never appear on the comman
 
 ---
 
+## Microcontroller Targets
+
+Below the Linux nodes is a third tier: microcontrollers (and, later, FPGAs and
+inference accelerators) on a node's USB hubs. Unlike a sensor the SBC drives
+directly over I2C/UART, these run their own **flashed** code. They are built and
+flashed with `tools/forge` — the MCU-tier counterpart to `animon` — which
+*composes* firmware from a per-instance contract (`config/mcus/<id>.yaml`) plus
+reusable source modules (`mcu/<family>/`), compiles it to `firmware/<id>/`, and
+flashes it over the host node's SSH.
+
+The MCU streams raw channel samples; the node interprets them via an array sensor
+(`core.analog_array.AnalogArrayBase`, e.g. [`mq_array`](sensors/mq_array.md)) that
+shares the link codec in `core/mcu_link.py`. Firmware moves bytes; Python owns
+meaning. See **[Firmware & Targets (forge)](forge.md)** for the full design.
+
 ## Git Structure
 
 ```

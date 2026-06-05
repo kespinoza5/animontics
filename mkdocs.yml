@@ -34,6 +34,7 @@ nav:
   - Home: index.md
   - Getting Started: getting-started.md
   - Architecture: architecture.md
+  - Firmware & Targets (forge): forge.md
   - Configuration: config.md
   - Sensors:
     - Overview: sensors/index.md
@@ -42,11 +43,13 @@ nav:
     - VL53L1X Time-of-Flight: sensors/vl53l1x.md
     - MLX90640 Thermal: sensors/mlx90640.md
     - IR Transceiver: sensors/ir_xcvr.md
+    - MQ Gas Array: sensors/mq_array.md
   - Node Agent: node.md
   - Core Library: core.md
   - Tools:
     - Overview: tools/index.md
     - Fleet CLI (animon): tools/fleet.md
+    - Firmware (forge): tools/forge.md
     - Board Setup & Comms: tools/board.md
     - SSH Access: tools/ssh.md
     - Network (AP): tools/network.md

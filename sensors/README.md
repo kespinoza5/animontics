@@ -19,6 +19,7 @@ This means:
 | [`lv_maxsonar/`](lv_maxsonar/README.md) | MaxBotix LV-MaxSonar-EZ | UART | `distance_mm` |
 | [`vl53l1x/`](vl53l1x/README.md) | ST VL53L1X time-of-flight | I2C | `distance_mm` |
 | [`mlx90640/`](mlx90640/README.md) | Melexis MLX90640 32×24 thermal | I2C | `pixels[]`, `min_temp`, `max_temp` |
+| [`mq_array/`](mq_array/README.md) | MQ gas sensor array (via MCU) | UART (forge) | `raw{}`, `ratio{}` |
 
 ## Adding a New Sensor
 
