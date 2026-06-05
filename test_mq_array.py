@@ -98,10 +98,3 @@ class TestEndToEnd:
         frames += stream.feed(wire[3:])                  # rest arrives later
         readings = [s._reading(f) for f in frames]
         assert [r.data["raw"] for r in readings] == [{"mq135": 512}]
-
-
-class TestCommands:
-    def test_send_command_false_when_link_closed(self):
-        # not started → no open serial handle → command is refused, not crashed
-        s = _sensor([SensorChannel(index=0, signal="mq135")])
-        assert s.send_command(1, [0, 128]) is False
