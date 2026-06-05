@@ -68,8 +68,24 @@ JSON readings on the standard SSE lane (`/sensors/<id>/stream`):
 `raw` is always present (raw ADC counts per signal). `ratio` (Rs/R0) appears only
 for channels with `calibration.type: mq`. Clients own any ppm conversion.
 
+## Driving PWM outputs (e.g. fans)
+
+If the same MCU also composes a `pwm_out` module (as the LArduino does for its
+fans), the node can drive it over the same serial link — the sensor owns the
+link, so the command goes through it:
+
+```bash
+curl -X POST http://<node>:8080/mq_array/gas_array/pwm \
+     -H 'Content-Type: application/json' -d '{"channel": 0, "duty": 200}'
+```
+
+`channel` indexes the MCU's `pwm_out` pins; `duty` is 0–255. This is the MCU
+device's actuator facet sharing the gas sensor's link (see
+[docs/forge.md](../../docs/forge.md)); a dedicated device object is the planned
+long-term home.
+
 ## Tests
 
 ```bash
-pytest sensors/mq_array/ -v      # gas math + enrich; no hardware needed
+pytest sensors/mq_array/ -v      # gas math + enrich + command guard; no hardware
 ```
