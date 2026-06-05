@@ -87,9 +87,10 @@ The current sensor streaming API (`GET /sensors/{id}/stream`, `WS /sensors/{id}/
 
 - [x] `sensors/mq_array/` — MQ gas sensor array read over an MCU serial uplink
       (`AnalogArrayBase` + forge-built firmware)
-- [ ] `sensors/pressure_array/` — 4 × ADS1115 per XIAO SAMD21. Extract the shared
-      base out of `mq_array` into `AnalogArrayBase` usage, add an `ads1115`/`i2c`
-      module + a forge `mcu/samd21/` family (was: "`sensors/ads1115/` 16-bit ADC")
+- [ ] `sensors/pressure_array/` — 4 × ADS1115 per CircuitPython MCU (XIAO etc.).
+      Reuse `AnalogArrayBase`; add an `ads1115` module under the forge
+      `mcu/circuit_python/` family (was: "`sensors/ads1115/` 16-bit ADC"). ADS1115
+      is read by the MCU and streamed — no SBC-direct I2C source needed.
 - [ ] `sensors/imu/` — IMU via RP2040/SAMD20 USB CDC (candidate `analog_array` /
       forge `mcu/rp2040/` consumer)
 - [ ] `sensors/camera/` — Generalize `node/routers/camera.py` into a proper SensorBase plugin
@@ -136,8 +137,12 @@ an existing seam:
       connections. (Replaces the backed-out sensor-coupled command path.)
 - [ ] SPI transport — a `transport_spi` module + node-side reader; isolated to the
       transport module + `core/mcu_link.py` consumers.
-- [ ] `mcu/samd21/` and `mcu/rp2040/` families; FPGA (`fpga.ice40`) and
-      accelerator (`accel.hailo` / `accel.coral`) `Builder`s under `tools/forge/builders/`.
+- [ ] `mcu/circuit_python/` family — ONE generic CircuitPython runtime (code.py)
+      shipped to any CP board (XIAO SAMD21, RP2040, …), parameterized by a forge-
+      generated on-device config; builder "compiles" by copying files to CIRCUITPY.
+      Organize firmware families by runtime/build method, not chip.
+- [ ] FPGA (`fpga.ice40`) and accelerator (`accel.hailo` / `accel.coral`)
+      `Builder`s under `tools/forge/builders/`.
 - [ ] `animon`↔`forge` integration: `animon deploy` reconciles firmware as desired
       state and auto-propagates `config/mcus/<id>.yaml` channels → the board's
       `mq_array` `channels` (today they are authored by hand in both places).
