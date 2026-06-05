@@ -18,7 +18,7 @@ import logging
 import threading
 import time
 
-from core.mcu_link import FrameStream, encode_command
+from core.mcu_link import FrameStream
 from core.models import SensorReading
 from core.sensor_base import SensorBase
 
@@ -38,8 +38,6 @@ class AnalogArrayBase(SensorBase):
         self._thread: threading.Thread | None = None
         self._stop_event = threading.Event()
         self._healthy = False
-        self._ser = None                      # open serial handle (for outbound commands)
-        self._ser_lock = threading.Lock()
 
     # ── SensorBase contract ───────────────────────────────────────────────────
 
@@ -61,28 +59,6 @@ class AnalogArrayBase(SensorBase):
 
     def is_healthy(self) -> bool:
         return self._healthy
-
-    # ── Outbound commands (node → MCU) ────────────────────────────────────────
-
-    def send_command(self, cmd_id: int, args=()) -> bool:
-        """Send a command frame to the MCU over the same link (e.g. drive a fan).
-
-        Returns False if the link is not currently open. This lives on the array
-        sensor because it owns the serial handle; conceptually it is the MCU
-        *device's* actuator facet (see docs/forge.md) — a dedicated device object
-        is the planned home once forge↔node integration lands.
-        """
-        ser = self._ser
-        if ser is None:
-            return False
-        payload = encode_command(cmd_id, list(args))
-        with self._ser_lock:
-            try:
-                ser.write(payload)
-                return True
-            except OSError as exc:               # pyserial SerialException is an OSError
-                log.warning("%s: command write failed — %s", self.id, exc)
-                return False
 
     # ── Overridable interpretation hook ───────────────────────────────────────
 
@@ -124,7 +100,6 @@ class AnalogArrayBase(SensorBase):
                 with serial.Serial(port, baud, timeout=1) as ser:
                     log.info("%s: opened %s at %d baud", self.id, port, baud)
                     self._healthy = True
-                    self._ser = ser
                     while not self._stop_event.is_set():
                         chunk = ser.read(64)
                         if not chunk:
@@ -135,7 +110,5 @@ class AnalogArrayBase(SensorBase):
                 self._healthy = False
                 log.warning("%s: serial error — %s — retrying in 2s", self.id, exc)
                 self._stop_event.wait(2)
-            finally:
-                self._ser = None
 
         self._healthy = False

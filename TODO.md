@@ -125,11 +125,15 @@ an existing seam:
 
 - [ ] Flash over SSH against live hardware — `ArduinoBuilder.deploy` is written
       (rsync `.hex` + `avrdude`) but unexercised without a board.
-- [x] Inbound command lane — node→MCU `AC` command frames (`core/mcu_link.py`),
-      firmware `transport_serial.poll()` + generated `onCommand` dispatch, and
-      `POST /mq_array/{id}/pwm` driving `pwm_out.set_duty`. Verified offline
-      (codec round-trip, firmware compiles, command-guard test); flashing to a
-      live board still pending hardware.
+- [~] Command lane — MCU SIDE DONE: `AC` command frames (`core/mcu_link.py`),
+      firmware `transport_serial.poll()` + generated `onCommand` dispatch to
+      `pwm_out.set_duty` (codec round-trip + compile verified). NODE SIDE PENDING:
+      the actuator/device tier below — commands must NOT live on a sensor.
+- [ ] Node device + actuator tier — a device object owns each MCU/link (one read
+      pump shared by sensors + actuators); an ActuatorBase plugin family (pwm via
+      an MCU device, pwm direct on an SBC) exposes control routes. Decouples
+      actuation from sensing; supports PWM on MCUs and SBCs with varied sensor
+      connections. (Replaces the backed-out sensor-coupled command path.)
 - [ ] SPI transport — a `transport_spi` module + node-side reader; isolated to the
       transport module + `core/mcu_link.py` consumers.
 - [ ] `mcu/samd21/` and `mcu/rp2040/` families; FPGA (`fpga.ice40`) and

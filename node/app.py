@@ -31,7 +31,6 @@ from node.routers.camera import start_camera, stop_camera
 from node.routers.config import router as config_router
 from node.routers.i2c import router as i2c_router
 from node.routers.ir_xcvr import router as ir_xcvr_router
-from node.routers.mq_array import router as mq_array_router
 from node.routers.sensors import router as sensors_router
 from node.routers.vl53l1x import router as vl53l1x_router
 
@@ -89,7 +88,6 @@ def create_app() -> FastAPI:
     app.include_router(i2c_router)
     app.include_router(camera_router_module.router)
     app.include_router(ir_xcvr_router)
-    app.include_router(mq_array_router)
     app.include_router(vl53l1x_router)
 
     @app.get("/")
