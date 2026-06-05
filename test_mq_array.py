@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import pytest
 
+from core.mcu_link import FrameStream, encode
 from core.models import ConnectionConfig, SensorChannel, SensorConfig
 from sensors.mq_array.driver import ADC_MAX, rs_over_r0, rs_over_rl
 from sensors.mq_array.sensor import MqArray
@@ -62,3 +63,38 @@ class TestEnrich:
         data = {"raw": {"mq135": 400, "mq2": 600}}
         s.enrich(data, data["raw"])
         assert set(data["ratio"]) == {"mq135"}     # only the calibrated one
+
+
+class TestEndToEnd:
+    """Bytes a forge-built MCU would emit → FrameStream → SensorReading.
+
+    Exercises the whole node-side decode chain (core.mcu_link + AnalogArrayBase
+    index→signal mapping + MqArray.enrich) in software — the strongest check
+    available without hardware.
+    """
+
+    def test_encoded_frame_becomes_reading(self):
+        s = _sensor([
+            SensorChannel(index=0, signal="mq135",
+                          calibration={"type": "mq", "rl": 10000, "r0": 10000}),
+            SensorChannel(index=1, signal="mq2"),  # raw only
+        ])
+        wire = encode([400, 600], seq=3)            # as transport_serial would send
+        frames = FrameStream().feed(wire)
+        assert len(frames) == 1
+
+        reading = s._reading(frames[0])
+        assert reading.sensor_type == "mq_array"
+        assert reading.data["seq"] == 3
+        assert reading.data["raw"] == {"mq135": 400, "mq2": 600}
+        assert "mq135" in reading.data["ratio"]
+        assert "mq2" not in reading.data["ratio"]   # uncalibrated → raw only
+
+    def test_resyncs_across_garbage_and_split_reads(self):
+        s = _sensor([SensorChannel(index=0, signal="mq135")])
+        wire = encode([512], seq=1)
+        stream = FrameStream()
+        frames = stream.feed(b"\x00noise" + wire[:3])   # garbage + partial frame
+        frames += stream.feed(wire[3:])                  # rest arrives later
+        readings = [s._reading(f) for f in frames]
+        assert [r.data["raw"] for r in readings] == [{"mq135": 512}]
