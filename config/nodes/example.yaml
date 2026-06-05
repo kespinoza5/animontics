@@ -15,6 +15,9 @@
 #   role         — free-text role label for documentation / tooling
 #   capabilities — list of optional hardware capabilities
 #   sensors      — list of {id, type} pairs — NO wiring details here
+#   usb_mcus     — microcontrollers on this node's USB hubs. `id` links to a
+#                  forge build contract at config/mcus/<id>.yaml; a sensor that
+#                  reads the MCU's stream (e.g. mq_array) is listed under sensors.
 #
 # Wiring details (port paths, I2C bus/address, baud rates) go in
 # config/boards/<id>.yaml, or are bootstrapped from sensor METADATA
@@ -33,3 +36,13 @@ sensors:
     type: tf_mini
   - id: thermal_rear
     type: mlx90640
+  - id: gas_array          # reads the larduino MCU's gas stream (see usb_mcus)
+    type: mq_array
+
+# Microcontrollers on this node's USB hubs. Build/flash their firmware with
+# `python -m tools.forge.forge build <id>` (contract at config/mcus/<id>.yaml).
+usb_mcus:
+  - id:       larduino     # → config/mcus/larduino.yaml
+    type:     arduino
+    usb_port: "1-1"
+    role:     gas_and_fans
