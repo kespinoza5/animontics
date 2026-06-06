@@ -198,8 +198,10 @@ Each node exposes:
 | `GET /effectors` · `/effectors/{id}` | Outputs: list / descriptor + state |
 | `POST /effectors/{id}` · `WS /effectors/{id}/stream` | Drive: request lane / stream lane |
 | `GET /policies` · `/policies/{id}` · `POST /policies/{id}/enable` | Control loops: inspect / toggle |
+| `GET /config` | The board's running config |
 | `GET /camera` | MJPEG stream (if camera enabled) |
 | `GET /i2c` | I2C bus scan |
+| type-specific | e.g. `/ir/*` (IR transmit), `/vl53l1x/*` (ToF mode) — see the sensor's page |
 
 Per-sensor diagnostic viewers live in `web/viewers/` (built on the shared modules in `web/shared/`) and open directly in a browser. Point them at any node's IP.
 

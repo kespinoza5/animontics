@@ -62,8 +62,11 @@ camera, releasing hardware in reverse order.
 | `WS` | `/effectors/{id}/stream` | Stream-lane drive (continuous flow) |
 | `GET` | `/policies` · `/policies/{id}` | Policy list / wiring + current obs & action |
 | `POST` | `/policies/{id}/enable` | Enable/disable a policy |
+| `GET` | `/config` | The board's running configuration |
 | `GET` | `/camera` | MJPEG multipart stream (503 if no camera configured) |
 | `GET` | `/i2c` | Scan all I2C buses, return detected addresses |
+| `GET`/`POST` | `/ir/*` | IR transceiver: `capabilities`, `protocols`, `transmit` |
+| `GET`/`POST` | `/vl53l1x/*` | ToF control: `state`, `mode`, `auto` |
 
 ## Environment Variables
 
