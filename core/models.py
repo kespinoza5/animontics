@@ -22,18 +22,36 @@ class ConnectionConfig(BaseModel):
 
 
 class SensorChannel(BaseModel):
-    """One channel of an array sensor — index, meaning, and calibration.
+    """One channel of an array sensor — its source, meaning, and calibration.
 
-    Used by array sensors (mq_array, future pressure_array) whose data arrives
-    as a flat vector of raw values from an MCU. `index` is the wire position in
-    the uplink frame; `signal` is the node-side name; `calibration` is applied in
-    Python. Authored consistently with the MCU's config/mcus/<id>.yaml contract
-    (auto-propagation between the two is deferred — see docs/forge.md).
+    Array sensors read a flat vector of raw values from one or more devices.
+    `device` is the device id this channel comes from (a logical sensor may span
+    several — e.g. cranial pressure across 4 MCUs); `index` is the position within
+    that device's frame; `signal` is the node-side name; `calibration` is applied
+    in Python. Authored consistently with the MCU's config/mcus/<id>.yaml.
     """
 
-    index: int                          # position in the uplink frame
+    index: int                          # position within the device's frame
     signal: str                         # human signal name, e.g. "mq135"
+    device: str | None = None           # device id this channel reads from
     calibration: dict[str, Any] = {"type": "raw"}
+
+
+class DeviceConfig(BaseModel):
+    """A shared peripheral on this node — an MCU link, an ADS1115 chip, etc.
+
+    A device owns its transport; sensors read through it and effectors write
+    through it. Created at node startup and bound to sensors/effectors by id.
+    """
+
+    id: str
+    kind: str                           # "mcu_serial" | "ads1115" | ...
+    # mcu_serial
+    port: str | None = None
+    baud: int | None = None
+    # i2c (ads1115)
+    bus: int | None = None
+    address: int | None = None          # device address as int (0x48 → 72)
 
 
 class SensorConfig(BaseModel):
@@ -42,8 +60,8 @@ class SensorConfig(BaseModel):
     id: str                     # unique within this node, e.g. "lidar_front"
     type: str                   # maps to a @register key in the sensor registry
     enabled: bool = True
-    connection: ConnectionConfig
-    channels: list[SensorChannel] = []  # array sensors only; empty for scalars
+    connection: ConnectionConfig | None = None  # None for device-fed array sensors
+    channels: list[SensorChannel] = []          # array sensors; empty for scalars
 
 
 class NetworkConfig(BaseModel):
@@ -67,6 +85,7 @@ class NodeConfig(BaseModel):
     hostname: str
     network: NetworkConfig = NetworkConfig()
     camera: CameraConfig | None = None
+    devices: list[DeviceConfig] = []
     sensors: list[SensorConfig] = []
 
 

@@ -19,6 +19,7 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
 from core.config import load_node_config
+from core.device import Device, create_device
 from core.registry import create, registered_types
 from core.sensor_base import SensorBase
 
@@ -47,6 +48,17 @@ async def lifespan(app: FastAPI):
     log.info("Node: %s (%s) — %s", config.node_id, config.node_type, config.hostname)
     log.info("Known sensor types: %s", registered_types())
 
+    # ── Devices (shared peripherals) — started before the sensors that read them.
+    active_devices: dict[str, Device] = {}
+    for dc in config.devices:
+        try:
+            device = create_device(dc)
+            device.start()
+            active_devices[dc.id] = device
+            log.info("Device '%s' (%s): started", dc.id, dc.kind)
+        except ValueError as exc:
+            log.error("Device '%s': %s", dc.id, exc)
+
     active_sensors: dict[str, SensorBase] = {}
     for sc in config.sensors:
         if not sc.enabled:
@@ -54,6 +66,8 @@ async def lifespan(app: FastAPI):
             continue
         try:
             sensor = create(sc)
+            if hasattr(sensor, "attach_devices"):
+                sensor.attach_devices(active_devices)   # bind device-fed sensors
             sensor.start()
             active_sensors[sc.id] = sensor
             log.info("Sensor '%s' (%s): started", sc.id, sc.type)
@@ -61,6 +75,7 @@ async def lifespan(app: FastAPI):
             log.error("Sensor '%s': %s", sc.id, exc)
 
     app.state.config  = config
+    app.state.devices = active_devices
     app.state.sensors = active_sensors
 
     if config.camera and config.camera.enabled:
@@ -72,6 +87,8 @@ async def lifespan(app: FastAPI):
     # ── Shutdown ──────────────────────────────────────────────────────────────
     for sensor in active_sensors.values():
         sensor.stop()
+    for device in active_devices.values():
+        device.stop()
     stop_camera()
 
 

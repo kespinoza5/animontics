@@ -107,20 +107,25 @@ sensors: []
 #     rx_device: /dev/lirc0
 #     tx_device: /dev/lirc1
 
-# ── MQ Gas Sensor Array (via MCU serial uplink) ───────────────────────────────
-# Fed by a microcontroller built with tools/forge (config/mcus/<id>.yaml). The
-# `channels` map binds each frame index to a gas signal + calibration; the index
-# order is the wire order the firmware emits. Use the by-id path so the device
-# survives re-enumeration on a shared hub.
+# ── Devices (shared peripherals: MCU links, ADS1115 chips) ────────────────────
+# A device owns a transport; sensors read through it and effectors write through
+# it. Built/flashed with tools/forge (config/mcus/<id>.yaml). Use the by-id path
+# so an MCU survives re-enumeration on a shared USB hub.
+#
+# devices:
+#   - {id: larduino, kind: mcu_serial, port: /dev/serial/by-id/usb-1a86_USB_Serial-if00-port0, baud: 115200}
+#   - {id: head_adc, kind: ads1115, bus: 1, address: 0x48}   # ADS1115 chip on the SBC's I2C
+
+# ── MQ Gas Sensor Array (reads an MCU device) ─────────────────────────────────
+# A logical array sensor bound to one or more devices. Each channel maps a
+# device + frame index to a gas signal + calibration; a sensor may span several
+# devices (e.g. cranial pressure across 4 MCUs). No `connection` — it reads the
+# device's stream.
 #
 # - id: gas_array
 #   type: mq_array
 #   enabled: true
-#   connection:
-#     type:      uart
-#     port:      /dev/serial/by-id/usb-1a86_USB_Serial-if00-port0
-#     baud_rate: 115200
 #   channels:
-#     - {index: 0, signal: mq135, calibration: {type: raw}}
-#     - {index: 1, signal: mq2,   calibration: {type: mq, rl: 10000, r0: 76000}}
-#     # ... one entry per ADC channel the MCU streams
+#     - {device: larduino, index: 0, signal: mq135, calibration: {type: raw}}
+#     - {device: larduino, index: 1, signal: mq2,   calibration: {type: mq, rl: 10000, r0: 76000}}
+#     # ... one entry per channel the MCU streams
