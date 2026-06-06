@@ -21,8 +21,12 @@ This means:
 | [`mlx90640/`](mlx90640/README.md) | Melexis MLX90640 32×24 thermal | I2C | `pixels[]`, `min_temp`, `max_temp` |
 | [`mq_array/`](mq_array/README.md) | MQ gas sensor array (via MCU) | UART (forge) | `raw{}`, `ratio{}` |
 | [`pressure_array/`](pressure_array/README.md) | Pressure surface (across MCUs) | device (MCU) | `raw{}`, `kpa{}` |
-| `analog_in/` | Heterogeneous analog inputs | device (ADS1115) | `raw{}`, per-signal |
-| `board_temp/` | SBC board/CPU temperature | sysfs (none) | `cpu_c`, `zoneN_c` |
+| [`analog_in/`](analog_in/README.md) | Heterogeneous analog inputs | device (ADS1115) | `raw{}`, per-signal |
+| [`board_temp/`](board_temp/README.md) | SBC board/CPU temperature | sysfs (none) | `cpu_c`, `zoneN_c` |
+
+Most sensors are git submodules; trivial SBC-native ones (`analog_in`, `board_temp`)
+live in-tree. Array sensors (`mq_array`, `pressure_array`) are fed by **devices**
+(see [docs/cortex.md](../docs/cortex.md)) and built with **forge** firmware.
 
 ## Adding a New Sensor
 

@@ -6,6 +6,19 @@ Each sensor type is a self-contained Python package under `sensors/`. Adding a n
 type requires creating a package directory (as a git submodule), writing four files,
 and updating three places in the repo.
 
+**Two common variants** (see also [docs/cortex.md](docs/cortex.md)):
+
+- **Device-fed array sensor** (`mq_array`, `pressure_array`): no hardware
+  `driver.py` — subclass `core.analog_array.AnalogArrayBase`, which reads one or
+  more **devices** and composes the frame; you just declare `channels`
+  (`device`+`index`→signal+calibration) and override `enrich`.
+- **Trivial SBC-native sensor** (`board_temp`, `analog_in`): may live **in-tree**
+  (a plain package directory, not a submodule) — submodules are for hardware
+  packages with an independent lifecycle.
+
+To add a non-sensor tier (device / effector / policy), see
+"Adding a device, effector, or policy" below.
+
 ### 1. Create the package as a git submodule
 
 ```bash

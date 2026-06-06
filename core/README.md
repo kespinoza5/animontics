@@ -6,11 +6,21 @@ Shared Python infrastructure for the animontics node agent. No hardware dependen
 
 | File | Purpose |
 |------|---------|
-| `sensor_base.py` | `SensorBase` abstract base class all sensor plugins inherit from |
-| `broadcaster.py` | `Broadcaster` pub/sub utility — one instance per sensor, shared across HTTP clients |
-| `models.py` | Pydantic data models: `SensorReading`, `SensorConfig`, `NodeConfig`, `ConnectionConfig` |
+| `sensor_base.py` | `SensorBase` abstract base — all sensor plugins inherit it |
+| `analog_array.py` | `AnalogArrayBase` — array sensors bound to 1+ devices (may span MCUs) |
+| `device.py` | `Device` base + registry; `McuSerialDevice` (push), `Ads1115Device` (pull) — shared peripherals |
+| `effector_base.py` | `EffectorBase` + registry; `PwmEffector` (request lane), `StreamSink` (stream lane) |
+| `policy.py` | `PolicyBase` (obs→action) + registry, `CurvePolicy`, `PolicyRuntime` — control loops |
+| `relay.py` | `Relay` — the thalamus: named-signal pub/sub + gating; inter-cortex seam |
+| `mcu_link.py` | MCU↔node frame codec (sample + command frames) — node decodes; firmware mirrors |
+| `broadcaster.py` | `Broadcaster`/`FrameBroadcaster` pub/sub — per sensor, shared across HTTP clients |
+| `models.py` | Pydantic models: `SensorReading`/`SensorConfig`/`ConnectionConfig`/`SensorChannel`, `DeviceConfig`, `EffectorConfig`, `PolicyConfig`, `NodeConfig` |
 | `registry.py` | `@register` decorator + `create()` factory — the plugin wiring layer |
 | `config.py` | `load_node_config()` — reads and validates `config.yaml` |
+
+The device / effector / policy / relay tiers are the **cortex runtime** — see
+[docs/cortex.md](../docs/cortex.md). `core/` stays importable on any machine
+(hardware libs are imported lazily inside methods).
 
 ## How They Fit Together
 
