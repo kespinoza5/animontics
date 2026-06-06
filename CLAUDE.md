@@ -248,6 +248,19 @@ python -m mkdocs build
 
 ---
 
+## Documentation convention
+
+Every hand-authored directory has a `README.md` (exempt: `docs/`, `.claude/`,
+generated output, `__pycache__`). Orientation docs (`CLAUDE.md`, `CONTRIBUTING.md`,
+root `README.md`) and the `docs/` site stay current with the code. Many `docs/*.md`
+are `include-markdown` of a source README — edit the source, not the page; the
+`docs/api/{core,node,sensors}.md` mkdocstrings lists are hand-maintained.
+
+After a feature or architecture change, spawn the **`doc-steward`** agent (give it
+a git ref to scope, or "full audit") to refresh READMEs + `docs/` and catch drift.
+
+---
+
 ## Security constraints — non-negotiable
 
 - No secrets (WiFi passwords, tokens, API keys) in `config.yaml`, `animon.yaml`,
