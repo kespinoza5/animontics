@@ -8,6 +8,14 @@
 
 ::: node.routers.sensors
 
+## routers.effectors
+
+::: node.routers.effectors
+
+## routers.policies
+
+::: node.routers.policies
+
 ## routers.camera
 
 ::: node.routers.camera.CameraThread

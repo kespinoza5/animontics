@@ -1,8 +1,11 @@
 # Architecture
 
-Animontics is a distributed sensor infrastructure for an embodied AI system. Computation nodes are
-heterogeneous — SBCs on Gigabit Ethernet, a USB-networked microcomputer, and a cluster of MCUs on
-a USB hub — and each runs only the software it needs.
+Animontics is a distributed **nervous system** for an embodied AI. Each node is a
+*cortex* that senses (afferent), acts through **effectors** (efferent), and runs
+local **control loops** (policies) — see [The Cortex Runtime](cortex.md) for the
+node model. Computation nodes are heterogeneous — SBCs on Gigabit Ethernet, a
+USB-networked microcomputer, and a cluster of MCUs (firmware composed by
+[forge](forge.md)) on a USB hub — and each runs only the software it needs.
 
 ---
 
