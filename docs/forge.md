@@ -85,16 +85,33 @@ churn to the MCU path. The MCU/Arduino target is the worked example today.
 [forge tool page](tools/forge.md) for one-time install steps. The link frame
 format lives once in `core/mcu_link.py` and is versioned.
 
+## Families & targets
+
+Firmware families are organized by **runtime**, not chip:
+
+- **`mcu/arduino/`** (`target: mcu.arduino`) — AVR/ATmega328P. Composes lean C++
+  from `analog_in`/`pwm_out`/`gpio_out`/`transport_serial` modules and compiles a
+  real `.hex` with `arduino-cli` (WSL fallback).
+- **`mcu/circuit_python/`** (`target: mcu.circuit_python`) — XIAO SAMD21, RP2040,
+  any CircuitPython board. *No compile*: one generic runtime
+  (`templates/code.py.j2`) is composed with the instance's `ads1115` chip list
+  into `firmware/<id>/code.py`; deploy copies it to the `CIRCUITPY` drive. Both
+  stream the same `core/mcu_link.py` frames, so the node device decodes them
+  identically.
+
+The MCU↔node command lane is built end to end: `AC` command frames in
+`core/mcu_link.py`, `transport_serial.poll()` + a generated `onCommand` dispatch
+in firmware, and on the node the **[effector tier](cortex.md)** owns the device
+link and sends commands (e.g. driving the fans) — *through the device*, never the
+sensor.
+
 ## Status
 
-Implemented: the forge core (validate/build/flash/clean), the AVR/Arduino target
-(`analog_in`, `pwm_out`, `gpio_out`, `transport_serial`), compose **+** compile to
-a real `.hex`, and the node-side [`mq_array`](sensors/mq_array.md) sensor. The
-**MCU side of the command lane** is built too — `core/mcu_link.py` `AC` command
-frames, `transport_serial.poll()`, and a generated `onCommand` dispatch to
-`pwm_out` — so the firmware accepts actuation. The **node-side actuator path**
-(which owns the link and sends those commands) is deliberately *not* part of the
-sensor; it belongs to a device/actuator tier that is still being designed.
-Deferred (reserved behind seams): the node device/actuator tier, flash-over-SSH
-against live hardware, SPI transport, the SAMD21/RP2040/FPGA/accelerator builders,
-`animon`↔`forge` reconcile, and protocol v2. See `TODO.md`.
+Implemented: the forge core (validate/build/flash/clean/channels), the
+AVR/Arduino target (compose **+** compile to a real `.hex`), the CircuitPython
+family (compose a runtime, copy-deploy), and the node-side
+[`mq_array`](sensors/mq_array.md) and [`pressure_array`](sensors/pressure_array.md)
+sensors. Deferred (reserved behind seams): the **models** tier (accelerator
+perception nets — `accel.hailo`/`accel.coral` builders), flash/copy-deploy against
+live hardware, SPI transport, FPGA builders, `animon`↔`forge` reconcile, and
+protocol v2. See `TODO.md`.

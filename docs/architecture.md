@@ -299,6 +299,15 @@ The MCU streams raw channel samples; the node interprets them via an array senso
 shares the link codec in `core/mcu_link.py`. Firmware moves bytes; Python owns
 meaning. See **[Firmware & Targets (forge)](forge.md)** for the full design.
 
+## The Cortex Runtime
+
+Each node is a **cortex** with a local input/output/control loop: **devices**
+(shared peripherals), **sensors** (afferent), **effectors** (efferent — motion,
+light, sound), and **policies** (control loops: observation → action, e.g. the
+always-on fan reflex) wired through a **relay** (the thalamus). Models (learned
+perception) and a cross-node predict/error substrate are reserved seams. See
+**[The Cortex Runtime](cortex.md)**.
+
 ## Git Structure
 
 ```

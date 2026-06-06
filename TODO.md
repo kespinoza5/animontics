@@ -87,10 +87,11 @@ The current sensor streaming API (`GET /sensors/{id}/stream`, `WS /sensors/{id}/
 
 - [x] `sensors/mq_array/` — MQ gas sensor array read over an MCU serial uplink
       (`AnalogArrayBase` + forge-built firmware)
-- [ ] `sensors/pressure_array/` — 4 × ADS1115 per CircuitPython MCU (XIAO etc.).
-      Reuse `AnalogArrayBase`; add an `ads1115` module under the forge
-      `mcu/circuit_python/` family (was: "`sensors/ads1115/` 16-bit ADC"). ADS1115
-      is read by the MCU and streamed — no SBC-direct I2C source needed.
+- [x] `sensors/pressure_array/` (submodule) — logical surface across MCUs via the
+      `mcu/circuit_python` family's `ads1115` module. Plus `sensors/analog_in`
+      (heterogeneous scalars via `Ads1115Device`) and `sensors/board_temp` (sysfs).
+- [ ] Promote in-tree sensors (`analog_in`, `board_temp`) to submodules if they
+      grow independent lifecycles (convention: hardware sensors are submodules).
 - [ ] `sensors/imu/` — IMU via RP2040/SAMD20 USB CDC (candidate `analog_array` /
       forge `mcu/rp2040/` consumer)
 - [ ] `sensors/camera/` — Generalize `node/routers/camera.py` into a proper SensorBase plugin
@@ -126,23 +127,32 @@ an existing seam:
 
 - [ ] Flash over SSH against live hardware — `ArduinoBuilder.deploy` is written
       (rsync `.hex` + `avrdude`) but unexercised without a board.
-- [~] Command lane — MCU SIDE DONE: `AC` command frames (`core/mcu_link.py`),
-      firmware `transport_serial.poll()` + generated `onCommand` dispatch to
-      `pwm_out.set_duty` (codec round-trip + compile verified). NODE SIDE PENDING:
-      the actuator/device tier below — commands must NOT live on a sensor.
-- [ ] Node device + actuator tier — a device object owns each MCU/link (one read
-      pump shared by sensors + actuators); an ActuatorBase plugin family (pwm via
-      an MCU device, pwm direct on an SBC) exposes control routes. Decouples
-      actuation from sensing; supports PWM on MCUs and SBCs with varied sensor
-      connections. (Replaces the backed-out sensor-coupled command path.)
+- [x] Command lane — end to end. MCU: `AC` command frames (`core/mcu_link.py`),
+      `transport_serial.poll()` + generated `onCommand` dispatch. Node: the
+      effector tier (below) owns the device link and sends commands.
+- [x] Cortex runtime — devices (`core/device.py`: McuSerialDevice push,
+      Ads1115Device pull), effectors (`core/effector_base.py`: PwmEffector request
+      lane + StreamSink stream lane) driving through devices, policies + thalamic
+      relay (`core/policy.py`, `core/relay.py`: always-on fan reflex), and the
+      `mcu/circuit_python` forge family feeding `pressure_array`. See docs/cortex.md.
+- [ ] Effector SBC-direct backend (`sbc_pwm`) for PWM on an SBC's own pins (the
+      effector tier already dispatches on `backend`; add the backend).
+- [ ] Stream-lane hardware effectors (speaker audio, addressable LED strip) — the
+      lane + reference `StreamSink` exist; add real types.
 - [ ] SPI transport — a `transport_spi` module + node-side reader; isolated to the
       transport module + `core/mcu_link.py` consumers.
 - [ ] `mcu/circuit_python/` family — ONE generic CircuitPython runtime (code.py)
       shipped to any CP board (XIAO SAMD21, RP2040, …), parameterized by a forge-
       generated on-device config; builder "compiles" by copying files to CIRCUITPY.
       Organize firmware families by runtime/build method, not chip.
-- [ ] FPGA (`fpga.ice40`) and accelerator (`accel.hailo` / `accel.coral`)
-      `Builder`s under `tools/forge/builders/`.
+- [ ] Models tier (perception) — `accel.hailo` / `accel.coral` forge builders +
+      a node-side Model interface that exposes learned features as relay signals
+      (an "advanced sensor" policies observe). Plus an FPGA (`fpga.ice40`) builder.
+- [ ] Learned/stochastic policies + on-device tuning/training (the `PolicyBase`
+      `step(obs)→action` contract is the seam; today only `CurvePolicy`).
+- [ ] Cross-node thalamic relay + declared reciprocal predict-down / error-up
+      tracts between cortices (predictive coding); fleet aggregator nesting node
+      trees by cortex. The local `core/relay.py` is the seam.
 - [ ] `animon`↔`forge` integration: `animon deploy` reconciles firmware as desired
       state and auto-propagates `config/mcus/<id>.yaml` channels → the board's
       `mq_array` `channels` (today they are authored by hand in both places).

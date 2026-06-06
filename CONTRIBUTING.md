@@ -301,6 +301,31 @@ serial loop and frame decode (`core/mcu_link.py`); your subclass overrides
 `enrich()` to add calibrated values on top of the always-present raw lane. Follow
 the normal [new-sensor steps](#adding-a-new-sensor) for that package.
 
+## Adding a device, effector, or policy
+
+The node runtime has three tiers beside sensors (see [docs/cortex.md](docs/cortex.md)).
+Each mirrors the sensor pattern: a base class + a registry, instances declared in
+`config/boards/<id>.yaml`, created in `node/app.py`'s lifespan, exposed by a router
+that reads `request.app.state.*`.
+
+- **Device** (`core/device.py`) — a shared peripheral. Subclass `Device`, decorate
+  `@register_device("kind")`, implement `start/stop/is_healthy`. Push devices fan
+  decoded frames to `subscribe()` callbacks (and offer `send_command`); pull
+  devices expose a read method (e.g. `Ads1115Device.read_channel`). Declare under
+  `devices:`; sensors/effectors bind by id via `attach_devices`.
+- **Effector** (`core/effector_base.py`) — an output. Subclass `EffectorBase`,
+  `@register_effector("type")`, set `lanes`, and implement the lane(s) your type
+  uses: `handle_request(payload)` (request) and/or `feed(chunk)` (stream). Drive
+  values are type-defined and normalized; the node scales to the device's raw
+  command. Declare under `effectors:`.
+- **Policy** (`core/policy.py`) — a control loop. Subclass `PolicyBase`,
+  `@register_policy("type")`, implement `step(obs) → action` (obs are relay signal
+  values; action is `{channel: value}` for the target effector). Behavior is code,
+  not config; `PolicyConfig` only declares the observation/action wiring + params.
+  Mark resilient loops `always_on`. Declare under `policies:`.
+
+Keep the boundary: devices move bytes; sensors/effectors/policies own meaning.
+
 ## Standardized data keys
 
 All sensors should emit readings with these standardized keys where applicable.

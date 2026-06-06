@@ -20,6 +20,9 @@ This means:
 | [`vl53l1x/`](vl53l1x/README.md) | ST VL53L1X time-of-flight | I2C | `distance_mm` |
 | [`mlx90640/`](mlx90640/README.md) | Melexis MLX90640 32×24 thermal | I2C | `pixels[]`, `min_temp`, `max_temp` |
 | [`mq_array/`](mq_array/README.md) | MQ gas sensor array (via MCU) | UART (forge) | `raw{}`, `ratio{}` |
+| [`pressure_array/`](pressure_array/README.md) | Pressure surface (across MCUs) | device (MCU) | `raw{}`, `kpa{}` |
+| `analog_in/` | Heterogeneous analog inputs | device (ADS1115) | `raw{}`, per-signal |
+| `board_temp/` | SBC board/CPU temperature | sysfs (none) | `cpu_c`, `zoneN_c` |
 
 ## Adding a New Sensor
 
