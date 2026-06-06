@@ -129,3 +129,18 @@ sensors: []
 #     - {device: larduino, index: 0, signal: mq135, calibration: {type: raw}}
 #     - {device: larduino, index: 1, signal: mq2,   calibration: {type: mq, rl: 10000, r0: 76000}}
 #     # ... one entry per channel the MCU streams
+
+# ── Effectors (outputs: fans, LEDs, motors, …) ────────────────────────────────
+# An effector writes through a device's command sink (e.g. an MCU's PWM). Channels
+# carry a name (for the API/UX) and an index (the wire/command channel). Drive via
+#   POST /effectors/<id>   {"levels": {"intake": 0.8}}   (request lane, 0.0–1.0)
+# Continuous-flow types (speaker, LED strip) use WS /effectors/<id>/stream instead.
+#
+# effectors:
+#   - id: chassis_fans
+#     type: pwm
+#     backend: {device: larduino}
+#     channels:
+#       - {name: intake,  index: 0}
+#       - {name: exhaust, index: 1}
+#       - {name: aux,     index: 2}

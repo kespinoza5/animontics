@@ -64,6 +64,28 @@ class SensorConfig(BaseModel):
     channels: list[SensorChannel] = []          # array sensors; empty for scalars
 
 
+class EffectorChannel(BaseModel):
+    """One output channel of an effector — a name (API/UX) and an index (wire)."""
+
+    name: str
+    index: int
+
+
+class EffectorConfig(BaseModel):
+    """An output device on this node (fans, LEDs, motors, …).
+
+    `backend` selects where it writes: {device: <id>} drives a device's command
+    sink (e.g. an MCU's PWM); an SBC-direct backend (e.g. {type: sbc_pwm, pins})
+    is a later addition. Channels carry name+index.
+    """
+
+    id: str
+    type: str                           # maps to a @register_effector key
+    enabled: bool = True
+    backend: dict[str, Any] = {}
+    channels: list[EffectorChannel] = []
+
+
 class NetworkConfig(BaseModel):
     host: str = "0.0.0.0"
     port: int = 8080
@@ -87,6 +109,7 @@ class NodeConfig(BaseModel):
     camera: CameraConfig | None = None
     devices: list[DeviceConfig] = []
     sensors: list[SensorConfig] = []
+    effectors: list[EffectorConfig] = []
 
 
 # ── Fleet models ──────────────────────────────────────────────────────────────

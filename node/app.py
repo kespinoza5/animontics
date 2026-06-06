@@ -20,6 +20,7 @@ from fastapi.responses import JSONResponse
 
 from core.config import load_node_config
 from core.device import Device, create_device
+from core.effector_base import EffectorBase, create_effector
 from core.registry import create, registered_types
 from core.sensor_base import SensorBase
 
@@ -30,6 +31,7 @@ from node.routers import camera as camera_router_module
 from node.routers import sensors as sensors_router_module
 from node.routers.camera import start_camera, stop_camera
 from node.routers.config import router as config_router
+from node.routers.effectors import router as effectors_router
 from node.routers.i2c import router as i2c_router
 from node.routers.ir_xcvr import router as ir_xcvr_router
 from node.routers.sensors import router as sensors_router
@@ -74,9 +76,25 @@ async def lifespan(app: FastAPI):
         except ValueError as exc:
             log.error("Sensor '%s': %s", sc.id, exc)
 
-    app.state.config  = config
-    app.state.devices = active_devices
-    app.state.sensors = active_sensors
+    # ── Effectors (outputs) — write through devices.
+    active_effectors: dict[str, EffectorBase] = {}
+    for ec in config.effectors:
+        if not ec.enabled:
+            continue
+        try:
+            effector = create_effector(ec)
+            if hasattr(effector, "attach_devices"):
+                effector.attach_devices(active_devices)
+            effector.start()
+            active_effectors[ec.id] = effector
+            log.info("Effector '%s' (%s): ready", ec.id, ec.type)
+        except ValueError as exc:
+            log.error("Effector '%s': %s", ec.id, exc)
+
+    app.state.config    = config
+    app.state.devices   = active_devices
+    app.state.sensors   = active_sensors
+    app.state.effectors = active_effectors
 
     if config.camera and config.camera.enabled:
         start_camera(config.camera)
@@ -85,6 +103,8 @@ async def lifespan(app: FastAPI):
     yield
 
     # ── Shutdown ──────────────────────────────────────────────────────────────
+    for effector in active_effectors.values():
+        effector.stop()
     for sensor in active_sensors.values():
         sensor.stop()
     for device in active_devices.values():
@@ -105,6 +125,7 @@ def create_app() -> FastAPI:
     app.include_router(i2c_router)
     app.include_router(camera_router_module.router)
     app.include_router(ir_xcvr_router)
+    app.include_router(effectors_router)
     app.include_router(vl53l1x_router)
 
     @app.get("/")
