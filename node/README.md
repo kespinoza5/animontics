@@ -1,15 +1,22 @@
 # node
 
-Per-board node agent. Loads configuration, starts enabled sensors, and serves the HTTP API.
+Per-board node agent (a "cortex"): loads configuration, starts the runtime tiers —
+**devices, sensors, effectors, policies** wired through the **relay** — and serves
+the HTTP API. See [docs/cortex.md](../docs/cortex.md) for the runtime model.
 
 ## Files
 
 | File | Purpose |
 |------|---------|
-| `app.py` | FastAPI app factory and lifespan manager |
+| `app.py` | FastAPI app factory + lifespan (devices → sensors → effectors → relay → policies) |
 | `routers/sensors.py` | Sensor REST + SSE + WebSocket endpoints |
+| `routers/effectors.py` | Effector list/state + request (POST) and stream (WS) drive |
+| `routers/policies.py` | Policy list/state + enable/disable |
 | `routers/camera.py` | MJPEG camera stream endpoint |
 | `routers/i2c.py` | I2C bus scan endpoint |
+| `routers/{ir_xcvr,vl53l1x}.py` | sensor-type-specific routes |
+
+Each router reads `request.app.state.{sensors,effectors,policies,devices,relay}`.
 
 ## Running
 
@@ -29,14 +36,16 @@ sudo systemctl start animontics-node
 ```
 1. load_node_config(config.yaml)         ← reads and validates YAML
 2. import sensors                        ← auto-discovers sensor packages on disk
-3. for each enabled sensor in config:
-     sensor = registry.create(sc)        ← instantiates via @register key
-     sensor.start()                      ← opens hardware, starts background thread
-4. start_camera() if camera.enabled
-5. FastAPI begins serving requests
+3. start devices                         ← shared peripherals (MCU links, ADS1115)
+4. create sensors; attach_devices; start ← device-fed sensors bind their devices
+5. create effectors; attach_devices      ← outputs bind their backend device
+6. relay + create policies               ← PolicyRuntime starts ticking the stack
+7. start_camera() if camera.enabled
+8. FastAPI begins serving requests
 ```
 
-On shutdown the lifespan context manager stops all sensors and releases hardware.
+On shutdown the lifespan stops policies → effectors → sensors → devices, then the
+camera, releasing hardware in reverse order.
 
 ## API Endpoints
 
@@ -46,7 +55,12 @@ On shutdown the lifespan context manager stops all sensors and releases hardware
 | `GET` | `/sensors` | List all configured sensors |
 | `GET` | `/sensors/{id}` | Latest reading from one sensor (JSON) |
 | `GET` | `/sensors/{id}/stream` | Server-Sent Events stream (keepalive every 25 s) |
-| `WS` | `/sensors/{id}/ws` | WebSocket stream |
+| `WS` | `/sensors/{id}/frames` | Binary frame stream (high-rate array sensors) |
+| `GET` | `/effectors` · `/effectors/{id}` | Effector list / descriptor + cached state |
+| `POST` | `/effectors/{id}` | Request-lane drive (type-defined body, e.g. pwm levels) |
+| `WS` | `/effectors/{id}/stream` | Stream-lane drive (continuous flow) |
+| `GET` | `/policies` · `/policies/{id}` | Policy list / wiring + current obs & action |
+| `POST` | `/policies/{id}/enable` | Enable/disable a policy |
 | `GET` | `/camera` | MJPEG multipart stream (503 if no camera configured) |
 | `GET` | `/i2c` | Scan all I2C buses, return detected addresses |
 

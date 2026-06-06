@@ -138,7 +138,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). The short version: create a package unde
 ## Project Layout
 
 ```
-core/           Shared infrastructure: SensorBase, AnalogArrayBase, mcu_link, models, registry
+core/           Cortex runtime + shared infra: SensorBase, AnalogArrayBase, device,
+                effector_base, policy, relay, mcu_link, models, registry
 sensors/        Sensor plugin packages (each its own git repo)
   tf_mini/      Benewake TF Mini Plus LiDAR
   lv_maxsonar/  MaxBotix LV-MaxSonar-EZ ultrasonic
