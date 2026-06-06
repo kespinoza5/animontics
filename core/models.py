@@ -86,6 +86,25 @@ class EffectorConfig(BaseModel):
     channels: list[EffectorChannel] = []
 
 
+class PolicyConfig(BaseModel):
+    """A control loop on this node. The behavior is code (a registered PolicyBase
+    subclass named by `type`); this only declares the wiring + params.
+
+    `observation` is a list of relay signal names (e.g. "gas_array.raw.mq135",
+    "board_temp.cpu_c"); `action` targets an effector ({effector: <id>});
+    `always_on` marks a reflex that should keep running when cortical policies are
+    absent. Learned policies reference weights via `params`.
+    """
+
+    id: str
+    type: str                           # maps to a @register_policy key
+    enabled: bool = True
+    always_on: bool = False
+    observation: list[str] = []
+    action: dict[str, Any] = {}
+    params: dict[str, Any] = {}
+
+
 class NetworkConfig(BaseModel):
     host: str = "0.0.0.0"
     port: int = 8080
@@ -110,6 +129,7 @@ class NodeConfig(BaseModel):
     devices: list[DeviceConfig] = []
     sensors: list[SensorConfig] = []
     effectors: list[EffectorConfig] = []
+    policies: list[PolicyConfig] = []
 
 
 # ── Fleet models ──────────────────────────────────────────────────────────────

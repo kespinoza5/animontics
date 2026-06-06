@@ -21,7 +21,9 @@ from fastapi.responses import JSONResponse
 from core.config import load_node_config
 from core.device import Device, create_device
 from core.effector_base import EffectorBase, create_effector
+from core.policy import PolicyRuntime, create_policy
 from core.registry import create, registered_types
+from core.relay import Relay
 from core.sensor_base import SensorBase
 
 # Import all sensor packages present on this board so their @register calls fire.
@@ -34,6 +36,7 @@ from node.routers.config import router as config_router
 from node.routers.effectors import router as effectors_router
 from node.routers.i2c import router as i2c_router
 from node.routers.ir_xcvr import router as ir_xcvr_router
+from node.routers.policies import router as policies_router
 from node.routers.sensors import router as sensors_router
 from node.routers.vl53l1x import router as vl53l1x_router
 
@@ -91,10 +94,29 @@ async def lifespan(app: FastAPI):
         except ValueError as exc:
             log.error("Effector '%s': %s", ec.id, exc)
 
-    app.state.config    = config
-    app.state.devices   = active_devices
-    app.state.sensors   = active_sensors
-    app.state.effectors = active_effectors
+    # ── Policies (control loops) — read sensors via the relay, drive effectors.
+    relay = Relay()
+    active_policies = {}
+    for pc in config.policies:
+        try:
+            active_policies[pc.id] = create_policy(pc)
+            log.info("Policy '%s' (%s)%s: loaded", pc.id, pc.type,
+                     " [always-on]" if pc.always_on else "")
+        except ValueError as exc:
+            log.error("Policy '%s': %s", pc.id, exc)
+    runtime = PolicyRuntime(
+        list(active_policies.values()), active_sensors, active_effectors, relay
+    )
+    if active_policies:
+        runtime.start()
+
+    app.state.config         = config
+    app.state.devices        = active_devices
+    app.state.sensors        = active_sensors
+    app.state.effectors      = active_effectors
+    app.state.relay          = relay
+    app.state.policies       = active_policies
+    app.state.policy_runtime = runtime
 
     if config.camera and config.camera.enabled:
         start_camera(config.camera)
@@ -103,6 +125,7 @@ async def lifespan(app: FastAPI):
     yield
 
     # ── Shutdown ──────────────────────────────────────────────────────────────
+    runtime.stop()
     for effector in active_effectors.values():
         effector.stop()
     for sensor in active_sensors.values():
@@ -126,6 +149,7 @@ def create_app() -> FastAPI:
     app.include_router(camera_router_module.router)
     app.include_router(ir_xcvr_router)
     app.include_router(effectors_router)
+    app.include_router(policies_router)
     app.include_router(vl53l1x_router)
 
     @app.get("/")

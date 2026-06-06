@@ -144,3 +144,17 @@ sensors: []
 #       - {name: intake,  index: 0}
 #       - {name: exhaust, index: 1}
 #       - {name: aux,     index: 2}
+
+# ── Policies (control loops) ──────────────────────────────────────────────────
+# A policy maps observations (relay signal names, dotted: "<sensor>.<path>") to an
+# effector's channels. `type` names a registered PolicyBase (the behavior is code,
+# not config). `always_on` marks a reflex that keeps running when cortical policies
+# are absent. The fan loop below drives the fans on the worse of gas / board temp.
+#
+# policies:
+#   - id: fan_loop
+#     type: curve
+#     always_on: true
+#     observation: [gas_array.raw.mq135, board_temp.cpu_c]
+#     action: {effector: chassis_fans}
+#     params: {in_min: [100, 35], in_max: [600, 75], out_min: 0.2, out_max: 1.0}
