@@ -1,6 +1,13 @@
 # Animontics
 
-Distributed sensor infrastructure for an embodied AI system. Each compute node runs a lightweight HTTP server exposing its local sensors. The system spans Linux SBCs connected over Gigabit Ethernet, a USB-networked Pi Zero 2W, and a cluster of CircuitPython/MicroPython microcontrollers on a USB hub.
+A distributed **nervous system** for an embodied AI. Each compute node is a
+*cortex*: it **senses** the world (afferent), **acts** on it through **effectors**
+(efferent — motion, light, sound), and runs local **control loops** (policies),
+all over a lightweight HTTP server. Sensors and effectors reach hardware through
+**devices** (shared peripherals); the microcontrollers behind them run firmware
+**composed by `forge`**. The system spans Linux SBCs over Gigabit Ethernet, a
+USB-networked Pi Zero 2W, and a cluster of CircuitPython/MicroPython
+microcontrollers on a USB hub.
 
 ## Documentation
 
@@ -19,9 +26,10 @@ python -m mkdocs serve
 python -m mkdocs build
 ```
 
-Start at **Architecture** for the system design, or **Getting Started** for a
-first deploy. The source pages live in `docs/` and the navigation is defined in
-`mkdocs.yml`.
+Start at **Architecture** for the system design, **The Cortex Runtime** for the
+node model (devices/sensors/effectors/policies), **Firmware & Targets (forge)**
+for the microcontroller tier, or **Getting Started** for a first deploy. The
+source pages live in `docs/` and the navigation is defined in `mkdocs.yml`.
 
 ## Hardware Topology
 
@@ -45,12 +53,14 @@ See `config/animon.example.yaml` for the schema.
 
 ## How It Works
 
-Every board runs the same node agent (`node/app.py`, FastAPI) and serves only
-the sensors assigned to it. You don't manage boards by hand — the **fleet CLI**
-(`animon`) keeps each board's code and config in sync from a single desired-state
-file on your dev machine.
+Every board runs the same node agent (`node/app.py`, FastAPI). On startup it
+brings up its **cortex runtime** — devices → sensors → effectors → relay →
+policies — and serves them over HTTP. You don't manage boards by hand: the
+**fleet CLI** (`animon`) keeps each board's code and config in sync from a single
+desired-state file on your dev machine, and the **firmware CLI** (`forge`)
+composes the microcontroller firmware behind the devices.
 
-Configuration is split into four layers, each owning exactly one concern:
+Sensor configuration is split into four layers, each owning exactly one concern:
 
 | Layer | Where | In repo? | Holds |
 |-------|-------|----------|-------|
@@ -59,13 +69,15 @@ Configuration is split into four layers, each owning exactly one concern:
 | **Board wiring** | `config/boards/<id>.yaml` | ❌ | Physical connections (port, bus, baud, address) |
 | **Hardware constraints** | `sensors/<type>/__init__.py` `METADATA` | ✅ | Valid connection types, addresses, locked baud rates |
 
-`animon deploy` negotiates all four: it reconciles the desired state against the
-board's existing wiring, fills gaps from METADATA defaults, validates the result,
-and ships only the sensor packages that board actually needs.
+The board config additionally declares the runtime's other tiers — `devices:`,
+`effectors:`, `policies:` — and each microcontroller has a build contract in
+`config/mcus/<id>.yaml` that `forge` composes into firmware.
 
-See **[docs/architecture.md](docs/architecture.md)** for the full design —
-topology, configuration layers, the sensor plugin system, data lanes, and the
-fleet deploy flow.
+`animon deploy` reconciles desired state against the board's existing wiring,
+fills gaps from METADATA defaults, validates, and ships only the packages that
+board needs. See **[docs/architecture.md](docs/architecture.md)** for the fleet
+design, **[docs/cortex.md](docs/cortex.md)** for the node runtime, and
+**[docs/forge.md](docs/forge.md)** for firmware composition.
 
 ## Quick Start
 
@@ -131,28 +143,38 @@ Start with the [Tools overview](tools/README.md) for what each one does and when
 to reach for it; the [Fleet CLI guide](tools/fleet/README.md) covers the `animon`
 subcommands in depth, including ad-hoc config overrides and `revert`.
 
-## Adding a New Sensor
+## Extending the system
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). The short version: create a package under `sensors/`, implement `SensorBase`, add `@register("my_type")`, and enable it in `config.yaml`. No other files change.
+See [CONTRIBUTING.md](CONTRIBUTING.md). Each tier follows the same plugin shape —
+a base class + registry, declared in config, no wiring edits:
+
+- **Sensor** — implement `SensorBase` (`@register`) — or, for an MCU-fed array,
+  subclass `AnalogArrayBase` and just declare `channels`.
+- **Effector** — implement `EffectorBase` (`@register_effector`); drive over the
+  request and/or stream lane.
+- **Policy** — implement `PolicyBase` (`@register_policy`) — `step(obs) → action`.
+- **Device** — implement `Device` (`@register_device`) for a new shared peripheral.
+- **MCU firmware** — add a `mcu/<family>/` module or family for `forge`.
 
 ## Project Layout
 
 ```
 core/           Cortex runtime + shared infra: SensorBase, AnalogArrayBase, device,
                 effector_base, policy, relay, mcu_link, models, registry
-sensors/        Sensor plugin packages (each its own git repo)
-  tf_mini/      Benewake TF Mini Plus LiDAR
-  lv_maxsonar/  MaxBotix LV-MaxSonar-EZ ultrasonic
-  vl53l1x/      ST VL53L1X time-of-flight
-  mlx90640/     Melexis MLX90640 32×24 thermal array
-  mq_array/     MQ gas sensor array (read over an MCU serial uplink)
-mcu/            Firmware source by chip family (composed by forge)
-  arduino/      platform.yaml, modules/, templates/ for AVR/Arduino targets
-firmware/       Build output — composed + compiled artifacts (gitignored)
+sensors/        Sensor plugin packages (submodules; trivial ones in-tree)
+  tf_mini/, lv_maxsonar/, vl53l1x/, mlx90640/, ir_xcvr/   distance / thermal / IR
+  mq_array/     MQ gas sensor array (via an MCU device)
+  pressure_array/  Pressure surface across MCUs (via devices)
+  analog_in/    Heterogeneous analog inputs (ADS1115 device) — in-tree
+  board_temp/   SBC board/CPU temperature (sysfs) — in-tree
+mcu/            Firmware source by runtime (composed by forge)
+  arduino/      compiled C++ (AVR/ATmega328P)
+  circuit_python/  generic runtime for CircuitPython boards (XIAO, RP2040)
+firmware/       Build output — composed/compiled artifacts (gitignored)
 node/           Per-board node agent (FastAPI + uvicorn)
-  app.py        App factory: loads config, starts sensors, mounts routers
-  routers/      HTTP/SSE/WebSocket route handlers
-config/         Per-board config.yaml + animon.yaml fleet topology + mcus/ contracts
+  app.py        App factory: starts devices/sensors/effectors/relay/policies, mounts routers
+  routers/      HTTP/SSE/WebSocket route handlers (sensors, effectors, policies, …)
+config/         nodes/ + animon.yaml + boards/ wiring + mcus/ firmware contracts
 tools/          Board management and provisioning scripts
   fleet/        animon CLI — deploy, status, diff, pull, probe
   forge/        forge CLI — compose/compile/flash MCU firmware
@@ -170,10 +192,12 @@ Each node exposes:
 | Endpoint | Description |
 |----------|-------------|
 | `GET /` | Node info (id, type, hostname, sensor health) |
-| `GET /sensors` | List of configured sensors |
-| `GET /sensors/{id}` | Latest reading (JSON) |
+| `GET /sensors` · `/sensors/{id}` | List / latest reading (JSON) |
 | `GET /sensors/{id}/stream` | SSE stream of readings |
-| `WS /sensors/{id}/ws` | WebSocket stream |
+| `WS /sensors/{id}/ws` · `/sensors/{id}/frames` | WebSocket JSON / binary-frame stream |
+| `GET /effectors` · `/effectors/{id}` | Outputs: list / descriptor + state |
+| `POST /effectors/{id}` · `WS /effectors/{id}/stream` | Drive: request lane / stream lane |
+| `GET /policies` · `/policies/{id}` · `POST /policies/{id}/enable` | Control loops: inspect / toggle |
 | `GET /camera` | MJPEG stream (if camera enabled) |
 | `GET /i2c` | I2C bus scan |
 

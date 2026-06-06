@@ -55,6 +55,7 @@ camera, releasing hardware in reverse order.
 | `GET` | `/sensors` | List all configured sensors |
 | `GET` | `/sensors/{id}` | Latest reading from one sensor (JSON) |
 | `GET` | `/sensors/{id}/stream` | Server-Sent Events stream (keepalive every 25 s) |
+| `WS` | `/sensors/{id}/ws` | WebSocket JSON reading stream |
 | `WS` | `/sensors/{id}/frames` | Binary frame stream (high-rate array sensors) |
 | `GET` | `/effectors` · `/effectors/{id}` | Effector list / descriptor + cached state |
 | `POST` | `/effectors/{id}` | Request-lane drive (type-defined body, e.g. pwm levels) |
