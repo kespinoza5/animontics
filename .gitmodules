@@ -16,3 +16,6 @@
 [submodule "sensors/mq_array"]
 	path = sensors/mq_array
 	url = ./sensors/mq_array
+[submodule "sensors/pressure_array"]
+	path = sensors/pressure_array
+	url = ./sensors/pressure_array

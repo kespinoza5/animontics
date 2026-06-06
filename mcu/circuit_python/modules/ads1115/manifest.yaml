@@ -1,0 +1,11 @@
+module: ads1115
+platforms: [circuit_python]
+role: sensor
+description: Read one or more ADS1115 ADC chips over I2C; stream their channels.
+provides:
+  channels: per_chip_channel    # one frame channel per (chip, channel) configured
+config:
+  # chips: a list of {addr, gain, channels: [...]}; declared per instance in the
+  # contract. addr is the I2C address (int), gain the ADS1115 PGA index.
+  sample_hz: 2
+# No compiled sources — the chip list is rendered straight into code.py.

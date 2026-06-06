@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 
-from core.device import McuSerialDevice, create_device
+from core.device import Ads1115Device, McuSerialDevice, create_device
 from core.mcu_link import FrameStream, encode
 from core.models import DeviceConfig
 
@@ -46,3 +46,11 @@ def test_send_command_false_when_link_closed():
 def test_create_device_unknown_kind():
     with pytest.raises(ValueError):
         create_device(DeviceConfig(id="x", kind="bogus"))
+
+
+def test_ads1115_registered_and_safe_without_bus():
+    d = create_device(DeviceConfig(id="a", kind="ads1115", bus=1, address=0x48))
+    assert isinstance(d, Ads1115Device)
+    assert d.is_healthy() is False          # not started → no I2C bus
+    assert d.read_channel(0) is None        # graceful without hardware
+    assert d.read_channel(9) is None        # out-of-range channel

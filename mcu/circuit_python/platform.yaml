@@ -1,0 +1,16 @@
+# mcu/circuit_python/platform.yaml — the CircuitPython family for forge.
+#
+# Firmware families are organized by RUNTIME, not chip: one generic runtime runs
+# on any CircuitPython-capable board (XIAO SAMD21, RP2040, …); the board is just a
+# profile. There is no compile step — forge composes a code.py into firmware/<id>/
+# and "deploys" by copying it to the board's CIRCUITPY drive.
+
+family: circuit_python
+runtime: circuitpython
+
+boards:
+  xiao_samd21: {board: seeed_xiao_samd21}
+  rp2040:      {board: raspberry_pi_pico}
+
+deploy:
+  method: copy            # copy firmware/<id>/ to the CIRCUITPY mount (over host SSH)

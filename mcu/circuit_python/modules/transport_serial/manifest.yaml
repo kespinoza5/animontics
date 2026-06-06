@@ -1,0 +1,6 @@
+module: transport_serial
+platforms: [circuit_python]
+role: transport
+description: Frame the sample vector onto USB serial (forge link protocol v1).
+# The framing is part of the generic runtime (code.py); this just marks the
+# transport so the contract has exactly one.

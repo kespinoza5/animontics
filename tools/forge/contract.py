@@ -137,6 +137,11 @@ def provided_sources(target: McuTarget, manifests: dict[str, dict]) -> list[str]
         provides = (manifests.get(mod.module, {}).get("provides") or {}).get("channels")
         if provides == "per_pin":
             sources += [f"{mod.module}.{pin}" for pin in mod.pins]
+        elif provides == "per_chip_channel":          # ADS1115: chips × their channels
+            for chip in mod.params.get("chips") or []:
+                addr = chip.get("addr")
+                addr_s = hex(addr) if isinstance(addr, int) else str(addr)
+                sources += [f"{mod.module}.{addr_s}.{c}" for c in chip.get("channels", [])]
         elif isinstance(provides, int):
             sources += [f"{mod.module}.{i}" for i in range(provides)]
     return sources

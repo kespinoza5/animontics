@@ -7,3 +7,4 @@ in forge needs to change.
 from __future__ import annotations
 
 from tools.forge.builders import arduino  # noqa: F401  (registers "mcu.arduino")
+from tools.forge.builders import circuit_python  # noqa: F401  (registers "mcu.circuit_python")
