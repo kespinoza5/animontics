@@ -189,19 +189,20 @@ tools/          Board management and provisioning scripts
 
 Each node exposes:
 
-| Endpoint | Description |
-|----------|-------------|
-| `GET /` | Node info (id, type, hostname, sensor health) |
-| `GET /sensors` · `/sensors/{id}` | List / latest reading (JSON) |
-| `GET /sensors/{id}/stream` | SSE stream of readings |
-| `WS /sensors/{id}/ws` · `/sensors/{id}/frames` | WebSocket JSON / binary-frame stream |
-| `GET /effectors` · `/effectors/{id}` | Outputs: list / descriptor + state |
-| `POST /effectors/{id}` · `WS /effectors/{id}/stream` | Drive: request lane / stream lane |
-| `GET /policies` · `/policies/{id}` · `POST /policies/{id}/enable` | Control loops: inspect / toggle |
-| `GET /config` | The board's running config |
-| `GET /camera` | MJPEG stream (if camera enabled) |
-| `GET /i2c` | I2C bus scan |
-| type-specific | e.g. `/ir/*` (IR transmit), `/vl53l1x/*` (ToF mode) — see the sensor's page |
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/` | Node info (id, type, hostname, sensor health) |
+| `GET` | `/sensors` · `/sensors/{id}` | List / latest reading (JSON) |
+| `GET` | `/sensors/{id}/stream` | SSE stream of readings |
+| `WS` | `/sensors/{id}/ws` · `/sensors/{id}/frames` | JSON / binary-frame stream |
+| `GET` | `/effectors` · `/effectors/{id}` | Outputs: list / descriptor + state |
+| `POST` | `/effectors/{id}` | **Drive** the request lane (e.g. pwm `{"levels": {...}}`) |
+| `WS` | `/effectors/{id}/stream` | Drive the stream lane (continuous flow) |
+| `GET` | `/policies` · `/policies/{id}` | Control loops: list / inspect |
+| `POST` | `/policies/{id}/enable` | Enable/disable a policy |
+| `GET` | `/config` | The board's running config |
+| `GET` | `/camera` · `/i2c` | MJPEG stream / I2C bus scan |
+| `GET`·`POST` | `/ir/*` · `/vl53l1x/*` | Type-specific (IR transmit, ToF mode) — see the sensor's page |
 
 Per-sensor diagnostic viewers live in `web/viewers/` (built on the shared modules in `web/shared/`) and open directly in a browser. Point them at any node's IP.
 

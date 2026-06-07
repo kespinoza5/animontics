@@ -22,25 +22,26 @@ The device / effector / policy / relay tiers are the **cortex runtime** — see
 [docs/cortex.md](../docs/cortex.md). `core/` stays importable on any machine
 (hardware libs are imported lazily inside methods).
 
-## How They Fit Together
+## How They Fit Together — the cortex runtime
+
+`node/app.py`'s lifespan builds the tiers from `NodeConfig` (each via its own
+`@register*` registry) and wires them: devices feed sensors, the relay carries
+observations to policies, and policies drive effectors back through devices.
 
 ```
-config.yaml
-    │
-    ▼
-config.py ──► NodeConfig (list of SensorConfig)
-                    │
-                    ▼
-registry.py  create(sc) ──► looks up @register key ──► SensorBase subclass instance
-                                                              │
-                                          ┌───────────────────┤
-                                          │                   │
-                                    sensor thread        broadcaster.py
-                                   reads hardware         │
-                                          │           subscribe() / broadcast()
-                                          ▼                   │
-                                   SensorReading  ──────────► HTTP clients (SSE / WS)
+config.yaml ─► config.py ─► NodeConfig          (afferent ─────────────► efferent)
+
+  devices ───frames──► sensors ───readings──►┬─► broadcaster ─► HTTP (SSE / WS / REST)
+ (device.py:         (sensor_base /          └─► relay (named-signal obs bus)
+  McuSerial, Ads1115) analog_array)                 │
+       ▲                                            ▼
+       │ commands (send_command)        policies ◄──observation──┘
+  effectors ◄────────actions───────── (policy.py: step(obs) → action)
+ (effector_base: PwmEffector, …)        e.g. the always-on fan reflex
 ```
+
+The MCU↔node wire format is `mcu_link.py` (the node decodes; firmware mirrors it).
+See [docs/cortex.md](../docs/cortex.md) for the full model.
 
 ## Implementing a Sensor
 
@@ -79,7 +80,11 @@ class MySensor(SensorBase):
             self._stop.wait(0.1)
 ```
 
-See [CONTRIBUTING.md](../CONTRIBUTING.md) for the full guide and standardized data keys.
+Effectors (`EffectorBase` + `@register_effector`), policies (`PolicyBase` +
+`@register_policy`), and devices (`Device` + `@register_device`) follow the same
+base-class + registry pattern, declared in the board config and built in the
+lifespan. See [CONTRIBUTING.md](../CONTRIBUTING.md) for all four and standardized
+data keys.
 
 ## SensorReading Data Format
 
