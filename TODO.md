@@ -135,6 +135,17 @@ an existing seam:
       lane + StreamSink stream lane) driving through devices, policies + thalamic
       relay (`core/policy.py`, `core/relay.py`: always-on fan reflex), and the
       `mcu/circuit_python` forge family feeding `pressure_array`. See docs/cortex.md.
+- [ ] Real PWM frequency in `mcu/arduino/modules/pwm_out` — it currently ignores
+      `freq_hz` and uses `analogWrite`'s default (~490/980 Hz). 4-pin PC fans want
+      25 kHz. Needs AVR timer config, and the fan pins should move off Timer0
+      (D5/D6 drive `millis()`) to Timer1 (D9/D10, 16-bit via ICR1). Until then fans
+      run but may whine / control coarsely. (Update `config/mcus/larduino.yaml` pins too.)
+- [ ] Flash on real hardware — `ArduinoBuilder.deploy` (rsync .hex + avrdude over
+      the host's SSH) is written but unexercised; needs avrdude on the host. Add a
+      direct dev-machine-USB flash option for boards not behind a node.
+- [ ] On-hardware command round-trip — verify node `send_command` → MCU
+      `transport_serial.poll` → `onCommand` → `set_duty` on a real LArduino (the
+      C++ RX parser only has the Python codec's round-trip behind it so far).
 - [ ] Effector SBC-direct backend (`sbc_pwm`) for PWM on an SBC's own pins (the
       effector tier already dispatches on `backend`; add the backend).
 - [ ] Stream-lane hardware effectors (speaker audio, addressable LED strip) — the
