@@ -1,0 +1,11 @@
+module: tach
+platforms: [circuit_python]
+role: sensor
+description: Count fan FG (tach) pulses per pin and stream RPM as frame channels.
+provides:
+  channels: per_pin           # one RPM channel per FG pin (signed int16)
+config:
+  pulses_per_rev: 2           # FG edges per revolution (2 for most PC/printer fans)
+# pins (CircuitPython board attr names) come from the contract — the FG inputs
+# (open-collector; pull-up needed / via the level shifter). 4-pin fans keep FG
+# valid at any PWM duty. No compiled source — rendered into code.py.

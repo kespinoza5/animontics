@@ -31,8 +31,8 @@ def test_compose_renders_runtime(tmp_path):
     # chips instantiated by address
     assert "ADS.ADS1115(_i2c, address=72)" in code
     assert "ADS.ADS1115(_i2c, address=73)" in code
-    # ordered (addr, channel, gain) wire list
-    assert "(72, 0, 1)," in code and "(72, 1, 1)," in code and "(73, 0, 2)," in code
+    # kind-tagged frame sources: (0, addr, channel, gain) for ADS
+    assert "(0, 72, 0, 1)," in code and "(0, 72, 1, 1)," in code and "(0, 73, 0, 2)," in code
     assert "time.sleep(0.25)" in code            # 4 Hz sample loop
     assert 'b"AM"' in code                       # mcu_link framing mirrored
 
@@ -82,3 +82,23 @@ def test_compose_sensor_plus_pwm(tmp_path):
     code = (CircuitPythonBuilder().compose(ctx) / "code.py").read_text(encoding="utf-8")
     assert "def read_all()" in code and "def poll_commands()" in code   # both lanes
     assert "send(read_all(), seq)" in code and "poll_commands()" in code
+
+
+def test_compose_pwm_plus_tach(tmp_path):
+    # the LXiao shape: drive fans + read their RPM on one bidirectional board
+    target = McuTarget.model_validate({
+        "id": "lx", "target": "mcu.circuit_python", "board": "xiao_rp2040",
+        "modules": [
+            {"module": "pwm_out", "pins": ["D1", "D2"], "freq_hz": 25000},
+            {"module": "tach", "pins": ["D7", "D8"], "pulses_per_rev": 2, "sample_hz": 4},
+            {"module": "transport_serial"},
+        ],
+    })
+    ctx = BuildContext(contract=target, project_root=PROJECT_ROOT, out_dir=tmp_path / "lx")
+    code = (CircuitPythonBuilder().compose(ctx) / "code.py").read_text(encoding="utf-8")
+    assert "import countio" in code
+    assert 'countio.Counter(getattr(board, "D7"))' in code
+    assert "(1, 0, 0, 0)," in code and "(1, 1, 0, 0)," in code   # two tach frame sources
+    assert "def _read_rpm(i):" in code
+    assert "def read_all()" in code and "def poll_commands()" in code  # both lanes
+    assert "ADS.ADS1115(" not in code                                  # no ADS on this board

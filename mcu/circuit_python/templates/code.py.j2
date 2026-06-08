@@ -2,35 +2,51 @@
 # Contract: config/mcus/{{ id }}.yaml   (target {{ target }}, board {{ board }})
 # Regenerate: python -m tools.forge.forge build {{ id }}
 #
-# Generic CircuitPython runtime: stream configured ADS1115 channels and/or drive
-# PWM outputs from inbound commands, over USB serial. The on-wire layout MUST
-# match core/mcu_link.py — the node decodes/encodes with it.
+# Generic CircuitPython runtime: stream configured sensor channels (ADS1115 and/or
+# fan tach) and/or drive PWM outputs from inbound commands, over USB serial. The
+# on-wire layout MUST match core/mcu_link.py — the node decodes/encodes with it.
 import struct
 import time
 
 import board
 import usb_cdc
-{% if channels %}import busio
+{% if has_ads %}import busio
 import adafruit_ads1x15.ads1115 as ADS
 from adafruit_ads1x15.analog_in import AnalogIn
+{% endif %}{% if tach_pins %}import countio
 {% endif %}{% if pwm_pins %}import pwmio
 {% endif %}
 PROTOCOL_VERSION = 1
 _serial = usb_cdc.data if usb_cdc.data is not None else usb_cdc.console
-{% if channels %}
-# ── Afferent: ADS1115 → uplink frames ('AM') ──────────────────────────────────
-_i2c = busio.I2C(board.SCL, board.SDA)
+{% if frame_sources %}
+# ── Afferent: sensor channels → uplink frames ('AM') ──────────────────────────
+PERIOD_S = {{ period }}
+{% if has_ads %}_i2c = busio.I2C(board.SCL, board.SDA)
 _adcs = { {% for a in addrs %}{{ a }}: ADS.ADS1115(_i2c, address={{ a }}){% if not loop.last %}, {% endif %}{% endfor %} }
-CHANNELS = [
-{% for ch in channels %}    ({{ ch.addr }}, {{ ch.channel }}, {{ ch.gain }}),
+{% endif %}{% if tach_pins %}_counters = [
+{% for p in tach_pins %}    countio.Counter(getattr(board, "{{ p }}")),
+{% endfor %}]
+PULSES_PER_REV = {{ ppr }}
+
+def _read_rpm(i):
+    c = _counters[i].count
+    _counters[i].count = 0
+    return int(c * 60.0 / PULSES_PER_REV / PERIOD_S)
+{% endif %}
+# (kind, a, b, c): 0 = ads (addr, channel, gain), 1 = tach (counter_index, _, _)
+FRAME_SOURCES = [
+{% for s in frame_sources %}    {{ s }},
 {% endfor %}]
 
 def read_all():
     out = []
-    for addr, channel, gain in CHANNELS:
-        adc = _adcs[addr]
-        adc.gain = gain
-        out.append(AnalogIn(adc, channel).value)
+    for kind, a, b, c in FRAME_SOURCES:
+        if kind == 0:
+            adc = _adcs[a]
+            adc.gain = c
+            out.append(AnalogIn(adc, b).value)
+        else:
+            out.append(_read_rpm(a))
     return out
 
 def send(samples, seq):
@@ -57,7 +73,7 @@ def poll_commands():
     while True:
         i = _rx.find(b"AC")
         if i < 0:
-            del _rx[: max(0, len(_rx) - 1)]    # keep a possible trailing 'A'
+            del _rx[: max(0, len(_rx) - 1)]
             return
         if i:
             del _rx[:i]
@@ -69,7 +85,7 @@ def poll_commands():
             return
         frame = _rx[:total]
         if _rx[2] != PROTOCOL_VERSION or (sum(frame[:-1]) & 0xFF) != frame[-1]:
-            del _rx[:1]                         # bad — step past this magic, resync
+            del _rx[:1]
             continue
         cmd = _rx[3]
         args = struct.unpack_from("<%dh" % nargs, frame, 5)
@@ -79,7 +95,7 @@ def poll_commands():
 {% endif %}
 seq = 0
 while True:
-{% if channels %}    send(read_all(), seq)
+{% if frame_sources %}    send(read_all(), seq)
     seq = (seq + 1) & 0xFF
 {% endif %}{% if pwm_pins %}    poll_commands()
 {% endif %}    time.sleep({{ loop_sleep }})

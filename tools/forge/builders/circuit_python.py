@@ -35,8 +35,8 @@ class CircuitPythonBuilder(Builder):
         if target.board not in platform.get("boards", {}):
             issues.append(f"board '{target.board}' not in platform.yaml")
         kinds = {m.module for m in target.modules}
-        if not ({"ads1115", "pwm_out"} & kinds):
-            issues.append("circuit_python target needs an ads1115 (in) or pwm_out (out) module")
+        if not ({"ads1115", "tach", "pwm_out"} & kinds):
+            issues.append("circuit_python target needs an ads1115/tach (in) or pwm_out (out) module")
         return issues
 
     def compose(self, ctx: BuildContext) -> Path:
@@ -46,11 +46,16 @@ class CircuitPythonBuilder(Builder):
         if target.board not in platform.get("boards", {}):
             raise BuildError(f"board '{target.board}' not in platform.yaml")
 
+        # Afferent frame sources, kind-tagged, in contract-module order (matches
+        # contract.provided_sources, so node channel indices align):
+        #   (0, addr, channel, gain) = ADS1115 read   (1, counter_index, 0, 0) = tach RPM
         addrs: list[int] = []
-        channels: list[dict] = []        # ADS1115 (addr, channel, gain) in wire order
-        pwm_pins: list[str] = []         # CircuitPython board attr names, in command order
+        tach_pins: list[str] = []        # CircuitPython board attr names (FG inputs)
+        frame_sources: list[tuple] = []
+        pwm_pins: list[str] = []         # in command order
         sample_hz = _DEFAULT_SAMPLE_HZ
         pwm_freq = _DEFAULT_PWM_HZ
+        ppr = 2
         for mod in target.modules:
             if "sample_hz" in mod.params:
                 sample_hz = int(mod.params["sample_hz"])
@@ -60,14 +65,18 @@ class CircuitPythonBuilder(Builder):
                     gain = int(chip.get("gain", 1))
                     if addr not in addrs:
                         addrs.append(addr)
-                    channels += [{"addr": addr, "channel": c, "gain": gain}
-                                 for c in chip.get("channels", [])]
+                    frame_sources += [(0, addr, c, gain) for c in chip.get("channels", [])]
+            elif mod.module == "tach":
+                ppr = int(mod.params.get("pulses_per_rev", 2))
+                for pin in mod.pins:
+                    frame_sources.append((1, len(tach_pins), 0, 0))
+                    tach_pins.append(pin)
             elif mod.module == "pwm_out":
                 pwm_pins += list(mod.pins)
                 pwm_freq = int(mod.params.get("freq_hz", _DEFAULT_PWM_HZ))
 
-        if not channels and not pwm_pins:
-            raise BuildError(f"{target.id}: no ads1115 channels or pwm_out pins configured")
+        if not frame_sources and not pwm_pins:
+            raise BuildError(f"{target.id}: no sensor channels or pwm_out pins configured")
 
         period = round(1.0 / max(1, sample_hz), 3)
         src_root = contract_mod.source_root(target, root)
@@ -77,10 +86,11 @@ class CircuitPythonBuilder(Builder):
         )
         code = env.get_template("code.py.j2").render(
             id=target.id, target=target.target, board=target.board,
-            addrs=addrs, channels=channels,
+            addrs=addrs, has_ads=bool(addrs), tach_pins=tach_pins, ppr=ppr,
+            frame_sources=frame_sources,
             pwm_pins=pwm_pins, pwm_freq=pwm_freq,
             period=period,
-            loop_sleep=period if channels else _CMD_LOOP_SLEEP,
+            loop_sleep=period if frame_sources else _CMD_LOOP_SLEEP,
             baud=target.transport.baud or _DEFAULT_BAUD,
         )
 
