@@ -106,6 +106,27 @@ def _cmd_channels(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_resolve(args: argparse.Namespace) -> int:
+    """Fill device-fed sensors' channels in a board config from the MCU contracts."""
+    import yaml
+
+    from tools.forge.resolve import resolve_board
+
+    path = _project_root() / "config" / "boards" / f"{args.node}.yaml"
+    if not path.exists():
+        print(f"error: no board config at {path}")
+        return 1
+    board = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    try:
+        board, n = resolve_board(board, _project_root())
+    except contract_mod.ContractError as exc:
+        print(f"error: {exc}")
+        return 1
+    path.write_text(yaml.safe_dump(board, sort_keys=False), encoding="utf-8")
+    print(f"resolved {n} device-fed sensor(s) in {args.node}")
+    return 0
+
+
 def _cmd_clean(args: argparse.Namespace) -> int:
     out = _firmware_dir(args.mcu_id)
     if out.exists():
@@ -191,6 +212,11 @@ def _build_parser() -> argparse.ArgumentParser:
                             help="Print the canonical channel block for a contract (paste-in helper).")
     p_chan.add_argument("mcu_id", metavar="MCU-ID")
     p_chan.set_defaults(func=_cmd_channels)
+
+    p_res = sub.add_parser("resolve",
+                           help="Fill a board config's device-fed sensor channels from the MCU contracts.")
+    p_res.add_argument("node", metavar="NODE-ID")
+    p_res.set_defaults(func=_cmd_resolve)
 
     p_clean = sub.add_parser("clean", help="Remove firmware/<id>/.")
     p_clean.add_argument("mcu_id", metavar="MCU-ID")

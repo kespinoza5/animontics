@@ -65,9 +65,10 @@ map to label and calibrate the incoming stream. The channel-count invariant
 (`len(channels) == channels the modules provide`) is checked on every build, so
 firmware and node can never silently disagree on shape.
 
-> Today the node-side sensor's `channels` are authored alongside the MCU contract
-> by hand. Auto-propagating them from `config/mcus/` into the board config is a
-> planned `animon`↔`forge` integration (see `TODO.md`).
+> The contract's `channels` is the **single authored source** for the
+> signal/calibration map. A device-fed sensor lists `devices: [<id>, …]` and
+> `forge resolve <node>` derives its `channels` from the contracts — author once.
+> (`animon deploy` calling resolve end-to-end is the remaining fleet seam.)
 
 ## Target-pluggable
 

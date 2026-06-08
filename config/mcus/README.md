@@ -34,8 +34,10 @@ node-side `mq_array`/`pressure_array` sensor reads `channels` to label and
 calibrate the stream). The channel-count/order invariant is checked on every
 `validate`/`build`, so firmware and node can't silently disagree on shape.
 
-> Today `channels` here are kept in step with the node's board-config `channels`
-> by hand. Auto-propagation is a planned `animon`↔`forge` integration (`TODO.md`).
+> `channels` here is the **single source** for the signal/calibration map. A
+> device-fed sensor in the board config just lists `devices: [<id>, …]`, and
+> `forge resolve <node>` derives its `channels` from these contracts — author once.
+> (`animon deploy` calling resolve end-to-end is the remaining fleet seam.)
 
 ## Firmware moves bytes; Python owns meaning
 

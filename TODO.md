@@ -168,9 +168,12 @@ an existing seam:
 - [ ] Cross-node thalamic relay + declared reciprocal predict-down / error-up
       tracts between cortices (predictive coding); fleet aggregator nesting node
       trees by cortex. The local `core/relay.py` is the seam.
-- [ ] `animon`↔`forge` integration: `animon deploy` reconciles firmware as desired
-      state and auto-propagates `config/mcus/<id>.yaml` channels → the board's
-      `mq_array` `channels` (today they are authored by hand in both places).
+- [x] Channel-contract dedup — the MCU contract's `channels` is the single source;
+      a device-fed sensor lists `devices: [<id>]` and `forge resolve <node>` derives
+      its board-config `channels` (`tools/forge/resolve.py`). Author once.
+- [ ] `animon`↔`forge` integration: `animon deploy` calls the resolver end-to-end
+      and reconciles firmware as desired state (today `forge resolve` is a separate
+      step; deploy doesn't run it yet).
 - [ ] Protocol v2 — wider/float payloads; bump `VERSION` in `core/mcu_link.py` and
       the firmware `transport_serial` module together, branch decode on version.
 - [ ] Generate the firmware serializer from `core/mcu_link.py` constants so the

@@ -122,13 +122,23 @@ sensors: []
 # devices (e.g. cranial pressure across 4 MCUs). No `connection` — it reads the
 # device's stream.
 #
+# Preferred: list the device(s) and let `forge resolve <node>` fill `channels`
+# from the MCU contract (config/mcus/<id>.yaml) — author the channel→signal map
+# ONCE there, not again here. An explicit `channels` list (below) overrides.
+#
 # - id: gas_array
 #   type: mq_array
-#   enabled: true
+#   devices: [larduino]            # → forge resolve fills channels from the contract
+#
+# - id: gas_array               # explicit form (escape hatch / no resolve)
+#   type: mq_array
 #   channels:
 #     - {device: larduino, index: 0, signal: mq135, calibration: {type: raw}}
 #     - {device: larduino, index: 1, signal: mq2,   calibration: {type: mq, rl: 10000, r0: 76000}}
-#     # ... one entry per channel the MCU streams
+#
+# - id: fan_rpm                 # fan tach RPM, resolved from the LXiao contract
+#   type: fan_tach
+#   devices: [lxiao]
 
 # ── Effectors (outputs: fans, LEDs, motors, …) ────────────────────────────────
 # An effector writes through a device's command sink (e.g. an MCU's PWM). Channels

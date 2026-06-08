@@ -9,6 +9,8 @@ it to a flashable artifact, and **flashes** it over the host node's SSH access.
 python -m tools.forge.forge validate <mcu-id>    # static-check the contract
 python -m tools.forge.forge build    <mcu-id>    # compose + compile → firmware/<id>/
 python -m tools.forge.forge flash    <mcu-id>    # build (if needed) + flash to the target
+python -m tools.forge.forge channels <mcu-id>    # print the canonical channel block
+python -m tools.forge.forge resolve  <node-id>   # fill a board's device-fed sensor channels from contracts
 python -m tools.forge.forge clean    <mcu-id>    # remove firmware/<id>/
 ```
 

@@ -61,6 +61,7 @@ class SensorConfig(BaseModel):
     type: str                   # maps to a @register key in the sensor registry
     enabled: bool = True
     connection: ConnectionConfig | None = None  # None for device-fed array sensors
+    devices: list[str] = []     # device-fed sensors: derive `channels` from these
     channels: list[SensorChannel] = []          # array sensors; empty for scalars
 
 

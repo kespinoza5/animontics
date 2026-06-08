@@ -309,8 +309,13 @@ python -m tools.forge.forge validate <mcu-id>   # static-check config/mcus/<id>.
 python -m tools.forge.forge build    <mcu-id>   # compose (+compile) → firmware/<id>/
 python -m tools.forge.forge flash    <mcu-id>   # build + flash/copy to the target (needs hardware)
 python -m tools.forge.forge channels <mcu-id>   # print the canonical channel block to paste in
+python -m tools.forge.forge resolve  <node-id>  # fill a board config's device-fed sensor channels from contracts
 python -m tools.forge.forge clean    <mcu-id>   # remove firmware/<id>/
 ```
+
+The channel→signal+calibration map is authored **once** in the MCU contract's
+`channels`; a device-fed sensor lists `devices: [<id>, …]` and `forge resolve`
+derives its `channels` from those contracts (explicit `channels` override).
 
 Contracts live in `config/mcus/<id>.yaml` (gitignored; `example.yaml` tracked);
 family source in `mcu/<family>/`; built artifacts in `firmware/<id>/` (gitignored).
