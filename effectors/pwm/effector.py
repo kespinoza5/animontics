@@ -21,17 +21,21 @@ class PwmEffector(EffectorBase):
     def descriptor(self) -> dict:
         d = super().descriptor()
         d["value"] = "0.0-1.0"
-        d["min_duty"] = self._min_duty
+        d["min_duty"] = self._default_min_duty
         return d
 
     @property
-    def _min_duty(self) -> float:
+    def _default_min_duty(self) -> float:
         return max(0.0, min(1.0, float(self.config.params.get("min_duty", 0.0))))
 
-    def _to_duty(self, level: float) -> int:
+    def _min_duty_for(self, channel_name: str) -> float:
+        """Per-channel minimum (subclasses can override, e.g. per-fan)."""
+        return self._default_min_duty
+
+    def _to_duty(self, level: float, channel_name: str) -> int:
         if level <= 0.0:
             return 0
-        lo = self._min_duty
+        lo = self._min_duty_for(channel_name)
         return max(0, min(255, round((lo + (1.0 - lo) * min(1.0, level)) * 255)))
 
     def handle_request(self, payload: dict) -> dict:
@@ -45,7 +49,7 @@ class PwmEffector(EffectorBase):
                 results[str(key)] = "unknown channel"
                 continue
             ok = self._device is not None and self._device.send_command(
-                CMD_SET_DUTY, [ch.index, self._to_duty(float(level))]
+                CMD_SET_DUTY, [ch.index, self._to_duty(float(level), ch.name)]
             )
             self._state[ch.name] = round(float(level), 4)
             results[ch.name] = "ok" if ok else "link down"

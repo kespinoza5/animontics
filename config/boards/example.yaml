@@ -138,10 +138,11 @@ sensors: []
 #
 # effectors:
 #   - id: chassis_fans
-#     type: pwm
+#     type: fan_array
 #     backend: {device: lxiao}        # the MCU that drives the fan PWM
-#     params: {min_duty: 0.3}         # a non-zero level maps into [0.3, 1.0] so
-#                                     # high-rpm fans actually start (0 = off)
+#     params:
+#       min_duty: 0.3                  # non-zero level → [0.3, 1.0] so high-rpm fans
+#       per_fan:  {exhaust: 0.4}       # start (0 = off); per-fan override
 #     channels:
 #       - {name: intake,  index: 0}
 #       - {name: exhaust, index: 1}
