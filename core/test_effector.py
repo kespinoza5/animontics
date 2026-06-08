@@ -65,6 +65,41 @@ class TestPwm:
         assert {c["name"] for c in desc["channels"]} == {"intake", "exhaust"}
 
 
+class TestMinDuty:
+    def _pwm_min(self, min_duty):
+        cfg = EffectorConfig(id="fans", type="pwm", backend={"device": "d"},
+                             channels=[EffectorChannel(name="a", index=0)],
+                             params={"min_duty": min_duty})
+        e = PwmEffector("fans", cfg)
+        fake = FakeDevice()
+        e.attach_devices({"d": fake})
+        return e, fake
+
+    def test_zero_level_is_fully_off(self):
+        e, fake = self._pwm_min(0.3)
+        e.handle_request({"levels": {"a": 0.0}})
+        assert fake.calls[-1] == (CMD_SET_DUTY, [0, 0])
+
+    def test_nonzero_maps_into_floor(self):
+        e, fake = self._pwm_min(0.3)
+        e.handle_request({"levels": {"a": 0.5}})           # (0.3 + 0.7*0.5)*255
+        assert fake.calls[-1] == (CMD_SET_DUTY, [0, 166])
+
+    def test_full_is_max(self):
+        e, fake = self._pwm_min(0.3)
+        e.handle_request({"levels": {"a": 1.0}})
+        assert fake.calls[-1] == (CMD_SET_DUTY, [0, 255])
+
+    def test_no_floor_by_default(self):
+        e, fake = self._pwm_min(0.0)
+        e.handle_request({"levels": {"a": 0.5}})
+        assert fake.calls[-1] == (CMD_SET_DUTY, [0, 128])
+
+    def test_descriptor_reports_min_duty(self):
+        e, _ = self._pwm_min(0.3)
+        assert e.descriptor()["min_duty"] == 0.3
+
+
 class TestStreamLane:
     def test_stream_sink_accumulates(self):
         e = create_effector(EffectorConfig(id="spk", type="stream_sink"))

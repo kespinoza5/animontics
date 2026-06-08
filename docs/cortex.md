@@ -54,7 +54,8 @@ Not "actuators": effectors cover motion, light, and sound. Each *type* defines i
 own drive (no universal verb) over the lane(s) it supports:
 
 - **request** lane — an occasional value that holds (`PwmEffector`: named-channel
-  levels `0.0–1.0`, scaled to the device's command). `POST /effectors/{id}`.
+  levels `0.0–1.0`, scaled to the device's command; optional `params.min_duty`
+  maps a non-zero level into `[min_duty, 1]` so high-rpm fans start). `POST /effectors/{id}`.
 - **stream** lane — a continuous flow (speaker audio, LED-strip animation).
   `WS /effectors/{id}/stream` (reference `StreamSink` today; real hardware later).
 

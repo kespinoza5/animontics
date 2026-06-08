@@ -119,7 +119,20 @@ class PwmEffector(EffectorBase):
     def descriptor(self) -> dict:
         d = super().descriptor()
         d["value"] = "0.0-1.0"
+        d["min_duty"] = self._min_duty
         return d
+
+    @property
+    def _min_duty(self) -> float:
+        """Lowest non-zero output (0..1). A non-zero level maps into [min_duty, 1];
+        level 0 is always fully off. Lets tiny/high-rpm fans actually start."""
+        return max(0.0, min(1.0, float(self.config.params.get("min_duty", 0.0))))
+
+    def _to_duty(self, level: float) -> int:
+        if level <= 0.0:
+            return 0                                  # off
+        lo = self._min_duty
+        return max(0, min(255, round((lo + (1.0 - lo) * min(1.0, level)) * 255)))
 
     def handle_request(self, payload: dict) -> dict:
         levels = payload.get("levels", payload)
@@ -131,9 +144,8 @@ class PwmEffector(EffectorBase):
             if ch is None:
                 results[str(key)] = "unknown channel"
                 continue
-            duty = max(0, min(255, round(float(level) * 255)))
             ok = self._device is not None and self._device.send_command(
-                CMD_SET_DUTY, [ch.index, duty]
+                CMD_SET_DUTY, [ch.index, self._to_duty(float(level))]
             )
             self._state[ch.name] = round(float(level), 4)
             results[ch.name] = "ok" if ok else "link down"

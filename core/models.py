@@ -84,6 +84,7 @@ class EffectorConfig(BaseModel):
     enabled: bool = True
     backend: dict[str, Any] = {}
     channels: list[EffectorChannel] = []
+    params: dict[str, Any] = {}         # effector-type settings (e.g. pwm min_duty)
 
 
 class PolicyConfig(BaseModel):

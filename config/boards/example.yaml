@@ -139,7 +139,9 @@ sensors: []
 # effectors:
 #   - id: chassis_fans
 #     type: pwm
-#     backend: {device: larduino}
+#     backend: {device: lxiao}        # the MCU that drives the fan PWM
+#     params: {min_duty: 0.3}         # a non-zero level maps into [0.3, 1.0] so
+#                                     # high-rpm fans actually start (0 = off)
 #     channels:
 #       - {name: intake,  index: 0}
 #       - {name: exhaust, index: 1}
