@@ -9,8 +9,8 @@ Shared Python infrastructure for the animontics node agent. No hardware dependen
 | `sensor_base.py` | `SensorBase` abstract base — all sensor plugins inherit it |
 | `analog_array.py` | `AnalogArrayBase` — array sensors bound to 1+ devices (may span MCUs) |
 | `device.py` | `Device` base + registry; `McuSerialDevice` (push), `Ads1115Device` (pull) — shared peripherals |
-| `effector_base.py` | `EffectorBase` + registry; `PwmEffector` (request lane), `StreamSink` (stream lane) |
-| `policy.py` | `PolicyBase` (obs→action) + registry, `CurvePolicy`, `PolicyRuntime` — control loops |
+| `effector_base.py` | `EffectorBase` + registry (concrete types live in `effectors/`) |
+| `policy.py` | `PolicyBase` (obs→action) + registry + `PolicyRuntime` (concrete policies in `policies/`) |
 | `relay.py` | `Relay` — the thalamus: named-signal pub/sub + gating; inter-cortex seam |
 | `mcu_link.py` | MCU↔node frame codec (sample + command frames) — node decodes; firmware mirrors |
 | `broadcaster.py` | `Broadcaster`/`FrameBroadcaster` pub/sub — per sensor, shared across HTTP clients |

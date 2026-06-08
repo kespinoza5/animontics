@@ -326,12 +326,14 @@ that reads `request.app.state.*`.
   decoded frames to `subscribe()` callbacks (and offer `send_command`); pull
   devices expose a read method (e.g. `Ads1115Device.read_channel`). Declare under
   `devices:`; sensors/effectors bind by id via `attach_devices`.
-- **Effector** (`core/effector_base.py`) — an output. Subclass `EffectorBase`,
+- **Effector** — an output. Add a package under `effectors/<type>/` (base in
+  `core/effector_base.py`, auto-discovered like sensors): subclass `EffectorBase`,
   `@register_effector("type")`, set `lanes`, and implement the lane(s) your type
   uses: `handle_request(payload)` (request) and/or `feed(chunk)` (stream). Drive
   values are type-defined and normalized; the node scales to the device's raw
   command. Declare under `effectors:`.
-- **Policy** (`core/policy.py`) — a control loop. Subclass `PolicyBase`,
+- **Policy** — a control loop. Add a package under `policies/<type>/` (base +
+  `PolicyRuntime` in `core/policy.py`): subclass `PolicyBase`,
   `@register_policy("type")`, implement `step(obs) → action` (obs are relay signal
   values; action is `{channel: value}` for the target effector). Behavior is code,
   not config; `PolicyConfig` only declares the observation/action wiring + params.

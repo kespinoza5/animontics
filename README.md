@@ -167,6 +167,8 @@ sensors/        Sensor plugin packages (submodules; trivial ones in-tree)
   pressure_array/  Pressure surface across MCUs (via devices)
   analog_in/    Heterogeneous analog inputs (ADS1115 device) — in-tree
   board_temp/   SBC board/CPU temperature (sysfs) — in-tree
+effectors/      Effector plugin packages (efferent: pwm, fan_array, stream_sink)
+policies/       Policy plugin packages (control loops: curve, …)
 mcu/            Firmware source by runtime (composed by forge)
   arduino/      compiled C++ (AVR/ATmega328P)
   circuit_python/  generic runtime for CircuitPython boards (XIAO, RP2040)

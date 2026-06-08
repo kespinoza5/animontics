@@ -26,8 +26,10 @@ from core.registry import create, registered_types
 from core.relay import Relay
 from core.sensor_base import SensorBase
 
-# Import all sensor packages present on this board so their @register calls fire.
-import sensors  # noqa: F401  (side-effect import)
+# Import the plugin trees present on this board so their @register* calls fire.
+import sensors    # noqa: F401  (side-effect import)
+import effectors  # noqa: F401  (side-effect import)
+import policies   # noqa: F401  (side-effect import)
 
 from node.routers import camera as camera_router_module
 from node.routers import sensors as sensors_router_module

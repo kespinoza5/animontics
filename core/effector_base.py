@@ -19,8 +19,6 @@ import logging
 from abc import ABC
 from typing import TYPE_CHECKING, Any
 
-from core.mcu_link import CMD_SET_DUTY
-
 if TYPE_CHECKING:
     from core.device import Device
     from core.models import EffectorChannel, EffectorConfig
@@ -104,73 +102,5 @@ class EffectorBase(ABC):
     def stop(self) -> None: ...
 
 
-@register_effector("pwm")
-class PwmEffector(EffectorBase):
-    """PWM outputs (fans, LED brightness, unidirectional motor speed).
-
-    Request body: {"levels": {channel: 0.0-1.0}} (or {channel: level}); levels are
-    normalized and scaled to the device's 0-255 command. channel may be a name or
-    an index.
-    """
-
-    effector_type = "pwm"
-    lanes = ("request",)
-
-    def descriptor(self) -> dict:
-        d = super().descriptor()
-        d["value"] = "0.0-1.0"
-        d["min_duty"] = self._min_duty
-        return d
-
-    @property
-    def _min_duty(self) -> float:
-        """Lowest non-zero output (0..1). A non-zero level maps into [min_duty, 1];
-        level 0 is always fully off. Lets tiny/high-rpm fans actually start."""
-        return max(0.0, min(1.0, float(self.config.params.get("min_duty", 0.0))))
-
-    def _to_duty(self, level: float) -> int:
-        if level <= 0.0:
-            return 0                                  # off
-        lo = self._min_duty
-        return max(0, min(255, round((lo + (1.0 - lo) * min(1.0, level)) * 255)))
-
-    def handle_request(self, payload: dict) -> dict:
-        levels = payload.get("levels", payload)
-        if not isinstance(levels, dict) or not levels:
-            return {"error": "expected {'levels': {channel: 0.0-1.0}}"}
-        results: dict[str, str] = {}
-        for key, level in levels.items():
-            ch = self._channel(key)
-            if ch is None:
-                results[str(key)] = "unknown channel"
-                continue
-            ok = self._device is not None and self._device.send_command(
-                CMD_SET_DUTY, [ch.index, self._to_duty(float(level))]
-            )
-            self._state[ch.name] = round(float(level), 4)
-            results[ch.name] = "ok" if ok else "link down"
-        return {"set": results}
-
-
-@register_effector("stream_sink")
-class StreamSink(EffectorBase):
-    """Reference stream-lane effector (no hardware) — records what it receives.
-
-    Proves the continuous-flow lane end to end (WS → feed) and is the template a
-    real speaker / LED-strip effector follows.
-    """
-
-    effector_type = "stream_sink"
-    lanes = ("stream",)
-
-    def __init__(self, effector_id: str, config: "EffectorConfig") -> None:
-        super().__init__(effector_id, config)
-        self._bytes = 0
-        self._last_len = 0
-
-    def feed(self, chunk: bytes) -> None:
-        self._bytes += len(chunk)
-        self._last_len = len(chunk)
-
-    def state(self) -> dict:
-        return {"bytes_received": self._bytes, "last_chunk": self._last_len}
+# Concrete effector types live in the effectors/ plugin tree (effectors/pwm,
+# effectors/fan_array, effectors/stream_sink, …), auto-discovered like sensors.

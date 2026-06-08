@@ -64,9 +64,14 @@ Beside sensors, the node runtime has three tiers, each a base class + registry
 | Tier | Module | Registry | Notes |
 |------|--------|----------|-------|
 | Device | `core/device.py` | `@register_device` | `McuSerialDevice` (push: frames + `send_command`), `Ads1115Device` (pull) |
-| Effector | `core/effector_base.py` | `@register_effector` | `PwmEffector` (request lane), `StreamSink` (stream lane) |
-| Policy | `core/policy.py` | `@register_policy` | `CurvePolicy` (always-on fan reflex); `PolicyRuntime` ticks the stack |
+| Effector | base `core/effector_base.py`; types `effectors/` | `@register_effector` | `effectors/pwm`, `effectors/stream_sink`, `effectors/fan_array` |
+| Policy | base `core/policy.py`; types `policies/` | `@register_policy` | `policies/curve` (always-on fan reflex); `PolicyRuntime` ticks the stack |
 | Relay | `core/relay.py` | — | the thalamus: named-signal pub/sub + gating; inter-cortex seam |
+
+Effectors and policies are **plugin trees** (`effectors/`, `policies/`),
+auto-discovered exactly like `sensors/`; `core/` holds only the base class +
+registry. `node/app.py` does `import sensors/effectors/policies` for the
+side-effect discovery.
 
 The wire codec is `core/mcu_link.py` (sample + command frames); array sensors use
 `core/analog_array.py` (`AnalogArrayBase`, binds 1+ devices, spans MCUs).

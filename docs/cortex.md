@@ -24,8 +24,8 @@ effectors → relay → policies; stopped in reverse).
 | **device** | shared peripheral (MCU link, ADS1115 chip); sensors read it, effectors write it | `core/device.py` |
 | **sensor** | afferent → raw signals; may span devices (one logical sensor over 4 MCUs) | `core/sensor_base.py`, `core/analog_array.py` |
 | **model** | learned *perception* (signals → features); a forge/accelerator artifact — an "advanced sensor" | *seam (future)* |
-| **effector** | efferent output (motion/light/sound); type-defined drive, two lanes | `core/effector_base.py` |
-| **policy** | control loop (observation → action); composable, swappable, light | `core/policy.py` |
+| **effector** | efferent output (motion/light/sound); type-defined drive, two lanes | `core/effector_base.py` + `effectors/` |
+| **policy** | control loop (observation → action); composable, swappable, light | `core/policy.py` + `policies/` |
 | **relay** | the thalamus: named-signal pub/sub + gating; the inter-cortex seam | `core/relay.py` |
 
 One boundary holds across all of it: **devices move bytes; sensors, models,
