@@ -1,0 +1,10 @@
+module: pwm_out
+platforms: [circuit_python]
+role: actuator
+description: Hardware PWM outputs (e.g. 4-pin fan PWM input) via CircuitPython pwmio.
+accepts:
+  set_duty: {channel: int, duty: int}   # duty 0..255 → pwmio 0..65535
+config:
+  freq_hz: 25000                        # pwmio sets this per channel (clean 25 kHz)
+# pins (CircuitPython board attribute names, e.g. D1/GP2) come from the contract.
+# No compiled source — rendered into code.py.

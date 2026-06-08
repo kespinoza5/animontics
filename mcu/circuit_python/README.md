@@ -7,13 +7,18 @@ chip list baked in, into `firmware/<id>/code.py`, and "deploys" by copying it to
 the board's `CIRCUITPY` drive. Families are organized by runtime, not chip — the
 board is just a profile in `platform.yaml`.
 
+The runtime is bidirectional: it streams ADS1115 channels (afferent) **and/or**
+drives PWM outputs from inbound commands (efferent) — whichever modules the
+contract composes.
+
 ```
 circuit_python/
-├── platform.yaml          board profiles (xiao_samd21, rp2040), runtime, deploy: copy
-├── templates/code.py.j2   the generic runtime: read configured ADS1115s, stream link frames
+├── platform.yaml          board profiles (xiao_samd21/rp2040/rp2350, pico), runtime, deploy: copy
+├── templates/code.py.j2   generic runtime: ADS1115 stream + PWM command lane (conditional)
 └── modules/
-    ├── ads1115/           manifest — declares chips (addr/gain/channels), provides channels
-    └── transport_serial/  manifest — marks the uplink transport (framing is in code.py)
+    ├── ads1115/           sensor — declares chips (addr/gain/channels), provides channels
+    ├── pwm_out/           actuator — pwmio PWM (e.g. 25 kHz fan PWM), set_duty commands
+    └── transport_serial/  marks the uplink transport (framing is in code.py)
 ```
 
 ## How a build works

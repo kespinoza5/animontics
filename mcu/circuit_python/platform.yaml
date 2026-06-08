@@ -10,6 +10,8 @@ runtime: circuitpython
 
 boards:
   xiao_samd21: {board: seeed_xiao_samd21}
+  xiao_rp2040: {board: seeed_xiao_rp2040}
+  xiao_rp2350: {board: seeed_xiao_rp2350}
   rp2040:      {board: raspberry_pi_pico}
 
 deploy:

@@ -17,6 +17,8 @@ from tools.forge.builder import Artifact, Builder, BuildContext, BuildError, reg
 
 _DEFAULT_BAUD = 115200
 _DEFAULT_SAMPLE_HZ = 2
+_DEFAULT_PWM_HZ = 25000
+_CMD_LOOP_SLEEP = 0.05          # PWM-only board: poll commands at ~20 Hz
 
 
 @register_builder("mcu.circuit_python")
@@ -32,8 +34,9 @@ class CircuitPythonBuilder(Builder):
         issues: list[str] = []
         if target.board not in platform.get("boards", {}):
             issues.append(f"board '{target.board}' not in platform.yaml")
-        if not any(m.module == "ads1115" for m in target.modules):
-            issues.append("circuit_python target has no ads1115 module to read")
+        kinds = {m.module for m in target.modules}
+        if not ({"ads1115", "pwm_out"} & kinds):
+            issues.append("circuit_python target needs an ads1115 (in) or pwm_out (out) module")
         return issues
 
     def compose(self, ctx: BuildContext) -> Path:
@@ -43,26 +46,30 @@ class CircuitPythonBuilder(Builder):
         if target.board not in platform.get("boards", {}):
             raise BuildError(f"board '{target.board}' not in platform.yaml")
 
-        # Flatten the ADS1115 chips into an ordered (addr, channel, gain) list.
         addrs: list[int] = []
-        channels: list[dict] = []
+        channels: list[dict] = []        # ADS1115 (addr, channel, gain) in wire order
+        pwm_pins: list[str] = []         # CircuitPython board attr names, in command order
         sample_hz = _DEFAULT_SAMPLE_HZ
+        pwm_freq = _DEFAULT_PWM_HZ
         for mod in target.modules:
             if "sample_hz" in mod.params:
                 sample_hz = int(mod.params["sample_hz"])
-            if mod.module != "ads1115":
-                continue
-            for chip in mod.params.get("chips") or []:
-                addr = chip["addr"]
-                gain = int(chip.get("gain", 1))
-                if addr not in addrs:
-                    addrs.append(addr)
-                for c in chip.get("channels", []):
-                    channels.append({"addr": addr, "channel": c, "gain": gain})
+            if mod.module == "ads1115":
+                for chip in mod.params.get("chips") or []:
+                    addr = chip["addr"]
+                    gain = int(chip.get("gain", 1))
+                    if addr not in addrs:
+                        addrs.append(addr)
+                    channels += [{"addr": addr, "channel": c, "gain": gain}
+                                 for c in chip.get("channels", [])]
+            elif mod.module == "pwm_out":
+                pwm_pins += list(mod.pins)
+                pwm_freq = int(mod.params.get("freq_hz", _DEFAULT_PWM_HZ))
 
-        if not channels:
-            raise BuildError(f"{target.id}: no ads1115 channels configured")
+        if not channels and not pwm_pins:
+            raise BuildError(f"{target.id}: no ads1115 channels or pwm_out pins configured")
 
+        period = round(1.0 / max(1, sample_hz), 3)
         src_root = contract_mod.source_root(target, root)
         env = Environment(
             loader=FileSystemLoader(str(src_root / "templates")),
@@ -71,7 +78,9 @@ class CircuitPythonBuilder(Builder):
         code = env.get_template("code.py.j2").render(
             id=target.id, target=target.target, board=target.board,
             addrs=addrs, channels=channels,
-            period=round(1.0 / max(1, sample_hz), 3),
+            pwm_pins=pwm_pins, pwm_freq=pwm_freq,
+            period=period,
+            loop_sleep=period if channels else _CMD_LOOP_SLEEP,
             baud=target.transport.baud or _DEFAULT_BAUD,
         )
 

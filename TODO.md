@@ -135,11 +135,15 @@ an existing seam:
       lane + StreamSink stream lane) driving through devices, policies + thalamic
       relay (`core/policy.py`, `core/relay.py`: always-on fan reflex), and the
       `mcu/circuit_python` forge family feeding `pressure_array`. See docs/cortex.md.
-- [ ] Real PWM frequency in `mcu/arduino/modules/pwm_out` — it currently ignores
-      `freq_hz` and uses `analogWrite`'s default (~490/980 Hz). 4-pin PC fans want
-      25 kHz. Needs AVR timer config, and the fan pins should move off Timer0
-      (D5/D6 drive `millis()`) to Timer1 (D9/D10, 16-bit via ICR1). Until then fans
-      run but may whine / control coarsely. (Update `config/mcus/larduino.yaml` pins too.)
+- [x] CircuitPython actuator path — `mcu/circuit_python` is now bidirectional:
+      `pwm_out` module (`pwmio`, clean 25 kHz) + inbound `AC` command decode in the
+      runtime. The chassis fans (4-pin PWM) live on the LXiao (XIAO RP2040,
+      `config/mcus/lxiao.yaml`), driven by the node effector tier — moved off the
+      AVR, whose timer map (Timer0 = millis) makes clean 25 kHz awkward.
+- [ ] Real PWM frequency in the AVR `pwm_out` (lower priority now fans are on the
+      RP2040) — it still ignores `freq_hz` and runs at `analogWrite`'s default.
+      Only needed if an AVR ever drives a PWM load wanting >default frequency
+      (timer config; keep off Timer0/D5/D6 which run `millis()`).
 - [ ] Flash on real hardware — `ArduinoBuilder.deploy` (rsync .hex + avrdude over
       the host's SSH) is written but unexercised; needs avrdude on the host. Add a
       direct dev-machine-USB flash option for boards not behind a node.

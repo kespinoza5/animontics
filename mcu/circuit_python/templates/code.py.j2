@@ -2,49 +2,84 @@
 # Contract: config/mcus/{{ id }}.yaml   (target {{ target }}, board {{ board }})
 # Regenerate: python -m tools.forge.forge build {{ id }}
 #
-# Generic CircuitPython runtime: read the configured ADS1115 channels and stream
-# forge link frames (protocol v1) over USB serial. The on-wire layout MUST match
-# core/mcu_link.py — the node decodes with it.
+# Generic CircuitPython runtime: stream configured ADS1115 channels and/or drive
+# PWM outputs from inbound commands, over USB serial. The on-wire layout MUST
+# match core/mcu_link.py — the node decodes/encodes with it.
 import struct
 import time
 
 import board
-import busio
 import usb_cdc
+{% if channels %}import busio
 import adafruit_ads1x15.ads1115 as ADS
 from adafruit_ads1x15.analog_in import AnalogIn
-
+{% endif %}{% if pwm_pins %}import pwmio
+{% endif %}
 PROTOCOL_VERSION = 1
-PERIOD_S = {{ period }}
-
+_serial = usb_cdc.data if usb_cdc.data is not None else usb_cdc.console
+{% if channels %}
+# ── Afferent: ADS1115 → uplink frames ('AM') ──────────────────────────────────
 _i2c = busio.I2C(board.SCL, board.SDA)
 _adcs = { {% for a in addrs %}{{ a }}: ADS.ADS1115(_i2c, address={{ a }}){% if not loop.last %}, {% endif %}{% endfor %} }
-
-# (addr, channel, gain) in wire order — the node's channel map mirrors this.
 CHANNELS = [
 {% for ch in channels %}    ({{ ch.addr }}, {{ ch.channel }}, {{ ch.gain }}),
 {% endfor %}]
 
-_serial = usb_cdc.data if usb_cdc.data is not None else usb_cdc.console
-
-
 def read_all():
-    samples = []
+    out = []
     for addr, channel, gain in CHANNELS:
         adc = _adcs[addr]
         adc.gain = gain
-        samples.append(AnalogIn(adc, channel).value)   # signed 16-bit register value
-    return samples
-
+        out.append(AnalogIn(adc, channel).value)
+    return out
 
 def send(samples, seq):
     body = b"AM" + bytes([PROTOCOL_VERSION, seq & 0xFF, len(samples)])
     body += struct.pack("<%dh" % len(samples), *samples)
-    _serial.write(body + bytes([sum(body) & 0xFF]))     # checksum
+    _serial.write(body + bytes([sum(body) & 0xFF]))
+{% endif %}{% if pwm_pins %}
+# ── Efferent: PWM outputs ← inbound commands ('AC') ───────────────────────────
+PWM_FREQ = {{ pwm_freq }}
+_pwms = [
+{% for p in pwm_pins %}    pwmio.PWMOut(getattr(board, "{{ p }}"), frequency=PWM_FREQ, duty_cycle=0),
+{% endfor %}]
 
+def _set_duty(ch, duty):                       # duty 0..255 → pwmio 0..65535
+    if 0 <= ch < len(_pwms):
+        _pwms[ch].duty_cycle = max(0, min(255, duty)) * 257
 
+_rx = bytearray()
+
+def poll_commands():
+    waiting = _serial.in_waiting
+    if waiting:
+        _rx.extend(_serial.read(waiting))
+    while True:
+        i = _rx.find(b"AC")
+        if i < 0:
+            del _rx[: max(0, len(_rx) - 1)]    # keep a possible trailing 'A'
+            return
+        if i:
+            del _rx[:i]
+        if len(_rx) < 5:
+            return
+        nargs = _rx[4]
+        total = 5 + 2 * nargs + 1
+        if len(_rx) < total:
+            return
+        frame = _rx[:total]
+        if _rx[2] != PROTOCOL_VERSION or (sum(frame[:-1]) & 0xFF) != frame[-1]:
+            del _rx[:1]                         # bad — step past this magic, resync
+            continue
+        cmd = _rx[3]
+        args = struct.unpack_from("<%dh" % nargs, frame, 5)
+        if cmd == 1 and nargs >= 2:            # CMD_SET_DUTY
+            _set_duty(args[0], args[1])
+        del _rx[:total]
+{% endif %}
 seq = 0
 while True:
-    send(read_all(), seq)
+{% if channels %}    send(read_all(), seq)
     seq = (seq + 1) & 0xFF
-    time.sleep(PERIOD_S)
+{% endif %}{% if pwm_pins %}    poll_commands()
+{% endif %}    time.sleep({{ loop_sleep }})
