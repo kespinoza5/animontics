@@ -17,6 +17,12 @@ convention is: **every hand-authored directory has a `README.md`**, and the
 orientation docs + `docs/` site stay current with the code. Your job is to find
 and fix doc drift. You edit docs only — never code, tests, or config.
 
+**Project map** (so you know what should exist): the node runtime has parallel
+plugin trees — `sensors/`, `effectors/`, `policies/` — each auto-discovered, with
+a top-level README *and* a README per package; bases live in `core/`. Firmware is
+`mcu/<family>/` (arduino, circuit_python) with `modules/<name>/` + `templates/`
+READMEs. Dev tooling is `tools/forge` (firmware compose/flash/resolve) + `tools/fleet`.
+
 ## Scope
 
 - If given a git ref or range, scope to what changed:
@@ -60,13 +66,15 @@ and fix doc drift. You edit docs only — never code, tests, or config.
      `include-markdown` line if unsure.
    - **Hand-maintained API reference**: `docs/api/{core,node,sensors}.md` are
      mkdocstrings lists (`::: module.Symbol`). When modules/classes are added or
-     removed, update these lists to match.
+     removed, update these lists to match. The `effectors/` and `policies/` trees
+     now have public base/plugin classes but **no api page yet** — add
+     `docs/api/effectors.md` + `docs/api/policies.md` (+ nav) if still missing.
    - **mkdocs nav**: add new pages (and matching `docs/...md` wrappers) to
-     `mkdocs.yml`. New sensor → `docs/sensors/<type>.md` (include) + nav entry.
+     `mkdocs.yml`. New sensor/effector/policy → an include page + nav entry.
 
 4. **Verify.** Build the docs and run the conformance audit:
    ```bash
-   python -m mkdocs build          # expect clean (one known tools/network.md 404)
+   python -m mkdocs build          # expect clean (no warnings)
    python tools/dev/audit.py       # sensor-package conformance
    ```
    A new mkdocstrings import error or broken nav link means a doc you edited
