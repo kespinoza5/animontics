@@ -187,7 +187,7 @@ Steps 7-9 are easy to forget. The fleet tool and docs break silently without the
 **Variants:** a *device-fed array* sensor (`mq_array`, `pressure_array`) subclasses
 `core.analog_array.AnalogArrayBase` instead of writing a hardware `driver.py` — the
 device does the I/O; the sensor just declares `channels` and overrides `enrich`.
-A *trivial SBC-native* sensor (`board_temp`, `analog_in`) can live **in-tree**
+A *trivial SBC-native* sensor (`board_temp`, `analog_in`, `fan_tach`) can live **in-tree**
 (not a submodule). To add a **device, effector, or policy**, see
 `CONTRIBUTING.md` → "Adding a device, effector, or policy".
 

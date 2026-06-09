@@ -95,10 +95,13 @@ Firmware families are organized by **runtime**, not chip:
   real `.hex` with `arduino-cli` (WSL fallback).
 - **`mcu/circuit_python/`** (`target: mcu.circuit_python`) — XIAO SAMD21, RP2040,
   any CircuitPython board. *No compile*: one generic runtime
-  (`templates/code.py.j2`) is composed with the instance's `ads1115` chip list
-  into `firmware/<id>/code.py`; deploy copies it to the `CIRCUITPY` drive. Both
+  (`templates/code.py.j2`) is composed with the instance's chip list into
+  `firmware/<id>/code.py`; deploy copies it to the `CIRCUITPY` drive. Both
   stream the same `core/mcu_link.py` frames, so the node device decodes them
-  identically.
+  identically. The runtime is **bidirectional**: it streams sensor channels
+  (ADS1115, tach RPM) uplink *and* drives PWM outputs from inbound commands —
+  whichever modules the contract composes. Current modules: `ads1115`, `tach`
+  (fan FG/RPM via hardware edge-counting), `pwm_out`, `transport_serial`.
 
 The MCU↔node command lane is built end to end: `AC` command frames in
 `core/mcu_link.py`, `transport_serial.poll()` + a generated `onCommand` dispatch
@@ -108,11 +111,14 @@ sensor.
 
 ## Status
 
-Implemented: the forge core (validate/build/flash/clean/channels), the
+Implemented: the forge core (validate/build/flash/clean/channels/resolve), the
 AVR/Arduino target (compose **+** compile to a real `.hex`), the CircuitPython
-family (compose a runtime, copy-deploy), and the node-side
-[`mq_array`](sensors/mq_array.md) and [`pressure_array`](sensors/pressure_array.md)
-sensors. Deferred (reserved behind seams): the **models** tier (accelerator
+family (compose a bidirectional runtime — ADS1115 + tach + PWM command lane,
+copy-deploy), and the node-side [`mq_array`](sensors/mq_array.md),
+[`pressure_array`](sensors/pressure_array.md), and
+[`fan_tach`](sensors/fan_tach.md) sensors. `forge resolve` derives a
+device-fed sensor's `channels` from its MCU contracts — author the channel map
+once. Deferred (reserved behind seams): the **models** tier (accelerator
 perception nets — `accel.hailo`/`accel.coral` builders), flash/copy-deploy against
 live hardware, SPI transport, FPGA builders, `animon`↔`forge` reconcile, and
 protocol v2. See `TODO.md`.

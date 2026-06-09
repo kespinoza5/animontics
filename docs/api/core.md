@@ -20,15 +20,18 @@ hardware dependencies — importable on any machine (hardware libs load lazily).
 
 ## effector_base
 
-::: core.effector_base.EffectorBase
-::: core.effector_base.PwmEffector
+The base class and registry for effectors. Full API — including concrete plugin
+types (`PwmEffector`, `FanArray`, `StreamSink`) — is on the
+[effectors reference page](effectors.md).
+
 ::: core.effector_base.create_effector
 
 ## policy
 
-::: core.policy.PolicyBase
-::: core.policy.CurvePolicy
-::: core.policy.PolicyRuntime
+The base class, `PolicyRuntime`, and registry for policies. Full API — including
+concrete plugin types (`CurvePolicy`) — is on the
+[policies reference page](policies.md).
+
 ::: core.policy.create_policy
 
 ## relay

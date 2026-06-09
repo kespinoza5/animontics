@@ -1,7 +1,7 @@
 # fan_tach — fan RPM (via MCU tach counters)
 
 Fan RPM read from a CircuitPython MCU's tach (FG) inputs. The firmware
-[`tach`](../../mcu/circuit_python/modules/tach/README.md) module counts FG edges
+`tach` module (see `mcu/circuit_python/modules/tach/`) counts FG edges
 and converts to RPM, streaming it in the uplink frame; this sensor surfaces it.
 Because the fans are 4-pin (V+/GND always powered), FG is valid at any PWM duty —
 so the same MCU (the LXiao) drives the fans (`fan_array` effector) **and** reports
@@ -17,14 +17,12 @@ calibration; `enrich` aliases it under `rpm`).
 sensors:
   - id: fan_rpm
     type: fan_tach
-    channels:
-      - {device: lxiao, index: 3, signal: intake}    # after the 3 pwm? no — tach
-      - {device: lxiao, index: 4, signal: exhaust}   # channels follow the contract
-      - {device: lxiao, index: 5, signal: aux}
+    devices: [lxiao]        # forge resolve derives the RPM channels from the contract
 ```
 
-The channel indices come from the MCU's contract wire order (`forge channels lxiao`).
-Once channel auto-derivation lands, this becomes `devices: [lxiao]`.
+`forge resolve <node>` fills `channels` from the LXiao's contract (its `tach`
+module's signals, in wire order) — author the channel→signal map once in
+`config/mcus/lxiao.yaml`. An explicit `channels` list still works as an override.
 
 ## Data format
 

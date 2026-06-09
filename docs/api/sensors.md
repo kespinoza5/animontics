@@ -32,6 +32,10 @@ Each sensor package registers itself via `@register("type_key")`. The classes be
 ::: sensors.pressure_array.sensor.PressureArray
 ::: sensors.pressure_array.driver
 
+## ir_xcvr
+
+::: sensors.ir_xcvr.sensor.IrXcvrSensor
+
 ## analog_in
 
 ::: sensors.analog_in.sensor.AnalogIn
@@ -39,3 +43,7 @@ Each sensor package registers itself via `@register("type_key")`. The classes be
 ## board_temp
 
 ::: sensors.board_temp.sensor.BoardTemp
+
+## fan_tach
+
+::: sensors.fan_tach.sensor.FanTach

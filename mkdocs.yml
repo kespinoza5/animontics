@@ -48,6 +48,7 @@ nav:
     - Pressure Array: sensors/pressure_array.md
     - Analog In (ADS1115): sensors/analog_in.md
     - Board Temperature: sensors/board_temp.md
+    - Fan Tach (RPM): sensors/fan_tach.md
   - Node Agent: node.md
   - Core Library: core.md
   - Tools:
@@ -62,6 +63,8 @@ nav:
   - API Reference:
     - core: api/core.md
     - sensors: api/sensors.md
+    - effectors: api/effectors.md
+    - policies: api/policies.md
     - node: api/node.md
   - Contributing: contributing.md
   - Roadmap: roadmap.md

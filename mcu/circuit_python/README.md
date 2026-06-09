@@ -17,6 +17,7 @@ circuit_python/
 ├── templates/code.py.j2   generic runtime: ADS1115 stream + PWM command lane (conditional)
 └── modules/
     ├── ads1115/           sensor — declares chips (addr/gain/channels), provides channels
+    ├── tach/              sensor — countio edge-counting for fan FG (RPM); one channel per pin
     ├── pwm_out/           actuator — pwmio PWM (e.g. 25 kHz fan PWM), set_duty commands
     └── transport_serial/  marks the uplink transport (framing is in code.py)
 ```

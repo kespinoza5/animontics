@@ -38,11 +38,24 @@ sensors:
     type: mlx90640
   - id: gas_array          # reads the larduino MCU's gas stream (see usb_mcus)
     type: mq_array
+  - id: fan_rpm            # reads the lxiao MCU's fan tach (RPM)
+    type: fan_tach
+  - id: board_temp         # SBC thermal zones (sysfs) — connectionless, no device
+    type: board_temp
+  - id: rig_adc            # heterogeneous analog inputs via an SBC-side ADS1115
+    type: analog_in
+  # Wiring (ports, device bindings, channels) lives in config/boards/<id>.yaml.
+  # Device-fed sensors (mq_array, fan_tach, analog_in) get their channels from the
+  # MCU contract via `forge resolve <id>` — see config/boards/example.yaml.
 
 # Microcontrollers on this node's USB hubs. Build/flash their firmware with
 # `python -m tools.forge.forge build <id>` (contract at config/mcus/<id>.yaml).
 usb_mcus:
-  - id:       larduino     # → config/mcus/larduino.yaml
+  - id:       larduino     # → config/mcus/larduino.yaml (gas array + status LED)
     type:     arduino
     usb_port: "1-1"
-    role:     gas_and_fans
+    role:     gas_array
+  - id:       lxiao        # → config/mcus/lxiao.yaml (XIAO RP2040: fans + tach)
+    type:     rp2040
+    usb_port: "1-2"
+    role:     fan_control
