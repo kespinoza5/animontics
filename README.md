@@ -116,9 +116,9 @@ On a board (or for local testing) you can skip the CLI and run the agent itself:
 
 ```bash
 pip3 install -r requirements.txt
-uvicorn node.app:app --host 0.0.0.0 --port 8080   # reads config/config.yaml
+python -m node                                    # binds host:port from config.network
 
-# Install as a service (the deploy flow does this for you)
+# Install as a service (the deploy flow does this for you; ExecStart=python -m node)
 sudo cp animontics-node.service /etc/systemd/system/
 sudo systemctl enable --now animontics-node
 ```

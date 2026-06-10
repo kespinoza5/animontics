@@ -5,8 +5,9 @@ Loads config/config.yaml, discovers and starts enabled sensors,
 then serves the node HTTP API via FastAPI/uvicorn.
 
 Usage:
-    uvicorn node.app:app --host 0.0.0.0 --port 8080
-    uvicorn node.app:app --host 0.0.0.0 --port 8080 --config path/to/config.yaml
+    python -m node                          # binds host:port from config.network
+    ANIMONTICS_CONFIG=/path/to/config.yaml python -m node
+    uvicorn node.app:app --host 0.0.0.0 --port 8080   # explicit bind (ad-hoc)
 """
 
 from __future__ import annotations

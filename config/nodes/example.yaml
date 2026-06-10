@@ -11,8 +11,6 @@
 #   id           — unique node identifier, used as the key in animon.yaml
 #   type         — board type (orangepi_zero2 / raspberry_pi_5 /
 #                  raspberry_pi_zero_2w / neocore2 / etc.)
-#   hostname     — network hostname of this board
-#   port         — HTTP port the node agent listens on (default: 8080)
 #   role         — free-text role label for documentation / tooling
 #   capabilities — list of optional hardware capabilities
 #   sensors      — list of {id, type} pairs — NO wiring details here
@@ -20,17 +18,16 @@
 #                  forge build contract at config/mcus/<id>.yaml; a sensor that
 #                  reads the MCU's stream (e.g. mq_array) is listed under sensors.
 #
-# Wiring details (port paths, I2C bus/address, baud rates) go in
-# config/boards/<id>.yaml, or are bootstrapped from sensor METADATA
-# defaults by 'animon deploy'.
+# This file is PURE desired state — no network, no wiring. The node's address
+# (hostname + HTTP port) is access info and lives in config/animon.yaml; wiring
+# (port paths, I2C bus/address, baud rates) goes in config/boards/<id>.yaml or is
+# bootstrapped from sensor METADATA defaults by 'animon deploy'.
 #
 # For additional nodes: copy this file to config/nodes/<other-id>.yaml.
 
-id:       my_sbc_node
-type:     raspberry_pi_5
-hostname: animontics-node
-port:     8080
-role:     vision
+id:    my_sbc_node
+type:  raspberry_pi_5
+role:  vision
 
 sensors:
   - id: lidar_front

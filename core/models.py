@@ -128,8 +128,8 @@ class NodeConfig(BaseModel):
 
     node_id: str
     node_type: str
-    hostname: str
-    network: NetworkConfig = NetworkConfig()
+    hostname: str | None = None         # informational; access (ip/host) lives in animon.yaml
+    network: NetworkConfig = NetworkConfig()   # serving config: bind host + port (projected from access port)
     camera: CameraConfig | None = None
     devices: list[DeviceConfig] = []
     sensors: list[SensorConfig] = []
@@ -181,16 +181,15 @@ class AnimonNodeCamera(BaseModel):
 
 
 class NodeDesiredState(BaseModel):
-    """Desired state for one node — lives in config/nodes/<id>.yaml (in repo).
+    """Desired state for one node — lives in config/nodes/<id>.yaml (gitignored).
 
     Contains the logical description of what a node should run: sensors,
-    capabilities, board type. No IPs, no SSH users, no physical wiring.
+    capabilities, board type. No network at all — address (hostname/port), IPs,
+    and SSH users are access info and live in config/animon.yaml.
     """
 
     id: str
     type: str                        # board type, e.g. "raspberry_pi_5"
-    hostname: str
-    port: int = 8080
     role: str | None = None          # informational, e.g. "vision", "proprioception"
     sensors: list[AnimonSensorRef] = []
     capabilities: list[str] = []
@@ -202,12 +201,17 @@ class NodeDesiredState(BaseModel):
 class AnimonNodeAccess(BaseModel):
     """Access details for one node — lives in config/animon.yaml (gitignored).
 
-    Contains only the information needed to reach the board: IP address,
-    SSH credentials, network topology. Never mixed with desired state.
+    The single authoritative source for a node's reachable address. Everything
+    needed to reach the board: IP/hostname + the HTTP port the agent serves on,
+    plus SSH credentials and network topology. Never mixed with desired state.
+    The node's own serving config (the bind in config/boards/<id>.yaml `network`)
+    is *projected* from `port` at deploy — this file is where it's authored.
     """
 
     ip: str | None = None            # GbE address; None for USB-only nodes
     wifi_ip: str | None = None       # WiFi address if dual-homed
+    hostname: str | None = None      # DNS/mDNS name; access fallback when ip is unset
+    port: int = 8080                 # HTTP port the fleet connects to / the agent serves on
     ssh_user: str | None = None      # overrides AnimonDefaults.ssh_user
     deploy_path: str | None = None   # overrides AnimonDefaults.deploy_path
     connection: AnimonNodeConnection | None = None  # for USB-gadget nodes
@@ -231,8 +235,6 @@ class AnimonNodeEntry(BaseModel):
     # From NodeDesiredState (config/nodes/<id>.yaml)
     id: str
     type: str
-    hostname: str
-    port: int = 8080
     role: str | None = None
     sensors: list[AnimonSensorRef] = []
     capabilities: list[str] = []
@@ -243,6 +245,8 @@ class AnimonNodeEntry(BaseModel):
     # From AnimonNodeAccess (config/animon.yaml)
     ip: str | None = None
     wifi_ip: str | None = None
+    hostname: str | None = None      # access fallback; was desired-state, now access
+    port: int = 8080                 # HTTP port the fleet connects to
     ssh_user: str | None = None
     deploy_path: str | None = None
     connection: AnimonNodeConnection | None = None

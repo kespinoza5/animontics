@@ -33,7 +33,7 @@ This is the core design. Each layer owns exactly its concern — never cross the
 | Layer | File | In repo? | Contains |
 |-------|------|----------|----------|
 | Node desired state | `config/nodes/<id>.yaml` | ❌ gitignored | Which sensors each node should run (id + type only), capabilities, role |
-| Fleet access | `config/animon.yaml` | ❌ gitignored | IPs, SSH users — how to reach each board |
+| Fleet access | `config/animon.yaml` | ❌ gitignored | The node's address: IPs/hostname + HTTP port, SSH users — how to reach each board (authoritative; the board serving-config bind is projected from `port`) |
 | Board wiring reality | `config/boards/<id>.yaml` + board's `config.yaml` | ❌ gitignored | Physical connection details (port, bus, baud, address) |
 | Hardware constraints | `sensors/<type>/__init__.py` `METADATA` | ✅ | Valid connection types, addresses, baud rates, defaults |
 

@@ -72,12 +72,10 @@ or read from the board's existing wiring, and recorded in the gitignored
 `config/boards/<id>.yaml` after deploy:
 
 ```yaml
-# config/nodes/my_sbc_node.yaml
-id:       my_sbc_node
-type:     raspberry_pi_5
-hostname: animontics-node
-port:     8080
-role:     vision
+# config/nodes/my_sbc_node.yaml — pure desired state (no network/address)
+id:    my_sbc_node
+type:  raspberry_pi_5
+role:  vision
 
 sensors:
   - id: lidar_front
@@ -85,6 +83,9 @@ sensors:
   - id: thermal_rear
     type: mlx90640
 ```
+
+The node's address (hostname + the HTTP `port`) is access info — it lives in
+`config/animon.yaml` alongside the IP and SSH user, not here.
 
 Preview, then deploy:
 
@@ -133,7 +134,7 @@ yourself. It reads `config/config.yaml`:
 
 ```bash
 pip3 install -r requirements.txt
-uvicorn node.app:app --host 0.0.0.0 --port 8080
+python -m node                       # binds host:port from config.network
 
 # Or install as a systemd service (the deploy flow does this for you)
 sudo cp animontics-node.service /etc/systemd/system/

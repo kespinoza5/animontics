@@ -24,9 +24,12 @@
 # ── Node identity ──────────────────────────────────────────────────────────────
 node_id:   my_sbc_node
 node_type: raspberry_pi_5
-hostname:  animontics-node
+hostname:  animontics-node          # informational; the reachable address is in animon.yaml
 
-# ── HTTP server ────────────────────────────────────────────────────────────────
+# ── Serving config (how the agent binds) ─────────────────────────────────────────
+# `python -m node` binds host:port from here. This block is PROJECTED by
+# 'animon deploy' from the authoritative port in config/animon.yaml — don't hand-
+# author the port in two places. host is the bind interface (0.0.0.0 = all).
 network:
   host: "0.0.0.0"
   port: 8080

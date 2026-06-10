@@ -209,6 +209,9 @@ def reconcile(
             node_id=desired.id,
             node_type=node_type or desired.type,
             hostname=desired.hostname,
+            # Serving config: the agent binds host:port from here. Authored once in
+            # animon.yaml (access) and projected down — port = the access port; host
+            # defaults to 0.0.0.0 (bind-all). `python -m node` reads this to bind.
             network=NetworkConfig(host="0.0.0.0", port=desired.port),
             sensors=new_sensors,
         )

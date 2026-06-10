@@ -131,6 +131,19 @@ The current sensor streaming API (`GET /sensors/{id}/stream`, `WS /sensors/{id}/
       CONTRIBUTING, and the example headers now all state config/nodes is gitignored
       (only `example.yaml` tracked), matching `.gitignore`. The `proprioception` node
       lives on disk only, as intended.
+- [x] Node address authority — `hostname` + HTTP `port` moved from `config/nodes/`
+      (desired state) into `config/animon.yaml` (access). `config/nodes/` is now pure
+      desired state; the board `network` block is the node's serving config, projected
+      from the access `port` by reconcile; `python -m node` binds from it. One source.
+- [ ] API auth before the served port is exposed beyond a trusted network — the node
+      HTTP API is currently unauthenticated, so anyone who can reach `host:port` can
+      read sensors / drive effectors. Prerequisite for binding to a non-loopback
+      interface on an untrusted network. (See API Design → access control.)
+- [ ] Peering projection — when the cross-node relay tracts land, the node serving
+      config grows a `peers:` section projected from the fleet topology
+      (`config/animon.yaml`); inter-node auth credentials come from a gitignored
+      per-board `secrets.yaml`, never from `animon.yaml` or the board config. Keep
+      address (topology) and identity (credential) in separate places.
 - [ ] Board profiles (`config/profiles/`) — hardware defaults per board type
 - [ ] Fleet node discovery / health check endpoint
 - [ ] Hotswap peripheral autodetection (scan I2C + USB on startup, auto-add to config)

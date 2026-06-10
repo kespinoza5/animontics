@@ -4,7 +4,10 @@
 # config/animon.yaml is gitignored — keep real IPs and SSH users out of
 # source control.
 #
-# This file contains ONLY access details: how to reach each node.
+# This file is the AUTHORITATIVE source for each node's address: how to reach it
+# (ip/hostname), the HTTP port the agent serves on, and SSH access. The node's own
+# serving config (the bind in config/boards/<id>.yaml `network:`) is projected from
+# `port` here at deploy — author the port ONCE, here.
 # Sensor desired state (what each node should run) lives in config/nodes/
 # (gitignored too; only config/nodes/example.yaml is tracked).
 #
@@ -22,11 +25,13 @@ nodes:
   my_sbc_node:
     ip:       192.168.1.100
     ssh_user: orangepi         # overrides defaults.ssh_user for this node
+    # port:   8080             # HTTP port the fleet connects to / agent serves on (default 8080)
 
   # Dual-homed node (GbE + WiFi)
   my_rpi5_node:
     ip:       192.168.1.111
     wifi_ip:  192.168.1.150    # optional — used as fallback if GbE unreachable
+    hostname: my-rpi5.local    # optional mDNS/DNS name; access fallback when ip is unset
     ssh_user: pi
 
   # Node connected via USB ethernet gadget (no direct GbE/WiFi)

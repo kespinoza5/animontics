@@ -48,7 +48,7 @@ Four layers — each owns exactly its concern, never crossing into another.
 | Layer | File | In repo? | Contains |
 |-------|------|----------|----------|
 | **Node desired state** | `config/nodes/<id>.yaml` | ❌ gitignored | Which sensors each node should run (id + type), capabilities, role |
-| **Fleet access** | `config/animon.yaml` | ❌ gitignored | IPs, SSH users — how to reach each board |
+| **Fleet access** | `config/animon.yaml` | ❌ gitignored | The node's address: IPs/hostname + HTTP port + SSH users — how to reach each board (authoritative; the board's serving-config bind is projected from `port`) |
 | **Board wiring** | `config/boards/<id>.yaml` + board's `config.yaml` | ❌ gitignored | Physical connection details (port, bus, baud, address) |
 | **Hardware constraints** | `sensors/<type>/__init__.py` METADATA | ✅ | Valid connection types, locked baud rates, I2C addresses, defaults |
 

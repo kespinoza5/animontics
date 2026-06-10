@@ -111,17 +111,17 @@ def _merge(desired: NodeDesiredState, access: AnimonNodeAccess) -> AnimonNodeEnt
         # Desired state
         id=desired.id,
         type=desired.type,
-        hostname=desired.hostname,
-        port=desired.port,
         role=desired.role,
         sensors=desired.sensors,
         capabilities=desired.capabilities,
         camera=desired.camera,
         usb_mcus=desired.usb_mcus,
         usb_attached=desired.usb_attached,
-        # Access layer
+        # Access layer (address — hostname/port — is authored here, not in desired state)
         ip=access.ip,
         wifi_ip=access.wifi_ip,
+        hostname=access.hostname,
+        port=access.port,
         ssh_user=access.ssh_user,
         deploy_path=access.deploy_path,
         connection=access.connection,

@@ -21,13 +21,17 @@ Each router reads `request.app.state.{sensors,effectors,policies,devices,relay}`
 ## Running
 
 ```bash
-# From the animontics root directory
-uvicorn node.app:app --host 0.0.0.0 --port 8080
+# From the animontics root directory — binds host:port from the serving config
+# (config.network), which animon deploy projects from the access port in animon.yaml
+python -m node
 
 # With a custom config path
-ANIMONTICS_CONFIG=/path/to/config.yaml uvicorn node.app:app --host 0.0.0.0 --port 8080
+ANIMONTICS_CONFIG=/path/to/config.yaml python -m node
 
-# As a systemd service (see animontics-node.service)
+# Explicit bind (ad-hoc, bypasses the serving config)
+uvicorn node.app:app --host 0.0.0.0 --port 8080
+
+# As a systemd service (ExecStart=python -m node)
 sudo systemctl start animontics-node
 ```
 
