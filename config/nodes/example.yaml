@@ -44,7 +44,15 @@ sensors:
     type: board_temp
   - id: rig_adc            # heterogeneous analog inputs via an SBC-side ADS1115
     type: analog_in
-  # Wiring (ports, device bindings, channels) lives in config/boards/<id>.yaml.
+  - id: gnss_1             # GNSS from SARA-R5 modem (device-fed — needs sara_r5 device)
+    type: sara_r5_gnss
+  - id: lte_1              # LTE-M signal quality (device-fed — needs sara_r5 device)
+    type: sara_r5_lte
+  - id: imu_1              # OzzMaker 10DOF: LSM6DSL + MMC5983MA + BMP388 (one I2C sensor)
+    type: ozzmaker_10dof
+  # Wiring (ports, device bindings, GPIO, channels) lives in config/boards/<id>.yaml.
+  # gnss_1 + lte_1 are two logical views of ONE sara_r5 device (one UART module);
+  # that device — and the OzzMaker I2C bus — are declared in the board config.
   # Device-fed sensors (mq_array, fan_tach, analog_in) get their channels from the
   # MCU contract via `forge resolve <id>` — see config/boards/example.yaml.
 

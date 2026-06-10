@@ -90,8 +90,24 @@ The current sensor streaming API (`GET /sensors/{id}/stream`, `WS /sensors/{id}/
 - [x] `sensors/pressure_array/` (submodule) — logical surface across MCUs via the
       `mcu/circuit_python` family's `ads1115` module. Plus `sensors/analog_in`
       (heterogeneous scalars via `Ads1115Device`) and `sensors/board_temp` (sysfs).
-- [ ] Promote in-tree sensors (`analog_in`, `board_temp`) to submodules if they
-      grow independent lifecycles (convention: hardware sensors are submodules).
+- [x] `sensors/sara_r5_gnss` + `sensors/sara_r5_lte` — GNSS + LTE-M from the
+      u-blox SARA-R5 modem (UART), two logical sensors over one `devices/sara_r5`
+      device. Plus `sensors/ozzmaker_10dof` — LSM6DSL + MMC5983MA + BMP388 over I2C.
+- [ ] Promote in-tree sensors (`analog_in`, `board_temp`, `sara_r5_gnss`,
+      `sara_r5_lte`, `ozzmaker_10dof`) to submodules if they grow independent
+      lifecycles (convention: hardware sensors are submodules). The three new ones
+      are intentionally in-tree while their drivers stabilize against real hardware.
+- [ ] `sensors/sara_r5_gnss` + `sensors/sara_r5_lte` are two views of ONE physical
+      board on ONE UART (unified at the `sara_r5` device). They're separate packages
+      only because `load_all_metadata` binds one METADATA per package. If the fleet
+      model ever supports a multi-type package, consider folding them into one.
+- [ ] `sensors/ozzmaker_10dof/driver_bmp388.py` — the BMP388 pressure compensation
+      is validated only against synthetic calibration data (the temp path is right;
+      pressure produces non-representative values with fake NVM coefficients). Verify
+      Pa output against a reference barometer on first boot with real chip cal data.
+- [ ] `sensors/sara_r5_gnss` — wire the SARA-R5 TP (time-pulse / PPS) pin as a GPIO
+      interrupt for 1 Hz timing sync. Routed to the SBC and documented, not yet
+      implemented (deferred per the build plan).
 - [ ] `sensors/imu/` — IMU via RP2040/SAMD20 USB CDC (candidate `analog_array` /
       forge `mcu/rp2040/` consumer)
 - [ ] `sensors/camera/` — Generalize `node/routers/camera.py` into a proper SensorBase plugin
@@ -103,6 +119,18 @@ The current sensor streaming API (`GET /sensors/{id}/stream`, `WS /sensors/{id}/
 ## Infrastructure
 
 - [x] Delete `LV-MaxSonar-EZ/` root directory — resolved
+- [ ] `core/gpio.py` + `config/boards/proprioception.yaml` — VERIFY the SARA-R5
+      power/reset GPIO on the Orange Pi Zero 2: the gpiochip name + line offsets for
+      PI6/PI16 (guessed `gpiochip0` line 262/272 from bank*32+pin) and the installed
+      gpiod Python binding major (v1 vs v2). `LibgpiodOutputLine` is written but
+      unexercised on hardware; confirm with `gpioinfo`/`gpiofind` on the board.
+- [ ] `core/gpio.py` — implement the `mcu` backend (drive a pin through a device's
+      command sink) so a modem/peripheral can be power-gated by an MCU GPIO, not
+      only an SBC kernel line. Today it's a logged no-op stub.
+- [ ] `config/nodes/*.yaml` is gitignored (only `example.yaml` tracked), but
+      CLAUDE.md's four-layer table marks node desired-state as "in repo (✅)".
+      Reconcile: either track real node files (`git add -f` / narrow the ignore) or
+      fix the doc. The `proprioception` node currently lives on disk only.
 - [ ] Board profiles (`config/profiles/`) — hardware defaults per board type
 - [ ] Fleet node discovery / health check endpoint
 - [ ] Hotswap peripheral autodetection (scan I2C + USB on startup, auto-add to config)

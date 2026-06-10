@@ -6,7 +6,7 @@ integrated GNSS engine (SARA-R510M8S variant or any SARA-R5 with AT+UGPS support
 ## How it works
 
 This sensor has no UART port of its own. It subscribes to NMEA sentence push
-callbacks from a [`sara_r5` device](../../core/device.py), which owns UART5 and
+callbacks from the `sara_r5` device (`devices/sara_r5/`), which owns UART5 and
 runs the AT command engine. The device routes `$Gx...` sentences to this sensor;
 the sensor merges GGA + RMC fields and emits one `SensorReading` per GGA sentence.
 
