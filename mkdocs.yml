@@ -49,6 +49,7 @@ nav:
     - Analog In (ADS1115): sensors/analog_in.md
     - Board Temperature: sensors/board_temp.md
     - Fan Tach (RPM): sensors/fan_tach.md
+    - OzzMaker 10DOF (IMU/Mag/Baro): sensors/ozzmaker_10dof.md
     - SARA-R5 GNSS: sensors/sara_r5_gnss.md
     - SARA-R5 LTE Signal: sensors/sara_r5_lte.md
   - Node Agent: node.md

@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OzzMaker 10DOF</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="../shared/viewer.css" />
+  <style>
+    .section { margin: 1rem 0; }
+    .section h2 { font-size: .85rem; text-transform: uppercase; letter-spacing: .1em;
+                  color: var(--dim, #888); border-bottom: 1px solid var(--border, #333);
+                  padding-bottom: .3rem; margin-bottom: .6rem; }
+    .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: .6rem; }
+    .card { background: var(--surface, #1e1e2e); border-radius: 6px; padding: .7rem; }
+    .card .label { font-size: .7rem; color: var(--dim, #888); text-transform: uppercase; }
+    .card .val { font-size: 1.3rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; }
+    .chart-wrap { height: 160px; margin-bottom: .5rem; }
+  </style>
+</head>
+<body>
+  <h1>OzzMaker 10DOF</h1>
+
+  <div class="section">
+    <h2>Accelerometer (m/s²)</h2>
+    <div class="row3">
+      <div class="card"><div class="label">X</div><div class="val" id="ax">—</div></div>
+      <div class="card"><div class="label">Y</div><div class="val" id="ay">—</div></div>
+      <div class="card"><div class="label">Z</div><div class="val" id="az">—</div></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Gyroscope (dps)</h2>
+    <div class="row3">
+      <div class="card"><div class="label">X</div><div class="val" id="gx">—</div></div>
+      <div class="card"><div class="label">Y</div><div class="val" id="gy">—</div></div>
+      <div class="card"><div class="label">Z</div><div class="val" id="gz">—</div></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Magnetometer (Gauss)</h2>
+    <div class="row3">
+      <div class="card"><div class="label">X</div><div class="val" id="mx">—</div></div>
+      <div class="card"><div class="label">Y</div><div class="val" id="my">—</div></div>
+      <div class="card"><div class="label">Z</div><div class="val" id="mz">—</div></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Environment</h2>
+    <div class="row2">
+      <div class="card">
+        <div class="label">Pressure</div>
+        <div class="val" id="pressure">—</div>
+      </div>
+      <div class="card">
+        <div class="label">Temperature (BMP388)</div>
+        <div class="val" id="temp">—</div>
+      </div>
+      <div class="card">
+        <div class="label">Altitude (ISA est.)</div>
+        <div class="val" id="alt">—</div>
+      </div>
+      <div class="card">
+        <div class="label">IMU Die Temp</div>
+        <div class="val" id="imu_temp">—</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="chart-wrap"><canvas id="chart"></canvas></div>
+
+  <div class="bottom-bar">
+    <div class="conn-bar">
+      <label for="ip">Host IP</label>
+      <input id="ip" type="text" value="192.168.1.x" spellcheck="false" />
+      <input id="sid" type="text" value="imu_1" style="width:8ch"
+             spellcheck="false" title="Sensor ID" />
+      <button class="btn" id="reconnect">Connect</button>
+    </div>
+    <span class="status" id="status">connecting…</span>
+  </div>
+
+<script src="../shared/stream.js"></script>
+<script>
+  // Accel magnitude chart — useful quick sanity check (should be ~9.8 at rest)
+  const chart = AnimChart.makeLine(document.getElementById("chart"), {
+    color: "#a78bfa",
+    label: "|accel| m/s²",
+    min: 0, max: 20,
+    tickFmt: v => v.toFixed(1),
+    tipFmt:  v => v.toFixed(3) + " m/s²",
+  });
+
+  function f2(v) { return v == null ? "—" : v.toFixed(2); }
+  function f4(v) { return v == null ? "—" : v.toFixed(4); }
+
+  AnimStream.connect({
+    ipInput:      document.getElementById("ip"),
+    sidInput:     document.getElementById("sid"),
+    reconnectBtn: document.getElementById("reconnect"),
+    statusEl:     document.getElementById("status"),
+    onReading(d) {
+      document.getElementById("ax").textContent = f2(d.accel_x);
+      document.getElementById("ay").textContent = f2(d.accel_y);
+      document.getElementById("az").textContent = f2(d.accel_z);
+      document.getElementById("gx").textContent = f2(d.gyro_x);
+      document.getElementById("gy").textContent = f2(d.gyro_y);
+      document.getElementById("gz").textContent = f2(d.gyro_z);
+      document.getElementById("mx").textContent = f4(d.mag_x);
+      document.getElementById("my").textContent = f4(d.mag_y);
+      document.getElementById("mz").textContent = f4(d.mag_z);
+      document.getElementById("pressure").textContent =
+        d.pressure_pa != null ? (d.pressure_pa / 100).toFixed(2) + " hPa" : "—";
+      document.getElementById("temp").textContent =
+        d.temp_c != null ? d.temp_c.toFixed(2) + " °C" : "—";
+      document.getElementById("alt").textContent =
+        d.altitude_m != null ? d.altitude_m.toFixed(1) + " m" : "—";
+      document.getElementById("imu_temp").textContent =
+        d.imu_temp_c != null ? d.imu_temp_c.toFixed(1) + " °C" : "—";
+
+      // Accel magnitude
+      if (d.accel_x != null) {
+        const mag = Math.sqrt(d.accel_x**2 + d.accel_y**2 + d.accel_z**2);
+        chart.push(mag);
+      }
+    },
+  });
+</script>
+</body>
+</html>
