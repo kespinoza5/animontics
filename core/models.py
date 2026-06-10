@@ -65,6 +65,7 @@ class SensorConfig(BaseModel):
     connection: ConnectionConfig | None = None  # None for device-fed array sensors
     devices: list[str] = []     # device-fed sensors: derive `channels` from these
     channels: list[SensorChannel] = []          # array sensors; empty for scalars
+    params: dict[str, Any] = {}                 # sensor-type settings (e.g. per-chip I2C addresses)
 
 
 class EffectorChannel(BaseModel):

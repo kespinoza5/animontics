@@ -17,9 +17,16 @@ METADATA = {
             "bus": 3,
         },
         "notes": (
-            "All three chips share one I2C bus. Addresses are fixed silicon: "
-            "LSM6DSL=0x6A, MMC5983MA=0x30, BMP388=0x77."
+            "All three chips share one I2C bus. Per-chip addresses are set in "
+            "params (imu_address/mag_address/baro_address); defaults LSM6DSL=0x6A "
+            "(JP8 open; 0x6B closed), MMC5983MA=0x30 (fixed), BMP388=0x77 (JP4 "
+            "closed; 0x76 if trace cut)."
         ),
+    },
+    "params": {
+        "imu_address":  "int — LSM6DSL I2C address (default 0x6A; 0x6B if JP8 closed)",
+        "mag_address":  "int — MMC5983MA I2C address (fixed 0x30)",
+        "baro_address": "int — BMP388 I2C address (default 0x77; 0x76 if JP4 cut)",
     },
     "data_keys": {
         "accel_x":    "float — X-axis acceleration (m/s²)",

@@ -11,7 +11,7 @@ from core.registry import register
 from core.sensor_base import SensorBase
 import sensors.ozzmaker_10dof.driver_lsm6dsl as _imu
 import sensors.ozzmaker_10dof.driver_mmc5983ma as _mag
-from sensors.ozzmaker_10dof.driver_bmp388 import BMP388
+from sensors.ozzmaker_10dof.driver_bmp388 import BMP388, I2C_ADDR as _BARO_DEFAULT
 
 log = logging.getLogger(__name__)
 
@@ -63,15 +63,23 @@ class OzzMaker10DofSensor(SensorBase):
         bus_num = (self.config.connection.bus if self.config.connection else None) or 3
         interval = 1.0 / _SAMPLE_RATE_HZ
 
+        # Per-chip I2C addresses are config, not buried in the drivers, so the board
+        # config records exactly where each chip sits (jumper-selectable on the board).
+        p = self.config.params or {}
+        imu_addr  = p.get("imu_address",  _imu.I2C_ADDR)    # LSM6DSL  (JP8: 0x6A/0x6B)
+        mag_addr  = p.get("mag_address",  _mag.I2C_ADDR)    # MMC5983MA (fixed 0x30)
+        baro_addr = p.get("baro_address", _BARO_DEFAULT)    # BMP388   (JP4: 0x77/0x76)
+
         while not self._stop.is_set():
             try:
                 bus = smbus2.SMBus(bus_num)
-                _imu.init(bus)
-                _mag.init(bus)
-                baro = BMP388(bus)
-                log.info("%s: 10DOF ready on i2c-%d", self.id, bus_num)
+                _imu.init(bus, imu_addr)
+                _mag.init(bus, mag_addr)
+                baro = BMP388(bus, baro_addr)
+                log.info("%s: 10DOF ready on i2c-%d (imu=0x%02X mag=0x%02X baro=0x%02X)",
+                         self.id, bus_num, imu_addr, mag_addr, baro_addr)
                 self._healthy = True
-                self._inner_loop(bus, baro, interval)
+                self._inner_loop(bus, baro, interval, imu_addr, mag_addr)
             except Exception as exc:
                 self._healthy = False
                 log.warning("%s: sensor error — %s — retrying in 3s", self.id, exc)
@@ -84,7 +92,8 @@ class OzzMaker10DofSensor(SensorBase):
 
         self._healthy = False
 
-    def _inner_loop(self, bus, baro: BMP388, interval: float) -> None:
+    def _inner_loop(self, bus, baro: BMP388, interval: float,
+                    imu_addr: int, mag_addr: int) -> None:
         # Barometer is read at a slower rate (~1 Hz) to avoid contention
         baro_counter = 0
         baro_period = max(1, round(1.0 / interval))
@@ -93,8 +102,8 @@ class OzzMaker10DofSensor(SensorBase):
         while not self._stop.is_set():
             t0 = time.monotonic()
             try:
-                imu_data = _imu.read(bus)
-                mag_data = _mag.read(bus)
+                imu_data = _imu.read(bus, imu_addr)
+                mag_data = _mag.read(bus, mag_addr)
                 if baro_counter == 0:
                     baro_data = baro.read()
                 baro_counter = (baro_counter + 1) % baro_period

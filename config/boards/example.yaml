@@ -157,8 +157,8 @@ sensors: []
 # ── OzzMaker LTE-M GPS + 10DOF board ──────────────────────────────────────────
 # One physical board exposing a SARA-R5 modem (UART, the sara_r5 device above) and
 # a 10DOF I2C stack. gnss_1 + lte_1 are two logical views of the one modem device;
-# imu_1 reads the three I2C chips (LSM6DSL 0x6A, MMC5983MA 0x30, BMP388 0x77) —
-# addresses are fixed silicon, so only the bus is configured.
+# imu_1 reads the three I2C chips. Per-chip addresses are in params (two are
+# jumper-selectable on the board) so the config alone says where each chip sits.
 #
 # - id: gnss_1                  # GNSS position/velocity from the modem's NMEA stream
 #   type: sara_r5_gnss
@@ -171,6 +171,10 @@ sensors: []
 # - id: imu_1                   # combined IMU + magnetometer + barometer
 #   type: ozzmaker_10dof
 #   connection: {type: i2c, bus: 3}
+#   params:
+#     imu_address:  0x6A        # LSM6DSL  — JP8 open (default); 0x6B if solder-closed
+#     mag_address:  0x30        # MMC5983MA — fixed
+#     baro_address: 0x77        # BMP388   — JP4 closed (default); 0x76 if trace cut
 
 # ── Effectors (outputs: fans, LEDs, motors, …) ────────────────────────────────
 # An effector writes through a device's command sink (e.g. an MCU's PWM). Channels

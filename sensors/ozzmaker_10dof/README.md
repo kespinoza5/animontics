@@ -1,14 +1,19 @@
 # ozzmaker_10dof — OzzMaker LTE-M GPS + 10DOF Sensor
 
 Reads the three inertial/environmental chips on the
-[OzzMaker LTE-M GPS + 10DOF](https://ozzmaker.com/product/lte-m-gps-10dof/) board
-over a single I2C bus.
+[OzzMaker SARA-R5 LTE-M GPS + 10DOF](https://ozzmaker.com/ozzmaker-sara-r5-lte-m-gps-10dof-overview/)
+board over a single I2C bus.
 
-| Chip | Address | Measures |
-|------|---------|----------|
-| LSM6DSL | 0x6A | 3-axis accel + 3-axis gyro |
-| MMC5983MA | 0x30 | 3-axis magnetometer |
-| BMP388 | 0x77 | Barometric pressure + temperature |
+| Chip | Default addr | Jumper | Alt addr | Measures |
+|------|--------------|--------|----------|----------|
+| LSM6DSL | 0x6A | JP8 (open) | 0x6B (solder-close) | 3-axis accel + 3-axis gyro |
+| MMC5983MA | 0x30 | — (fixed) | — | 3-axis magnetometer |
+| BMP388 | 0x77 | JP4 (closed) | 0x76 (cut trace) | barometric pressure + temperature |
+
+The two address jumpers are physical board options, so the addresses are
+**config**, not hard-coded — `imu_address` / `mag_address` / `baro_address` in the
+sensor's `params` (defaults above). Reading the board config alone tells you where
+each chip sits; you never have to dig into the driver.
 
 ## Wiring
 
@@ -25,9 +30,14 @@ sensors:
     connection:
       type: i2c
       bus: 3
+    params:
+      imu_address:  0x6A   # LSM6DSL  — JP8 open (default); 0x6B if solder-closed
+      mag_address:  0x30   # MMC5983MA — fixed
+      baro_address: 0x77   # BMP388   — JP4 closed (default); 0x76 if trace cut
 ```
 
-No address is needed — all three chip addresses are fixed silicon.
+`params` is optional — omit it to use the defaults above. Set the relevant address
+only if you've changed a jumper (JP8 for the IMU, JP4 for the barometer).
 
 ## Data keys
 
