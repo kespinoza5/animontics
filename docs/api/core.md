@@ -13,10 +13,20 @@ hardware dependencies — importable on any machine (hardware libs load lazily).
 
 ## device
 
+The base class, registry, and factory for devices. Concrete kinds
+(`McuSerialDevice`, `Ads1115Device`) live in the `devices/` plugin tree,
+auto-discovered like sensors.
+
 ::: core.device.Device
-::: core.device.McuSerialDevice
-::: core.device.Ads1115Device
 ::: core.device.create_device
+
+### devices.mcu_serial
+
+::: devices.mcu_serial.device.McuSerialDevice
+
+### devices.ads1115
+
+::: devices.ads1115.device.Ads1115Device
 
 ## effector_base
 

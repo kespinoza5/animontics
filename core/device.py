@@ -1,28 +1,23 @@
 """Devices — shared peripherals that sensors read through and effectors write through.
 
 A device owns a transport that is shared across directions or across several
-logical sensors/effectors, so neither a sensor nor an effector may own it:
+logical sensors/effectors, so neither a sensor nor an effector may own it (an MCU
+serial link, an ADS1115 chip, a SARA-R5 modem).
 
-  • McuSerialDevice — an MCU's serial link. Push model: a read pump decodes
-    core.mcu_link frames and fans them out to subscribers (sensors); effectors
-    send command frames back over the same link via send_command().
-  • Ads1115Device   — an ADS1115 ADC chip (added in Phase D). Pull model:
-    serialized muxed reads of individual channels.
+This module holds only the **base class + registry + factory**. Concrete device
+kinds live in the `devices/` plugin tree (`devices/mcu_serial`, `devices/ads1115`,
+`devices/sara_r5`, …), auto-discovered exactly like `sensors/`, `effectors/`, and
+`policies/`. `node/app.py` does `import devices` for the side-effect discovery, so
+each `@register_device` fires and populates the registry below.
 
-Devices are created from config at node startup and held on app.state.devices;
-sensors/effectors bind to them by id. pyserial is imported lazily so core/ stays
-importable on machines without it.
+Devices are created from config at node startup and held on `app.state.devices`;
+sensors/effectors bind to them by id.
 """
 from __future__ import annotations
 
 import logging
-import threading
-import time
 from abc import ABC, abstractmethod
-from collections.abc import Callable
 from typing import TYPE_CHECKING
-
-from core.mcu_link import Frame, FrameStream, encode_command
 
 if TYPE_CHECKING:
     from core.models import DeviceConfig
@@ -42,17 +37,35 @@ def register_device(kind: str):
 
 
 def create_device(config: "DeviceConfig") -> "Device":
-    """Instantiate a device from its config. Raises ValueError for unknown kinds."""
+    """Instantiate a device from its config. Raises ValueError for unknown kinds.
+
+    The kind must be registered, which happens when its package under `devices/`
+    is imported. If a kind is missing, check that `import devices` ran and the
+    package's hardware deps are installed (failed imports are skipped, not fatal).
+    """
     cls = _registry.get(config.kind)
     if cls is None:
         raise ValueError(
-            f"Unknown device kind '{config.kind}'. Known: {sorted(_registry)}."
+            f"Unknown device kind '{config.kind}'. Known: {sorted(_registry)}. "
+            f"Is the device package present on this board?"
         )
     return cls(config.id, config)
 
 
+def registered_kinds() -> list[str]:
+    """Return all currently registered device kind keys."""
+    return sorted(_registry)
+
+
 class Device(ABC):
-    """Base class for shared peripherals."""
+    """Base class for shared peripherals.
+
+    Subclasses decorate with `@register_device("kind")` and implement the
+    lifecycle. Push devices (e.g. an MCU link, a modem's NMEA stream) fan decoded
+    data to `subscribe*()` callbacks; pull devices (e.g. an ADS1115) expose a read
+    method. Either way the device owns the transport — sensors and effectors bind
+    to it by id and never open the port themselves.
+    """
 
     kind: str = ""
 
@@ -70,154 +83,5 @@ class Device(ABC):
     def is_healthy(self) -> bool: ...
 
 
-@register_device("mcu_serial")
-class McuSerialDevice(Device):
-    """An MCU on a serial link: streams sample frames in, takes command frames out."""
-
-    BAUD_DEFAULT = 115_200
-    DEFAULT_PORT = "/dev/ttyUSB0"
-
-    def __init__(self, device_id: str, config: "DeviceConfig") -> None:
-        super().__init__(device_id, config)
-        self._subscribers: list[Callable[[Frame], None]] = []
-        self._ser = None
-        self._write_lock = threading.Lock()
-        self._thread: threading.Thread | None = None
-        self._stop_event = threading.Event()
-        self._healthy = False
-
-    # ── Subscription (sensors) ────────────────────────────────────────────────
-
-    def subscribe(self, callback: Callable[[Frame], None]) -> None:
-        """Register a callback invoked (in the read thread) for every decoded frame."""
-        self._subscribers.append(callback)
-
-    # ── Command sink (effectors) ──────────────────────────────────────────────
-
-    def send_command(self, cmd_id: int, args=()) -> bool:
-        """Send a command frame to the MCU. Returns False if the link is down."""
-        ser = self._ser
-        if ser is None:
-            return False
-        payload = encode_command(cmd_id, list(args))
-        with self._write_lock:
-            try:
-                ser.write(payload)
-                return True
-            except OSError as exc:              # pyserial SerialException is an OSError
-                log.warning("device %s: command write failed — %s", self.id, exc)
-                return False
-
-    # ── Lifecycle ─────────────────────────────────────────────────────────────
-
-    def start(self) -> None:
-        self._stop_event.clear()
-        self._thread = threading.Thread(
-            target=self._read_pump, daemon=True, name=f"device-{self.id}"
-        )
-        self._thread.start()
-
-    def stop(self) -> None:
-        self._stop_event.set()
-        if self._thread:
-            self._thread.join(timeout=3)
-
-    def is_healthy(self) -> bool:
-        return self._healthy
-
-    # ── Read pump ─────────────────────────────────────────────────────────────
-
-    def _read_pump(self) -> None:
-        import serial  # lazy: hardware dep
-
-        port = self.config.port or self.DEFAULT_PORT
-        baud = self.config.baud or self.BAUD_DEFAULT
-        stream = FrameStream()
-
-        while not self._stop_event.is_set():
-            try:
-                with serial.Serial(port, baud, timeout=1) as ser:
-                    log.info("device %s: opened %s at %d baud", self.id, port, baud)
-                    self._healthy = True
-                    self._ser = ser
-                    while not self._stop_event.is_set():
-                        chunk = ser.read(64)
-                        if not chunk:
-                            continue
-                        for frame in stream.feed(chunk):
-                            self._dispatch(frame)
-            except serial.SerialException as exc:
-                self._healthy = False
-                log.warning("device %s: serial error — %s — retrying in 2s", self.id, exc)
-                self._stop_event.wait(2)
-            finally:
-                self._ser = None
-
-        self._healthy = False
-
-    def _dispatch(self, frame: Frame) -> None:
-        for callback in self._subscribers:
-            try:
-                callback(frame)
-            except Exception:                  # one bad subscriber must not kill the pump
-                log.exception("device %s: subscriber error", self.id)
-
-
-@register_device("ads1115")
-class Ads1115Device(Device):
-    """An ADS1115 ADC chip on the SBC's I2C bus (pull model).
-
-    A single muxed converter shared by several scalar sensors (e.g. four different
-    signals on a Pi02W). Access is serialized: read_channel() selects the mux+gain,
-    runs one single-shot conversion, and returns the signed 16-bit count. smbus2 is
-    imported lazily so core/ stays importable without it.
-    """
-
-    _CONV, _CONFIG = 0x00, 0x01
-    # config: OS=1 | MUX(AIN_n single-ended) | PGA(gain) | MODE single-shot |
-    #         DR=128SPS | comparator disabled
-    _BASE = 0x8000 | 0x0100 | (0b100 << 5) | 0b00011
-
-    def __init__(self, device_id: str, config: "DeviceConfig") -> None:
-        super().__init__(device_id, config)
-        self._bus_no = config.bus if config.bus is not None else 1
-        self._addr = config.address if config.address is not None else 0x48
-        self._bus = None
-        self._lock = threading.Lock()
-
-    def start(self) -> None:
-        try:
-            import smbus2
-            self._bus = smbus2.SMBus(self._bus_no)
-        except Exception as exc:               # not Linux / no bus / no chip
-            log.warning("device %s: ADS1115 unavailable — %s", self.id, exc)
-            self._bus = None
-
-    def stop(self) -> None:
-        if self._bus is not None:
-            try:
-                self._bus.close()
-            except Exception:
-                pass
-        self._bus = None
-
-    def is_healthy(self) -> bool:
-        return self._bus is not None
-
-    def read_channel(self, channel: int, gain: int = 1) -> int | None:
-        """Single-shot read of single-ended AINx. Returns signed counts, or None."""
-        if self._bus is None or not 0 <= channel <= 3:
-            return None
-        config = self._BASE | ((0b100 | channel) << 12) | ((gain & 0b111) << 9)
-        with self._lock:
-            try:
-                self._bus.write_i2c_block_data(
-                    self._addr, self._CONFIG, [(config >> 8) & 0xFF, config & 0xFF]
-                )
-                time.sleep(0.009)              # ~128 SPS conversion
-                hi, lo = self._bus.read_i2c_block_data(self._addr, self._CONV, 2)
-            except OSError as exc:
-                log.warning("device %s: ADS1115 read failed — %s", self.id, exc)
-                return None
-        raw = (hi << 8) | lo
-        return raw - 0x10000 if raw & 0x8000 else raw
+# Concrete device kinds live in the devices/ plugin tree (devices/mcu_serial,
+# devices/ads1115, devices/sara_r5, …), auto-discovered like sensors.

@@ -21,7 +21,7 @@ effectors → relay → policies; stopped in reverse).
 
 | Tier | Role | Where |
 | --- | --- | --- |
-| **device** | shared peripheral (MCU link, ADS1115 chip); sensors read it, effectors write it | `core/device.py` |
+| **device** | shared peripheral (MCU link, ADS1115 chip, SARA-R5 modem); sensors read it, effectors write it | base in `core/device.py`; kinds in `devices/` |
 | **sensor** | afferent → raw signals; may span devices (one logical sensor over 4 MCUs) | `core/sensor_base.py`, `core/analog_array.py` |
 | **model** | learned *perception* (signals → features); a forge/accelerator artifact — an "advanced sensor" | *seam (future)* |
 | **effector** | efferent output (motion/light/sound); type-defined drive, two lanes | `core/effector_base.py` + `effectors/` |
@@ -34,10 +34,14 @@ effectors, and policies own all meaning.**
 ## Devices — shared peripherals
 
 A device owns a transport that's shared across directions or sensors, so neither a
-sensor nor an effector owns it. `McuSerialDevice` (push: a read pump decodes
-[`core/mcu_link.py`](forge.md) frames and fans them to subscribers; `send_command`
-sends back). `Ads1115Device` (pull: serialized muxed single-shot reads). Declared
-in `config/boards/<id>.yaml` under `devices:` and bound to sensors/effectors by id.
+sensor nor an effector owns it. Concrete kinds live in the `devices/` plugin tree
+(base + registry + factory in `core/device.py`), auto-discovered like sensors:
+`mcu_serial` (push: a read pump decodes [`core/mcu_link.py`](forge.md) frames and
+fans them to subscribers; `send_command` sends back), `ads1115` (pull: serialized
+muxed single-shot reads), `sara_r5` (mixed: pushes NMEA to GNSS subscribers, polls
+LTE status via AT). Declared in `config/boards/<id>.yaml` under `devices:` and
+bound to sensors/effectors by id. Pins a device toggles go through the portable
+`core/gpio.py` output-line abstraction, never hard-coded sysfs.
 
 ## Sensors — logical, possibly multi-device
 

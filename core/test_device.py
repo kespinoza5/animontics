@@ -3,9 +3,11 @@ from __future__ import annotations
 
 import pytest
 
-from core.device import Ads1115Device, McuSerialDevice, create_device
+from core.device import create_device
 from core.mcu_link import FrameStream, encode
 from core.models import DeviceConfig
+from devices.ads1115 import Ads1115Device
+from devices.mcu_serial import McuSerialDevice
 
 
 def _device() -> McuSerialDevice:

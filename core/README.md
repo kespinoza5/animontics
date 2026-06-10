@@ -8,7 +8,8 @@ Shared Python infrastructure for the animontics node agent. No hardware dependen
 |------|---------|
 | `sensor_base.py` | `SensorBase` abstract base — all sensor plugins inherit it |
 | `analog_array.py` | `AnalogArrayBase` — array sensors bound to 1+ devices (may span MCUs) |
-| `device.py` | `Device` base + registry; `McuSerialDevice` (push), `Ads1115Device` (pull) — shared peripherals |
+| `device.py` | `Device` base + registry + factory (concrete kinds live in `devices/`: `mcu_serial`, `ads1115`, `sara_r5`) |
+| `gpio.py` | `make_output_line()` — portable digital output lines (libgpiod / mcu / null) for devices that toggle pins |
 | `effector_base.py` | `EffectorBase` + registry (concrete types live in `effectors/`) |
 | `policy.py` | `PolicyBase` (obs→action) + registry + `PolicyRuntime` (concrete policies in `policies/`) |
 | `relay.py` | `Relay` — the thalamus: named-signal pub/sub + gating; inter-cortex seam |
@@ -32,8 +33,9 @@ observations to policies, and policies drive effectors back through devices.
 config.yaml ─► config.py ─► NodeConfig          (afferent ─────────────► efferent)
 
   devices ───frames──► sensors ───readings──►┬─► broadcaster ─► HTTP (SSE / WS / REST)
- (device.py:         (sensor_base /          └─► relay (named-signal obs bus)
-  McuSerial, Ads1115) analog_array)                 │
+ (devices/:          (sensor_base /          └─► relay (named-signal obs bus)
+  mcu_serial,ads1115) analog_array)                 │
+  sara_r5)                                          │
        ▲                                            ▼
        │ commands (send_command)        policies ◄──observation──┘
   effectors ◄────────actions───────── (policy.py: step(obs) → action)

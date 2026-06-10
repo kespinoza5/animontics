@@ -321,11 +321,14 @@ Each mirrors the sensor pattern: a base class + a registry, instances declared i
 `config/boards/<id>.yaml`, created in `node/app.py`'s lifespan, exposed by a router
 that reads `request.app.state.*`.
 
-- **Device** (`core/device.py`) — a shared peripheral. Subclass `Device`, decorate
-  `@register_device("kind")`, implement `start/stop/is_healthy`. Push devices fan
-  decoded frames to `subscribe()` callbacks (and offer `send_command`); pull
-  devices expose a read method (e.g. `Ads1115Device.read_channel`). Declare under
-  `devices:`; sensors/effectors bind by id via `attach_devices`.
+- **Device** — a shared peripheral. Add a package under `devices/<kind>/` (base +
+  registry in `core/device.py`, auto-discovered like sensors): subclass `Device`,
+  decorate `@register_device("kind")`, implement `start/stop/is_healthy`. Push
+  devices fan decoded frames to `subscribe()` callbacks (and offer `send_command`);
+  pull devices expose a read method (e.g. `Ads1115Device.read_channel`). Pins the
+  device toggles go through `core/gpio.py`'s `make_output_line()` (libgpiod / mcu /
+  null backends) — never hard-coded sysfs. Declare under `devices:`;
+  sensors/effectors bind by id via `attach_devices`.
 - **Effector** — an output. Add a package under `effectors/<type>/` (base in
   `core/effector_base.py`, auto-discovered like sensors): subclass `EffectorBase`,
   `@register_effector("type")`, set `lanes`, and implement the lane(s) your type

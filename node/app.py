@@ -27,6 +27,7 @@ from core.relay import Relay
 from core.sensor_base import SensorBase
 
 # Import the plugin trees present on this board so their @register* calls fire.
+import devices    # noqa: F401  (side-effect import)
 import sensors    # noqa: F401  (side-effect import)
 import effectors  # noqa: F401  (side-effect import)
 import policies   # noqa: F401  (side-effect import)
