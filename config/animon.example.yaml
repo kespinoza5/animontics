@@ -6,7 +6,7 @@
 #
 # This file contains ONLY access details: how to reach each node.
 # Sensor desired state (what each node should run) lives in config/nodes/
-# and IS committed to the repo.
+# (gitignored too; only config/nodes/example.yaml is tracked).
 #
 # Node IDs here must match the `id` fields in config/nodes/<id>.yaml.
 

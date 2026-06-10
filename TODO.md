@@ -127,10 +127,10 @@ The current sensor streaming API (`GET /sensors/{id}/stream`, `WS /sensors/{id}/
 - [ ] `core/gpio.py` — implement the `mcu` backend (drive a pin through a device's
       command sink) so a modem/peripheral can be power-gated by an MCU GPIO, not
       only an SBC kernel line. Today it's a logged no-op stub.
-- [ ] `config/nodes/*.yaml` is gitignored (only `example.yaml` tracked), but
-      CLAUDE.md's four-layer table marks node desired-state as "in repo (✅)".
-      Reconcile: either track real node files (`git add -f` / narrow the ignore) or
-      fix the doc. The `proprioception` node currently lives on disk only.
+- [x] `config/nodes/*.yaml` gitignore vs docs reconciled — CLAUDE.md, architecture.md,
+      CONTRIBUTING, and the example headers now all state config/nodes is gitignored
+      (only `example.yaml` tracked), matching `.gitignore`. The `proprioception` node
+      lives on disk only, as intended.
 - [ ] Board profiles (`config/profiles/`) — hardware defaults per board type
 - [ ] Fleet node discovery / health check endpoint
 - [ ] Hotswap peripheral autodetection (scan I2C + USB on startup, auto-add to config)

@@ -3,8 +3,9 @@
 # Copy to config/nodes/<your-node-id>.yaml and fill in your values.
 # Create one file per node — each file is a single YAML document.
 #
-# These files ARE committed to the repo. They contain NO secrets:
-# no IPs, no SSH users, no port paths, no I2C addresses.
+# Only THIS example is tracked; real config/nodes/<id>.yaml files are gitignored
+# (like config/boards/, config/mcus/, and config/animon.yaml). They contain NO
+# secrets: no IPs, no SSH users, no port paths, no I2C addresses.
 #
 # Schema reference:
 #   id           — unique node identifier, used as the key in animon.yaml

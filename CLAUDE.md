@@ -32,10 +32,14 @@ This is the core design. Each layer owns exactly its concern — never cross the
 
 | Layer | File | In repo? | Contains |
 |-------|------|----------|----------|
-| Node desired state | `config/nodes/<id>.yaml` | ✅ | Which sensors each node should run (id + type only), capabilities, role |
+| Node desired state | `config/nodes/<id>.yaml` | ❌ gitignored | Which sensors each node should run (id + type only), capabilities, role |
 | Fleet access | `config/animon.yaml` | ❌ gitignored | IPs, SSH users — how to reach each board |
 | Board wiring reality | `config/boards/<id>.yaml` + board's `config.yaml` | ❌ gitignored | Physical connection details (port, bus, baud, address) |
 | Hardware constraints | `sensors/<type>/__init__.py` `METADATA` | ✅ | Valid connection types, addresses, baud rates, defaults |
+
+`config/nodes/`, `config/boards/`, `config/mcus/`, and `config/animon.yaml` are all
+gitignored — only the `example.yaml` template in each dir is tracked. Real fleet
+files live on disk per machine.
 
 `animon deploy` negotiates all four: desired state from `config/nodes/`, access
 from `config/animon.yaml`, existing wiring from `config/boards/` (or live SSH),

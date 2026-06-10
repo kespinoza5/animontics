@@ -47,15 +47,17 @@ Four layers — each owns exactly its concern, never crossing into another.
 
 | Layer | File | In repo? | Contains |
 |-------|------|----------|----------|
-| **Node desired state** | `config/nodes/<id>.yaml` | ✅ | Which sensors each node should run (id + type), capabilities, role |
+| **Node desired state** | `config/nodes/<id>.yaml` | ❌ gitignored | Which sensors each node should run (id + type), capabilities, role |
 | **Fleet access** | `config/animon.yaml` | ❌ gitignored | IPs, SSH users — how to reach each board |
 | **Board wiring** | `config/boards/<id>.yaml` + board's `config.yaml` | ❌ gitignored | Physical connection details (port, bus, baud, address) |
 | **Hardware constraints** | `sensors/<type>/__init__.py` METADATA | ✅ | Valid connection types, locked baud rates, I2C addresses, defaults |
 
 The separation reflects the fundamental distinction between **node** (a logical participant in
 the system with a role and sensor responsibilities) and **board** (a physical device with wires
-on specific pins). Desired state is versioned because it's a design decision; wiring and access
-details are gitignored because they're hardware-specific and may contain network topology.
+on specific pins). The real `config/nodes/`, `config/boards/`, and `config/animon.yaml` files are
+gitignored (only each dir's tracked `example.yaml` template is committed) — they describe one
+specific fleet's hardware and topology. Hardware *constraints* (METADATA) stay versioned because
+they're a property of the sensor type, not of any one deployment.
 
 `animon deploy` negotiates all four layers:
 
