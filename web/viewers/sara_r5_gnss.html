@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SARA-R5 GNSS</title>
+  <link rel="stylesheet" href="../shared/viewer.css" />
+  <style>
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1rem 0; }
+    .card { background: var(--surface, #1e1e2e); border-radius: 8px; padding: 1rem; }
+    .card h3 { margin: 0 0 .5rem; font-size: .8rem; text-transform: uppercase;
+               letter-spacing: .1em; color: var(--dim, #888); }
+    .card .val { font-size: 1.6rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .card .sub { font-size: .8rem; color: var(--dim, #888); margin-top: .2rem; }
+    .fix-0 { color: #f88; } .fix-1 { color: #8f8; } .fix-2 { color: #4af; }
+  </style>
+</head>
+<body>
+  <h1>SARA-R5 GNSS</h1>
+
+  <div class="grid">
+    <div class="card">
+      <h3>Latitude</h3>
+      <div class="val" id="lat">—</div>
+      <div class="sub" id="lon_sub">Lon: —</div>
+    </div>
+    <div class="card">
+      <h3>Fix / Satellites</h3>
+      <div class="val" id="fix">—</div>
+      <div class="sub" id="sats">—</div>
+    </div>
+    <div class="card">
+      <h3>Altitude</h3>
+      <div class="val" id="alt">—</div>
+      <div class="sub" id="hdop_sub">HDOP: —</div>
+    </div>
+    <div class="card">
+      <h3>Speed / Heading</h3>
+      <div class="val" id="speed">—</div>
+      <div class="sub" id="heading">Heading: —</div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:1rem;">
+    <h3>UTC Time</h3>
+    <div class="val" id="utctime" style="font-size:1rem">—</div>
+  </div>
+
+  <div class="bottom-bar">
+    <div class="conn-bar">
+      <label for="ip">Host IP</label>
+      <input id="ip" type="text" value="192.168.1.x" spellcheck="false" />
+      <input id="sid" type="text" value="gnss_1" style="width:10ch"
+             spellcheck="false" title="Sensor ID" />
+      <button class="btn" id="reconnect">Connect</button>
+    </div>
+    <span class="status" id="status">connecting…</span>
+  </div>
+
+<script src="../shared/stream.js"></script>
+<script>
+  const _FIX = ["No fix", "GPS", "DGPS", "", "RTK", "Float RTK"];
+
+  function fmt(v, dp, unit) {
+    return v == null ? "—" : v.toFixed(dp) + (unit ? " " + unit : "");
+  }
+
+  AnimStream.connect({
+    ipInput:      document.getElementById("ip"),
+    sidInput:     document.getElementById("sid"),
+    reconnectBtn: document.getElementById("reconnect"),
+    statusEl:     document.getElementById("status"),
+    onReading(d) {
+      const fq = d.fix_quality;
+      const fixEl = document.getElementById("fix");
+      fixEl.textContent = fq != null ? (_FIX[fq] ?? `Fix ${fq}`) : "—";
+      fixEl.className = "val fix-" + Math.min(fq ?? 0, 2);
+
+      document.getElementById("lat").textContent      = fmt(d.latitude,  6, "°");
+      document.getElementById("lon_sub").textContent  = "Lon: " + fmt(d.longitude, 6, "°");
+      document.getElementById("sats").textContent     = "Satellites: " + (d.satellites ?? "—");
+      document.getElementById("alt").textContent      = fmt(d.alt_m, 1, "m");
+      document.getElementById("hdop_sub").textContent = "HDOP: " + fmt(d.hdop, 2);
+      document.getElementById("speed").textContent    = fmt(d.speed_kph, 1, "km/h");
+      document.getElementById("heading").textContent  = "Heading: " + fmt(d.heading_deg, 1, "°");
+      document.getElementById("utctime").textContent  = d.utc_time ?? "—";
+    },
+  });
+</script>
+</body>
+</html>

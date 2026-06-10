@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SARA-R5 LTE Signal</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="../shared/viewer.css" />
+  <style>
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1rem 0; }
+    .card { background: var(--surface, #1e1e2e); border-radius: 8px; padding: 1rem; }
+    .card h3 { margin: 0 0 .5rem; font-size: .8rem; text-transform: uppercase;
+               letter-spacing: .1em; color: var(--dim, #888); }
+    .card .val { font-size: 1.6rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .card .sub { font-size: .8rem; color: var(--dim, #888); margin-top: .2rem; }
+    .reg-ok { color: #8f8; } .reg-search { color: #fa0; } .reg-bad { color: #f88; }
+  </style>
+</head>
+<body>
+  <h1>SARA-R5 LTE Signal Quality</h1>
+
+  <div class="grid">
+    <div class="card">
+      <h3>RSRP</h3>
+      <div class="val" id="rsrp">—</div>
+      <div class="sub">Reference signal received power</div>
+    </div>
+    <div class="card">
+      <h3>RSRQ</h3>
+      <div class="val" id="rsrq">—</div>
+      <div class="sub">Reference signal received quality</div>
+    </div>
+    <div class="card">
+      <h3>RSSI</h3>
+      <div class="val" id="rssi">—</div>
+      <div class="sub">Received signal strength</div>
+    </div>
+    <div class="card">
+      <h3>Registration</h3>
+      <div class="val" id="reg" style="font-size:1rem">—</div>
+      <div class="sub" id="rat">—</div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:1rem;">
+    <h3>Operator</h3>
+    <div class="val" id="operator" style="font-size:1.2rem">—</div>
+    <div class="sub" id="band">—</div>
+  </div>
+
+  <div class="chart-wrap"><canvas id="chart"></canvas></div>
+
+  <div class="bottom-bar">
+    <div class="conn-bar">
+      <label for="ip">Host IP</label>
+      <input id="ip" type="text" value="192.168.1.x" spellcheck="false" />
+      <input id="sid" type="text" value="lte_1" style="width:8ch"
+             spellcheck="false" title="Sensor ID" />
+      <button class="btn" id="reconnect">Connect</button>
+    </div>
+    <span class="status" id="status">connecting…</span>
+  </div>
+
+<script src="../shared/stream.js"></script>
+<script>
+  const chart = AnimChart.makeLine(document.getElementById("chart"), {
+    color: "#58a6ff",
+    min: -141, max: -44,
+    tickFmt: v => v.toFixed(0) + " dBm",
+    tipFmt:  v => v.toFixed(0) + " dBm",
+  });
+
+  const _REG_CLASS = {
+    registered_home:    "reg-ok",
+    registered_roaming: "reg-ok",
+    searching:          "reg-search",
+    not_registered:     "reg-bad",
+    denied:             "reg-bad",
+  };
+
+  function fmt(v, dp, unit) {
+    return v == null ? "—" : v.toFixed(dp) + " " + unit;
+  }
+
+  AnimStream.connect({
+    ipInput:      document.getElementById("ip"),
+    sidInput:     document.getElementById("sid"),
+    reconnectBtn: document.getElementById("reconnect"),
+    statusEl:     document.getElementById("status"),
+    onReading(d) {
+      document.getElementById("rsrp").textContent = fmt(d.rsrp_dbm, 1, "dBm");
+      document.getElementById("rsrq").textContent = fmt(d.rsrq_db,  1, "dB");
+      document.getElementById("rssi").textContent = fmt(d.rssi_dbm, 1, "dBm");
+
+      const regEl = document.getElementById("reg");
+      const state = d.registration_state ?? "—";
+      regEl.textContent = state.replace(/_/g, " ");
+      regEl.className   = "val " + (_REG_CLASS[state] ?? "");
+
+      document.getElementById("rat").textContent      = d.rat ?? "—";
+      document.getElementById("operator").textContent = d.operator ?? "—";
+      document.getElementById("band").textContent     = d.band ?? "—";
+
+      if (d.rsrp_dbm != null) chart.push(d.rsrp_dbm);
+    },
+  });
+</script>
+</body>
+</html>
