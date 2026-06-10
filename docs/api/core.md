@@ -14,8 +14,8 @@ hardware dependencies — importable on any machine (hardware libs load lazily).
 ## device
 
 The base class, registry, and factory for devices. Concrete kinds
-(`McuSerialDevice`, `Ads1115Device`) live in the `devices/` plugin tree,
-auto-discovered like sensors.
+(`McuSerialDevice`, `Ads1115Device`, `SaraR5Device`) live in the `devices/`
+plugin tree, auto-discovered like sensors.
 
 ::: core.device.Device
 ::: core.device.create_device
@@ -27,6 +27,18 @@ auto-discovered like sensors.
 ### devices.ads1115
 
 ::: devices.ads1115.device.Ads1115Device
+
+### devices.sara_r5
+
+::: devices.sara_r5.device.SaraR5Device
+
+## gpio
+
+Portable digital output lines for devices that toggle SBC/MCU pins (libgpiod /
+mcu / null backends), so a device never hard-codes how a pin is driven.
+
+::: core.gpio.make_output_line
+::: core.gpio.OutputLine
 
 ## effector_base
 

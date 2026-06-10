@@ -45,13 +45,15 @@ class DeviceConfig(BaseModel):
     """
 
     id: str
-    kind: str                           # "mcu_serial" | "ads1115" | ...
-    # mcu_serial
+    kind: str                           # "mcu_serial" | "ads1115" | "sara_r5" | ...
+    # mcu_serial / sara_r5
     port: str | None = None
     baud: int | None = None
     # i2c (ads1115)
     bus: int | None = None
     address: int | None = None          # device address as int (0x48 → 72)
+    # device-specific config (e.g. GPIO pin numbers for sara_r5 power/reset)
+    params: dict[str, Any] = {}
 
 
 class SensorConfig(BaseModel):
