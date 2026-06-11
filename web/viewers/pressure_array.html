@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pressure Lattice Viewer</title>
+<style>
+  /* Heatmap archetype — same bespoke theme as the thermal viewer (the
+     line-chart viewers share web/shared/viewer.css instead). */
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #0a0a0f;
+    color: #e0e0e0;
+    font-family: 'Courier New', monospace;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    gap: 16px;
+    padding: 24px;
+  }
+
+  h1 {
+    font-size: 13px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #555;
+    font-weight: normal;
+  }
+
+  #host-bar { display: flex; gap: 8px; align-items: center; }
+  #host-bar input {
+    background: #111; border: 1px solid #333; color: #ccc;
+    font-family: inherit; font-size: 13px; padding: 6px 12px;
+    border-radius: 4px; outline: none;
+  }
+  #host-input { width: 150px; }
+  #sid-input  { width: 130px; }
+  #host-bar input:focus { border-color: #555; }
+
+  #host-bar button, .btn {
+    background: #1a1a2e; border: 1px solid #333; color: #88aaff;
+    font-family: inherit; font-size: 12px; padding: 6px 14px;
+    border-radius: 4px; cursor: pointer; letter-spacing: 0.1em;
+    transition: border-color 0.15s, color 0.15s, background 0.15s;
+  }
+  .btn:hover, #host-bar button:hover { background: #22224a; }
+  .btn.active { border-color: #88aaff; color: #aaccff; }
+  .auto-active { border-color: #22aaaa !important; color: #66dddd !important; }
+
+  #canvas-wrap { position: relative; }
+  canvas { display: block; border-radius: 4px; }
+  #crosshair { position: absolute; top: 0; left: 0; pointer-events: none; }
+
+  #stats { display: flex; gap: 28px; font-size: 12px; letter-spacing: 0.08em; align-items: center; }
+  .stat { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .stat-label { color: #444; font-size: 10px; text-transform: uppercase; letter-spacing: 0.15em; }
+  .stat-val { font-size: 20px; font-weight: bold; }
+  .stat-val.cold   { color: #4488ff; }
+  .stat-val.hot    { color: #ff5533; }
+  .stat-val.cursor { color: #ffcc44; }
+  .stat-val.meta   { color: #66dddd; font-size: 16px; }
+  .stat-val.warn   { color: #ffaa33; font-size: 16px; }
+
+  #range-row { display: flex; align-items: center; gap: 12px; font-size: 12px; color: #666; }
+  #range-row input[type=number] {
+    background: #111; border: 1px solid #333; color: #ccc;
+    font-family: inherit; font-size: 13px; padding: 5px 8px;
+    border-radius: 4px; width: 80px; outline: none; text-align: center;
+  }
+  #range-row label { color: #555; font-size: 11px; letter-spacing: 0.1em; }
+
+  #smooth-row { display: flex; align-items: center; gap: 10px; font-size: 11px; color: #555; letter-spacing: 0.1em; }
+  #smooth-row input[type=range] { accent-color: #88aaff; width: 130px; }
+  #smooth-val { color: #667; min-width: 28px; text-align: right; }
+
+  #colorbar-wrap { display: flex; align-items: center; gap: 10px; font-size: 11px; color: #555; }
+  #colorbar { width: 240px; height: 10px; border-radius: 2px; }
+
+  #palette-row { display: flex; gap: 8px; }
+  #status { font-size: 11px; color: #333; letter-spacing: 0.1em; }
+  #status.ok  { color: #336644; }
+  #status.err { color: #662222; }
+</style>
+</head>
+<body>
+
+<h1>pressure lattice &middot; scanned velostat viewer</h1>
+
+<div id="host-bar">
+  <label style="color:#555;font-size:11px;">HOST</label>
+  <input id="host-input" value="192.168.1.x" spellcheck="false">
+  <input id="sid-input" value="pressure_1" spellcheck="false" title="Sensor ID">
+  <button onclick="connect()">connect</button>
+</div>
+
+<div id="canvas-wrap">
+  <!-- cols x rows arrive in each sweep header; canvas keeps a fixed aspect -->
+  <canvas id="lattice" width="1008" height="192"></canvas>
+  <canvas id="crosshair" width="1008" height="192"></canvas>
+</div>
+
+<div id="stats">
+  <div class="stat"><span class="stat-label">sweep</span><span class="stat-val meta" id="val-sweep">--</span></div>
+  <div class="stat"><span class="stat-label">grid</span><span class="stat-val meta" id="val-grid">--</span></div>
+  <div class="stat"><span class="stat-label">missing</span><span class="stat-val warn" id="val-miss">--</span></div>
+  <div class="stat"><span class="stat-label">min</span><span class="stat-val cold" id="val-min">--</span></div>
+  <div class="stat"><span class="stat-label">cursor</span><span class="stat-val cursor" id="val-cur">--</span></div>
+  <div class="stat"><span class="stat-label">max</span><span class="stat-val hot" id="val-max">--</span></div>
+</div>
+
+<div id="range-row">
+  <label>RANGE</label>
+  <input type="number" id="range-min" value="0" step="100"> counts
+  <span style="color:#333">&mdash;</span>
+  <input type="number" id="range-max" value="32767" step="100"> counts
+  <button class="btn active auto-active" id="auto-btn" onclick="toggleAuto()">auto</button>
+</div>
+
+<div id="smooth-row">
+  <label>DENOISE</label>
+  <input type="range" id="smooth-slider" min="0" max="1" step="0.01" value="0.10"
+         oninput="onSmoothChange(this.value)">
+  <span id="smooth-val">0.10</span>
+  <label style="color:#444; font-size:10px;">(0 = raw &middot; 1 = max)</label>
+</div>
+
+<div id="colorbar-wrap">
+  <span id="cb-min">0</span>
+  <canvas id="colorbar"></canvas>
+  <span id="cb-max">32767</span>
+</div>
+
+<div id="palette-row">
+  <button class="btn" onclick="setPalette('ironbow')">ironbow</button>
+  <button class="btn active" onclick="setPalette('inferno')">inferno</button>
+  <button class="btn" onclick="setPalette('hot')">hot</button>
+  <button class="btn" onclick="setPalette('greyscale')">greyscale</button>
+  <span style="color:#333; margin: 0 4px;">|</span>
+  <button class="btn" id="interp-btn" onclick="toggleInterp()">interp</button>
+</div>
+
+<div id="status">disconnected</div>
+
+<script src="../shared/heatmap.js"></script>
+<script>
+// Sweep frames from sensors/pressure_array (scanned-lattice mode), header
+// <IHHff> LE = (sweep_n, rows, cols, min, max) + rows*cols float32 row-major.
+// NaN cells (a device never delivered that row) render as the engine's
+// "missing" colour — degradation is visible, never hidden.
+
+const canvas = document.getElementById('lattice');
+const crossCanvas = document.getElementById('crosshair');
+
+const hm = new AnimHeatmap(canvas, {
+  cols: 84, rows: 16,            // re-gridded from each sweep header
+  palette: 'inferno',
+  interpolate: false,            // discrete taps by default — interp is opt-in
+  smoothing: 0.10,
+  rangeMin: 0, rangeMax: 32767,
+});
+
+let autoScale = true;
+let sceneMin = 0, sceneMax = 32767;
+let lastSweep = -1;
+
+function getRangeMin() { return parseFloat(document.getElementById('range-min').value); }
+function getRangeMax() { return parseFloat(document.getElementById('range-max').value); }
+
+function applyRange() {
+  hm.setRange(autoScale ? sceneMin : getRangeMin(),
+              autoScale ? sceneMax : getRangeMax());
+  document.getElementById('cb-min').textContent = Math.round(hm.rangeMin);
+  document.getElementById('cb-max').textContent = Math.round(hm.rangeMax);
+}
+
+function toggleAuto() {
+  autoScale = !autoScale;
+  const btn = document.getElementById('auto-btn');
+  btn.classList.toggle('active', autoScale);
+  btn.classList.toggle('auto-active', autoScale);
+  document.getElementById('range-min').disabled = autoScale;
+  document.getElementById('range-max').disabled = autoScale;
+  applyRange();
+}
+document.getElementById('range-min').disabled = true;
+document.getElementById('range-max').disabled = true;
+
+function setPalette(name) {
+  hm.setPalette(name);
+  document.querySelectorAll('#palette-row .btn').forEach(b => {
+    if (b.id !== 'interp-btn') b.classList.toggle('active', b.textContent === name);
+  });
+  drawColorbar();
+}
+
+function toggleInterp() {
+  hm.setInterpolate(!hm.interpolate);
+  document.getElementById('interp-btn').classList.toggle('active', hm.interpolate);
+}
+
+function onSmoothChange(v) {
+  hm.setSmoothing(parseFloat(v));
+  document.getElementById('smooth-val').textContent = parseFloat(v).toFixed(2);
+}
+
+function drawColorbar() {
+  const bar = document.getElementById('colorbar');
+  bar.width = 240; bar.height = 10;
+  hm.drawColorbar(bar);
+}
+drawColorbar();
+
+document.getElementById('range-min').addEventListener('input', applyRange);
+document.getElementById('range-max').addEventListener('input', applyRange);
+
+// ── RAF loop ──────────────────────────────────────────────────────────────────
+
+(function loop() { hm.render(); requestAnimationFrame(loop); })();
+
+// ── Crosshair ─────────────────────────────────────────────────────────────────
+
+canvas.addEventListener('mousemove', e => {
+  if (!hm.values) return;
+  const { col, row } = hm.cellAt(e);
+  const v = hm.valueAt(col, row);
+  document.getElementById('val-cur').textContent =
+    Number.isNaN(v) ? `r${row} c${col} —` : `r${row} c${col} ${Math.round(v)}`;
+  hm.drawCrosshair(crossCanvas, col, row);
+});
+canvas.addEventListener('mouseleave', () => {
+  document.getElementById('val-cur').textContent = '--';
+  hm.drawCrosshair(crossCanvas, -1, -1);
+});
+
+// ── WebSocket — node binary frame lane ─────────────────────────────────────────
+
+const NODE_PORT = 8080;
+let ws = null, reconnectTimer = null, intentionalClose = false;
+
+function setStatus(msg, cls) {
+  const el = document.getElementById('status');
+  el.textContent = msg; el.className = cls || '';
+}
+
+function frameUrl() {
+  const host = document.getElementById('host-input').value.trim();
+  const sid  = document.getElementById('sid-input').value.trim();
+  return `ws://${host}:${NODE_PORT}/sensors/${sid}/frames`;
+}
+
+function connect() {
+  intentionalClose = true;
+  if (ws) ws.close();
+  if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+  intentionalClose = false;
+  lastSweep = -1;
+  setStatus('connecting…');
+  openWS(frameUrl());
+}
+
+function openWS(url) {
+  ws = new WebSocket(url);
+  ws.binaryType = 'arraybuffer';
+
+  ws.onopen = () => setStatus('● live', 'ok');
+
+  ws.onmessage = e => {
+    const buf = e.data;
+    if (!buf || buf.byteLength < 16) return;   // keepalive / short frame
+    const view = new DataView(buf);
+    const n    = view.getUint32(0, true);
+    if (n === lastSweep) return;
+    lastSweep = n;
+    const rows = view.getUint16(4, true);
+    const cols = view.getUint16(6, true);
+    sceneMin   = view.getFloat32(8, true);
+    sceneMax   = view.getFloat32(12, true);
+    const cells = rows * cols;
+    if (buf.byteLength < 16 + cells * 4) return;
+
+    hm.setGrid(cols, rows);
+    const values = new Float32Array(buf, 16, cells);
+    hm.push(values);
+
+    let missing = 0;
+    for (let i = 0; i < cells; i++) if (Number.isNaN(values[i])) missing++;
+
+    document.getElementById('val-sweep').textContent = n;
+    document.getElementById('val-grid').textContent  = `${rows}×${cols}`;
+    const missEl = document.getElementById('val-miss');
+    missEl.textContent = missing;
+    missEl.className = missing ? 'stat-val warn' : 'stat-val meta';
+    document.getElementById('val-min').textContent = Math.round(sceneMin);
+    document.getElementById('val-max').textContent = Math.round(sceneMax);
+
+    applyRange();
+    setStatus('● live', 'ok');
+  };
+
+  ws.onerror = () => setStatus('✕ connection error', 'err');
+
+  ws.onclose = () => {
+    if (intentionalClose) return;
+    setStatus('disconnected — reconnecting…', 'err');
+    reconnectTimer = setTimeout(() => { reconnectTimer = null; openWS(url); }, 2000);
+  };
+}
+
+connect();
+</script>
+</body>
+</html>

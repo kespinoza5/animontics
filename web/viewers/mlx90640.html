@@ -214,58 +214,56 @@
 
 <div id="status">disconnected</div>
 
+<script src="../shared/heatmap.js"></script>
 <script>
-// ── Palettes & LUT ────────────────────────────────────────────────────────────
+// ── Heatmap engine (shared web/shared/heatmap.js) ─────────────────────────────
 
-const PALETTES = {
-  ironbow:  [[0,0,0],[32,0,48],[64,0,128],[128,0,96],[192,32,0],[255,128,0],[255,224,64],[255,255,192],[255,255,255]],
-  inferno:  [[0,0,4],[40,11,84],[101,21,110],[159,42,99],[212,72,66],[245,125,21],[252,193,69],[252,255,164]],
-  hot:      [[0,0,0],[192,0,0],[255,64,0],[255,192,0],[255,255,128],[255,255,255]],
-  rainbow:  [[0,0,128],[0,0,255],[0,128,255],[0,255,255],[0,255,0],[255,255,0],[255,128,0],[255,0,0],[128,0,0]],
-  greyscale:[[0,0,0],[255,255,255]],
-};
+const COLS = 32, ROWS = 24;
+const canvas = document.getElementById('thermal');
+const crossCanvas = document.getElementById('crosshair');
 
-let currentPalette = 'ironbow';
+const hm = new AnimHeatmap(canvas, {
+  cols: COLS, rows: ROWS,
+  mirrorX: true,                 // sensor faces the viewer
+  palette: 'ironbow',
+  smoothing: 0.15,
+  rangeMin: 32, rangeMax: 40,
+});
+
 let autoScale = false;
+let lastSceneMin = 32, lastSceneMax = 40;
+let lastFrameId = -1;
 
-function lerpColor(stops, t) {
-  t = Math.max(0, Math.min(1, t));
-  const n = stops.length - 1;
-  const i = Math.floor(t * n);
-  const f = t * n - i;
-  const a = stops[Math.min(i, n)], b = stops[Math.min(i+1, n)];
-  return [
-    Math.round(a[0] + (b[0]-a[0])*f),
-    Math.round(a[1] + (b[1]-a[1])*f),
-    Math.round(a[2] + (b[2]-a[2])*f),
-  ];
+function getRangeMin() { return parseFloat(document.getElementById('range-min').value); }
+function getRangeMax() { return parseFloat(document.getElementById('range-max').value); }
+
+function applyRange() {
+  hm.setRange(autoScale ? lastSceneMin : getRangeMin(),
+              autoScale ? lastSceneMax : getRangeMax());
 }
-
-const LUT_SIZE = 1024;
-const colorLUT = new Uint8Array(LUT_SIZE * 3);
-
-function buildLUT(stops) {
-  for (let i = 0; i < LUT_SIZE; i++) {
-    const [r,g,b] = lerpColor(stops, i / (LUT_SIZE - 1));
-    colorLUT[i*3] = r; colorLUT[i*3+1] = g; colorLUT[i*3+2] = b;
-  }
-}
-buildLUT(PALETTES[currentPalette]);
 
 function setPalette(name) {
-  currentPalette = name;
-  buildLUT(PALETTES[name]);
+  hm.setPalette(name);
   document.querySelectorAll('#palette-row .btn').forEach(b => {
-    b.classList.toggle('active', b.textContent === name);
+    if (b.id !== 'interp-btn') b.classList.toggle('active', b.textContent === name);
   });
   drawColorbar();
-  needsRender = true;
+}
+
+function toggleInterp() {
+  hm.setInterpolate(!hm.interpolate);
+  document.getElementById('interp-btn').classList.toggle('active', hm.interpolate);
+}
+
+function onSmoothChange(v) {
+  hm.setSmoothing(parseFloat(v));
+  document.getElementById('smooth-val').textContent = parseFloat(v).toFixed(2);
 }
 
 function setAutoUI(on) {
-  const btn   = document.getElementById('auto-btn');
-  const rMin  = document.getElementById('range-min');
-  const rMax  = document.getElementById('range-max');
+  const btn  = document.getElementById('auto-btn');
+  const rMin = document.getElementById('range-min');
+  const rMax = document.getElementById('range-max');
   btn.classList.toggle('active', on);
   btn.classList.toggle('auto-active', on);
   rMin.classList.toggle('auto-active', on);
@@ -277,162 +275,28 @@ function setAutoUI(on) {
 function toggleAuto() {
   autoScale = !autoScale;
   setAutoUI(autoScale);
-  if (autoScale) { updateColorbarLabels(); drawColorbar(); needsRender = true; }
+  applyRange();
+  updateColorbarLabels();
+  drawColorbar();
 }
 
 function snapToScene() {
-  if (!smoothedPixels) return;
+  if (!hm.values) return;
   document.getElementById('range-min').value = lastSceneMin.toFixed(1);
   document.getElementById('range-max').value = lastSceneMax.toFixed(1);
   autoScale = false;
   setAutoUI(false);
-  needsRender = true;
+  applyRange();
   drawColorbar();
   updateColorbarLabels();
 }
 
-function getRangeMin() { return parseFloat(document.getElementById('range-min').value); }
-function getRangeMax() { return parseFloat(document.getElementById('range-max').value); }
-
-// ── Canvas & bilinear tables ──────────────────────────────────────────────────
-
-const COLS = 32, ROWS = 24;
-const canvas = document.getElementById('thermal');
-const ctx    = canvas.getContext('2d');
-const W = canvas.width, H = canvas.height;
-const SCALEX = W / COLS, SCALEY = H / ROWS;
-
-const crossCanvas = document.getElementById('crosshair');
-const cx = crossCanvas.getContext('2d');
-
-// Offscreen 32×24 canvas used for nearest-neighbour (pixel) mode.
-const offscreen = document.createElement('canvas');
-offscreen.width  = COLS;
-offscreen.height = ROWS;
-const offCtx = offscreen.getContext('2d');
-
-// Precompute per-output-column source indices and weights (horizontal mirror included).
-// This runs once; the inner render loop reuses these arrays every frame.
-const xSrc0 = new Uint8Array(W);
-const xSrc1 = new Uint8Array(W);
-const xWgt0 = new Float32Array(W);   // weight for xSrc0
-const xWgt1 = new Float32Array(W);   // weight for xSrc1
-(function buildXTable() {
-  for (let px = 0; px < W; px++) {
-    const fx = (1 - px / (W - 1)) * (COLS - 1);   // mirror
-    const x0 = fx | 0;
-    xSrc0[px] = x0;
-    xSrc1[px] = Math.min(x0 + 1, COLS - 1);
-    xWgt1[px] = fx - x0;
-    xWgt0[px] = 1 - xWgt1[px];
-  }
-})();
-
-// ── State ─────────────────────────────────────────────────────────────────────
-
-let smoothedPixels = null;   // Float32Array, sensor-space (unmirrored)
-// Slider 0 = raw (internal alpha=1.0), slider 1 = max smooth (alpha≈0).
-let smoothAlpha  = 0.85;
-let lastSceneMin = 32, lastSceneMax = 40;
-let needsRender  = false;
-let lastFrameId  = -1;
-let interpolate  = true;
-
-function toggleInterp() {
-  interpolate = !interpolate;
-  document.getElementById('interp-btn').classList.toggle('active', interpolate);
-  needsRender = true;
-}
-
-function onSmoothChange(v) {
-  smoothAlpha = 1.0 - parseFloat(v);
-  document.getElementById('smooth-val').textContent = parseFloat(v).toFixed(2);
-}
-
-function applySmoothing(newPixels) {
-  if (!smoothedPixels) {
-    smoothedPixels = new Float32Array(newPixels);
-    return;
-  }
-  const alpha = smoothAlpha, inv = 1 - alpha;
-  for (let i = 0; i < 768; i++) {
-    smoothedPixels[i] = alpha * newPixels[i] + inv * smoothedPixels[i];
-  }
-}
-
-// ── Render ────────────────────────────────────────────────────────────────────
-
-function redraw() {
-  if (!smoothedPixels) return;
-  const mn    = autoScale ? lastSceneMin : getRangeMin();
-  const mx    = autoScale ? lastSceneMax : getRangeMax();
-  const range = mx - mn || 1;
-  const scale = (LUT_SIZE - 1) / range;
-
-  if (interpolate) {
-    // Temperature-space bilinear: interpolate °C values first, then colour-map.
-    // Prevents colour-space artefacts (e.g. purple between red and blue regions).
-    const imgData = ctx.createImageData(W, H);
-    const d = imgData.data;
-
-    for (let py = 0; py < H; py++) {
-      const fy   = py / (H - 1) * (ROWS - 1);
-      const y0   = fy | 0;
-      const y1   = Math.min(y0 + 1, ROWS - 1);
-      const wy1  = fy - y0;
-      const wy0  = 1 - wy1;
-      const row0 = y0 * COLS;
-      const row1 = y1 * COLS;
-      let   idx  = py * W * 4;
-
-      for (let px = 0; px < W; px++) {
-        const s0 = xSrc0[px], s1 = xSrc1[px];
-        const w0 = xWgt0[px], w1 = xWgt1[px];
-        const temp = smoothedPixels[row0 + s0] * wy0 * w0
-                   + smoothedPixels[row0 + s1] * wy0 * w1
-                   + smoothedPixels[row1 + s0] * wy1 * w0
-                   + smoothedPixels[row1 + s1] * wy1 * w1;
-        const lut = Math.min(LUT_SIZE - 1, Math.max(0, (temp - mn) * scale | 0)) * 3;
-        d[idx]   = colorLUT[lut];
-        d[idx+1] = colorLUT[lut+1];
-        d[idx+2] = colorLUT[lut+2];
-        d[idx+3] = 255;
-        idx += 4;
-      }
-    }
-    ctx.putImageData(imgData, 0, 0);
-
-  } else {
-    // Pixel mode: write the 32×24 sensor pixels to the offscreen canvas then
-    // scale up with nearest-neighbour so each block is a single exact reading.
-    const imgData = offCtx.createImageData(COLS, ROWS);
-    const d = imgData.data;
-    for (let i = 0; i < 768; i++) {
-      const row = (i / COLS) | 0;
-      const col = i % COLS;
-      const dst = (row * COLS + (COLS - 1 - col)) << 2;   // mirror
-      const lut = Math.min(LUT_SIZE - 1, Math.max(0, (smoothedPixels[i] - mn) * scale | 0)) * 3;
-      d[dst]   = colorLUT[lut];
-      d[dst+1] = colorLUT[lut+1];
-      d[dst+2] = colorLUT[lut+2];
-      d[dst+3] = 255;
-    }
-    offCtx.putImageData(imgData, 0, 0);
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(offscreen, 0, 0, W, H);
-  }
-}
-
-// ── RAF render loop ───────────────────────────────────────────────────────────
+// ── RAF render loop + fps ─────────────────────────────────────────────────────
 
 let fpsCount = 0, fpsTimestamp = 0;
 
 function renderLoop(ts) {
-  if (needsRender) {
-    needsRender = false;
-    redraw();
-    fpsCount++;
-  }
+  if (hm.render()) fpsCount++;
   if (ts - fpsTimestamp >= 1000) {
     document.getElementById('fps-val').textContent = fpsCount;
     fpsCount = 0; fpsTimestamp = ts;
@@ -446,41 +310,24 @@ requestAnimationFrame(renderLoop);
 let cursorCol = -1, cursorRow = -1;
 
 canvas.addEventListener('mousemove', e => {
-  const rect = canvas.getBoundingClientRect();
-  const col  = COLS - 1 - Math.floor((e.clientX - rect.left) / SCALEX);
-  const row  = Math.floor((e.clientY - rect.top) / SCALEY);
-  if (col >= 0 && col < COLS && row >= 0 && row < ROWS && smoothedPixels) {
-    cursorCol = col; cursorRow = row;
-    updateCursorTemp();
-    drawCrosshair();
-  }
+  if (!hm.values) return;
+  const { col, row } = hm.cellAt(e);
+  cursorCol = col; cursorRow = row;
+  updateCursorTemp();
+  hm.drawCrosshair(crossCanvas, col, row);
 });
 
 canvas.addEventListener('mouseleave', () => {
   cursorCol = -1;
   document.getElementById('val-cur').textContent = '--.-';
-  cx.clearRect(0, 0, crossCanvas.width, crossCanvas.height);
+  hm.drawCrosshair(crossCanvas, -1, -1);
 });
 
 function updateCursorTemp() {
-  if (cursorCol < 0 || !smoothedPixels) return;
-  const temp = smoothedPixels[cursorRow * COLS + (COLS - 1 - cursorCol)];
-  document.getElementById('val-cur').textContent = temp.toFixed(1) + '°';
-}
-
-function drawCrosshair() {
-  cx.clearRect(0, 0, crossCanvas.width, crossCanvas.height);
   if (cursorCol < 0) return;
-  const x = (COLS - 1 - cursorCol + 0.5) * SCALEX;
-  const y = (cursorRow + 0.5) * SCALEY;
-  const s = 12;
-  cx.strokeStyle = 'rgba(255,204,68,0.85)'; cx.lineWidth = 1.5;
-  cx.beginPath();
-  cx.moveTo(x-s,y); cx.lineTo(x+s,y);
-  cx.moveTo(x,y-s); cx.lineTo(x,y+s);
-  cx.stroke();
-  cx.strokeStyle = 'rgba(255,204,68,0.3)'; cx.lineWidth = 1;
-  cx.beginPath(); cx.arc(x, y, 16, 0, Math.PI*2); cx.stroke();
+  const temp = hm.valueAt(cursorCol, cursorRow);
+  if (!Number.isNaN(temp))
+    document.getElementById('val-cur').textContent = temp.toFixed(1) + '°';
 }
 
 // ── Colorbar ──────────────────────────────────────────────────────────────────
@@ -488,12 +335,7 @@ function drawCrosshair() {
 function drawColorbar() {
   const bar = document.getElementById('colorbar');
   bar.width = 240; bar.height = 10;
-  const bctx = bar.getContext('2d');
-  for (let x = 0; x < 240; x++) {
-    const [r,g,b] = lerpColor(PALETTES[currentPalette], x/239);
-    bctx.fillStyle = `rgb(${r},${g},${b})`;
-    bctx.fillRect(x, 0, 1, 10);
-  }
+  hm.drawColorbar(bar);
 }
 drawColorbar();
 
@@ -505,17 +347,13 @@ function updateColorbarLabels() {
 }
 updateColorbarLabels();
 
-document.getElementById('range-min').addEventListener('input', () => { needsRender = true; drawColorbar(); updateColorbarLabels(); });
-document.getElementById('range-max').addEventListener('input', () => { needsRender = true; drawColorbar(); updateColorbarLabels(); });
+document.getElementById('range-min').addEventListener('input', () => { applyRange(); drawColorbar(); updateColorbarLabels(); });
+document.getElementById('range-max').addEventListener('input', () => { applyRange(); drawColorbar(); updateColorbarLabels(); });
 
 // ── WebSocket — node binary frame lane ─────────────────────────────────────────
-// Connects to the node agent's binary frame stream:
-//     ws://<host>:8080/sensors/<sensorId>/frames
-// Each message is one little-endian frame (zero-length messages are keepalives):
-//   [0]  uint32  frame_id
-//   [4]  float32 min_temp
-//   [8]  float32 max_temp
-//   [12] float32 × 768  pixels (row-major 32×24, °C)
+// ws://<host>:8080/sensors/<sensorId>/frames — each message one LE frame:
+//   [0] uint32 frame_id  [4] float32 min  [8] float32 max
+//   [12] float32 x 768 pixels (row-major 32x24, degrees C)
 
 const NODE_PORT = 8080;
 let ws = null, reconnectTimer = null, intentionalClose = false;
@@ -551,32 +389,30 @@ function openWS(url) {
     const buf = e.data;
     if (!buf || buf.byteLength < 12) return;   // keepalive / short frame
     const view = new DataView(buf);
-    const id   = view.getUint32(0, true);
+    const id = view.getUint32(0, true);
     if (id === lastFrameId) return;
     lastFrameId = id;
 
-    const mn     = view.getFloat32(4, true);
-    const mx     = view.getFloat32(8, true);
-    const pixels = new Float32Array(buf, 12, 768);
+    lastSceneMin = view.getFloat32(4, true);
+    lastSceneMax = view.getFloat32(8, true);
+    hm.push(new Float32Array(buf, 12, 768));
 
-    lastSceneMin = mn;
-    lastSceneMax = mx;
-    applySmoothing(pixels);
-
-    document.getElementById('val-min').textContent = mn.toFixed(1) + '°';
-    document.getElementById('val-max').textContent = mx.toFixed(1) + '°';
+    document.getElementById('val-min').textContent = lastSceneMin.toFixed(1) + '°';
+    document.getElementById('val-max').textContent = lastSceneMax.toFixed(1) + '°';
 
     if (autoScale) {
       // Mirror live scene range into the (disabled) inputs so the user can
       // see exactly what range is active and use snap to lock it in.
-      document.getElementById('range-min').value = mn.toFixed(1);
-      document.getElementById('range-max').value = mx.toFixed(1);
+      document.getElementById('range-min').value = lastSceneMin.toFixed(1);
+      document.getElementById('range-max').value = lastSceneMax.toFixed(1);
+      applyRange();
       updateColorbarLabels();
       drawColorbar();
+    } else {
+      applyRange();
     }
 
     updateCursorTemp();
-    needsRender = true;
     setStatus('● live', 'ok');
   };
 
