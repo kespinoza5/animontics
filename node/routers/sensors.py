@@ -2,12 +2,29 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import queue as queue_mod
 
 from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import StreamingResponse
 
 log = logging.getLogger(__name__)
 router = APIRouter()
+
+
+async def _q_get(q, block_secs: float = 25.0, poll: float = 1.0):
+    """Read the subscriber queue; None after block_secs idle (send a keepalive).
+
+    Polls in short slices instead of one long blocking get: a long get parks a
+    worker thread that survives task cancellation, holding node shutdown (and
+    test teardown) hostage for the full keepalive window.
+    """
+    waited = 0.0
+    while waited < block_secs:
+        try:
+            return await asyncio.to_thread(q.get, True, poll)
+        except queue_mod.Empty:
+            waited += poll
+    return None
 
 
 # ── REST ─────────────────────────────────────────────────────────────────────
@@ -60,15 +77,8 @@ async def sensor_stream(sensor_id: str, request: Request):
                 yield latest.to_sse()
 
             while True:
-                try:
-                    # Poll the queue with a short timeout to allow cancellation
-                    payload = await asyncio.wait_for(
-                        asyncio.to_thread(q.get, True, 25),
-                        timeout=26,
-                    )
-                    yield payload
-                except (asyncio.TimeoutError, Exception):
-                    yield ": keepalive\n\n"
+                payload = await _q_get(q)
+                yield payload if payload is not None else ": keepalive\n\n"
         finally:
             sensor.unsubscribe(q)
 
@@ -102,16 +112,13 @@ async def sensor_ws(websocket: WebSocket, sensor_id: str):
             await websocket.send_text(latest.model_dump_json())
 
         while True:
-            try:
-                payload = await asyncio.wait_for(
-                    asyncio.to_thread(q.get, True, 25),
-                    timeout=26,
-                )
-                # Strip the SSE framing ("data: ...\n\n") — send raw JSON
-                json_str = payload.removeprefix("data: ").rstrip("\n")
-                await websocket.send_text(json_str)
-            except asyncio.TimeoutError:
+            payload = await _q_get(q)
+            if payload is None:
                 await websocket.send_text('{"keepalive":true}')
+                continue
+            # Strip the SSE framing ("data: ...\n\n") — send raw JSON
+            json_str = payload.removeprefix("data: ").rstrip("\n")
+            await websocket.send_text(json_str)
     except WebSocketDisconnect:
         pass
     finally:
@@ -143,14 +150,11 @@ async def sensor_frames(websocket: WebSocket, sensor_id: str):
     q = sensor.subscribe_frames()
     try:
         while True:
-            try:
-                frame = await asyncio.wait_for(
-                    asyncio.to_thread(q.get, True, 25),
-                    timeout=26,
-                )
-                await websocket.send_bytes(frame)
-            except asyncio.TimeoutError:
+            frame = await _q_get(q)
+            if frame is None:
                 await websocket.send_bytes(b"")   # keepalive ping (zero-length)
+                continue
+            await websocket.send_bytes(frame)
     except WebSocketDisconnect:
         pass
     finally:

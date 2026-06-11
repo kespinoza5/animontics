@@ -6,6 +6,7 @@ without executing anything.
 """
 from __future__ import annotations
 
+import shlex
 import subprocess
 import sys
 from pathlib import Path
@@ -79,7 +80,9 @@ def run_remote(
 
 def read_remote_file(host: str, user: str, path: str) -> str | None:
     """Read a file from a remote host. Returns None if the file does not exist."""
-    stdout, _, rc = run_remote(host, user, f"cat {path} 2>/dev/null", check=False)
+    stdout, _, rc = run_remote(
+        host, user, f"cat {shlex.quote(path)} 2>/dev/null", check=False
+    )
     return stdout if rc == 0 and stdout else None
 
 
@@ -96,11 +99,12 @@ def write_remote_file(
         print(f"[dry-run] write {len(content)} bytes → {_ssh_target(user, host)}:{path}")
         return
 
-    # Use printf to avoid shell escaping issues with heredocs and special chars
-    escaped = content.replace("\\", "\\\\").replace("'", "'\\''")
+    # shlex.quote both the payload and the path: content survives any special
+    # characters, and a path can never inject into the remote shell.
+    qpath = shlex.quote(path)
     run_remote(
         host, user,
-        f"mkdir -p $(dirname {path}) && printf '%s' '{escaped}' > {path}",
+        f'mkdir -p "$(dirname {qpath})" && printf \'%s\' {shlex.quote(content)} > {qpath}',
         dry_run=False,
     )
 
@@ -154,4 +158,4 @@ def remove_remote_dir(
     dry_run: bool = False,
 ) -> None:
     """Remove a directory on a remote host."""
-    run_remote(host, user, f"rm -rf {path}", dry_run=dry_run)
+    run_remote(host, user, f"rm -rf {shlex.quote(path)}", dry_run=dry_run)

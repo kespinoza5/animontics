@@ -173,6 +173,12 @@ The current sensor streaming API (`GET /sensors/{id}/stream`, `WS /sensors/{id}/
       MITM-able. Consider host-key pinning: capture each board's host key during
       provisioning into a fleet `known_hosts` and switch to
       `StrictHostKeyChecking=yes` against it.
+- [ ] Test coverage — areas deferred after the 2026-06 shoring pass (which added
+      tests for reconcile, core/config, broadcaster, registry, the fleet SSH
+      transport, and the node app + routers): sensor read loops
+      (tf_mini/vl53l1x/… via a fake-driver harness), `tools/fleet/`
+      deploy.py / sync.py / probe.py orchestration (needs an SSH fake at the
+      run_remote seam), and the CLI entry points (`animon.py`, `forge.py`).
 - [ ] `animon update <node-id>` — remote apt/pip upgrade as a fleet subcommand
       (folded into tools/fleet/ rather than a standalone maintenance script)
 - [ ] `tools/fleet/deploy.py` — `deploy --dry-run` still makes one SSH call

@@ -66,7 +66,9 @@ async def lifespan(app: FastAPI):
             device.start()
             active_devices[dc.id] = device
             log.info("Device '%s' (%s): started", dc.id, dc.kind)
-        except ValueError as exc:
+        except Exception as exc:
+            # Any one plugin failing (unknown kind, dead port, missing dep)
+            # degrades that plugin only — never the whole node.
             log.error("Device '%s': %s", dc.id, exc)
 
     active_sensors: dict[str, SensorBase] = {}
@@ -81,7 +83,7 @@ async def lifespan(app: FastAPI):
             sensor.start()
             active_sensors[sc.id] = sensor
             log.info("Sensor '%s' (%s): started", sc.id, sc.type)
-        except ValueError as exc:
+        except Exception as exc:
             log.error("Sensor '%s': %s", sc.id, exc)
 
     # ── Effectors (outputs) — write through devices.
@@ -99,7 +101,7 @@ async def lifespan(app: FastAPI):
             effector.start()
             active_effectors[ec.id] = effector
             log.info("Effector '%s' (%s): ready", ec.id, ec.type)
-        except ValueError as exc:
+        except Exception as exc:
             log.error("Effector '%s': %s", ec.id, exc)
 
     # ── Policies (control loops) — read sensors via the relay, drive effectors.
@@ -109,7 +111,7 @@ async def lifespan(app: FastAPI):
             active_policies[pc.id] = create_policy(pc)
             log.info("Policy '%s' (%s)%s: loaded", pc.id, pc.type,
                      " [always-on]" if pc.always_on else "")
-        except ValueError as exc:
+        except Exception as exc:
             log.error("Policy '%s': %s", pc.id, exc)
     runtime = PolicyRuntime(
         list(active_policies.values()), active_sensors, active_effectors, relay
