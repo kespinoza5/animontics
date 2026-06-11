@@ -15,6 +15,7 @@ boards:
   rp2040:      {board: raspberry_pi_pico}
   feather_m4:  {board: adafruit_feather_m4_express}
   qtpy_samd21: {board: adafruit_qtpy_samd21}
+  rp2040_zero: {board: waveshare_rp2040_zero}
 
 deploy:
   method: copy            # copy firmware/<id>/ to the CIRCUITPY mount (over host SSH)

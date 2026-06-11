@@ -23,7 +23,7 @@ _CMD_LOOP_SLEEP = 0.05          # PWM-only board: poll commands at ~20 Hz
 _FOLLOWER_LOOP_SLEEP = 0.005    # follower pacing comes from awaiting the conductor
 
 _SENSOR_MODULES = {"ads1115", "tach", "analog_in", "matrix_scan", "scan_follower"}
-_ACTUATOR_MODULES = {"pwm_out", "servo_out"}
+_ACTUATOR_MODULES = {"pwm_out", "servo_out", "gpio_out"}
 
 
 @register_builder("mcu.circuit_python")
@@ -62,7 +62,7 @@ class CircuitPythonBuilder(Builder):
             elif mod.module == "scan_follower":
                 if not mod.params.get("watch_pin") or not mod.params.get("ack_pin"):
                     issues.append("scan_follower needs params watch_pin and ack_pin")
-            elif mod.module in ("servo_out", "analog_in") and not mod.pins:
+            elif mod.module in ("servo_out", "analog_in", "gpio_out") and not mod.pins:
                 issues.append(f"{mod.module} needs at least one pin")
         return issues
 
@@ -83,12 +83,14 @@ class CircuitPythonBuilder(Builder):
         frame_sources: list[tuple] = []
         pwm_pins: list[str] = []         # in command order
         servo_pins: list[str] = []       # set_us command order
+        gpio_pins: list[str] = []        # set_gpio command order
         scan: dict | None = None         # matrix_scan (conductor) render context
         follower: dict | None = None     # scan_follower render context
         sample_hz = _DEFAULT_SAMPLE_HZ
         pwm_freq = _DEFAULT_PWM_HZ
         servo_freq = _DEFAULT_SERVO_HZ
         servo_min_us, servo_max_us = 500, 2500
+        gpio_initial = 0
         ppr = 2
         for mod in target.modules:
             if "sample_hz" in mod.params:
@@ -117,6 +119,9 @@ class CircuitPythonBuilder(Builder):
                 servo_freq = int(mod.params.get("freq_hz", _DEFAULT_SERVO_HZ))
                 servo_min_us = int(mod.params.get("min_us", 500))
                 servo_max_us = int(mod.params.get("max_us", 2500))
+            elif mod.module == "gpio_out":
+                gpio_pins += list(mod.pins)
+                gpio_initial = int(mod.params.get("initial", 0))
             elif mod.module == "matrix_scan":
                 frame_sources.append((3, 0, 0, 0))
                 scan = {
@@ -140,7 +145,7 @@ class CircuitPythonBuilder(Builder):
                     "watch_timeout_s": round(int(mod.params.get("watch_timeout_ms", 250)) / 1000.0, 4),
                 }
 
-        if not frame_sources and not pwm_pins and not servo_pins:
+        if not frame_sources and not pwm_pins and not servo_pins and not gpio_pins:
             raise BuildError(f"{target.id}: no sensor channels or output pins configured")
 
         period = round(1.0 / max(1, sample_hz), 3)
@@ -164,6 +169,7 @@ class CircuitPythonBuilder(Builder):
             pwm_pins=pwm_pins, pwm_freq=pwm_freq,
             servo_pins=servo_pins, servo_freq=servo_freq,
             servo_min_us=servo_min_us, servo_max_us=servo_max_us,
+            gpio_pins=gpio_pins, gpio_initial=gpio_initial,
             period=period,
             loop_sleep=loop_sleep,
             baud=target.transport.baud or _DEFAULT_BAUD,

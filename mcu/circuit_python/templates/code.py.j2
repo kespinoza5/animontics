@@ -17,7 +17,7 @@ from adafruit_ads1x15.analog_in import AnalogIn
 {% endif %}{% if tach_pins %}import countio
 {% endif %}{% if pwm_pins or servo_pins %}import pwmio
 {% endif %}{% if analog_pins or scan or follower %}import analogio
-{% endif %}{% if scan %}import digitalio
+{% endif %}{% if scan or gpio_pins %}import digitalio
 {% endif %}
 PROTOCOL_VERSION = 1
 _serial = usb_cdc.data if usb_cdc.data is not None else usb_cdc.console
@@ -153,6 +153,17 @@ def _set_us(ch, us):                             # µs pulse → pwmio duty at S
     if 0 <= ch < len(_servos):
         us = max(SERVO_MIN_US, min(SERVO_MAX_US, us))
         _servos[ch].duty_cycle = us * SERVO_FREQ * 65535 // 1000000
+{% endif %}{% if gpio_pins %}
+# ── Efferent: digital outputs ← inbound set_gpio commands ('AC') ──────────────
+_gpios = []
+for _p in {{ gpio_pins }}:
+    _d = digitalio.DigitalInOut(getattr(board, _p))
+    _d.switch_to_output(value=bool({{ gpio_initial }}))
+    _gpios.append(_d)
+
+def _set_gpio(ch, value):
+    if 0 <= ch < len(_gpios):
+        _gpios[ch].value = bool(value)
 {% endif %}{% if pwm_pins %}
 # ── Efferent: PWM outputs ← inbound commands ('AC') ───────────────────────────
 PWM_FREQ = {{ pwm_freq }}
@@ -163,7 +174,7 @@ _pwms = [
 def _set_duty(ch, duty):                       # duty 0..255 → pwmio 0..65535
     if 0 <= ch < len(_pwms):
         _pwms[ch].duty_cycle = max(0, min(255, duty)) * 257
-{% endif %}{% if pwm_pins or servo_pins %}
+{% endif %}{% if pwm_pins or servo_pins or gpio_pins %}
 _rx = bytearray()
 
 def poll_commands():
@@ -193,6 +204,8 @@ def poll_commands():
             _set_duty(args[0], args[1])
 {% endif %}{% if servo_pins %}        if cmd == 2 and nargs >= 2:            # CMD_SET_US
             _set_us(args[0], args[1])
+{% endif %}{% if gpio_pins %}        if cmd == 3 and nargs >= 2:            # CMD_SET_GPIO
+            _set_gpio(args[0], args[1])
 {% endif %}        del _rx[:total]
 {% endif %}
 seq = 0
@@ -205,5 +218,5 @@ while True:
     seq = (seq + 1) & 0xFF
 {% elif frame_sources %}    send(read_all(), seq)
     seq = (seq + 1) & 0xFF
-{% endif %}{% if pwm_pins or servo_pins %}    poll_commands()
+{% endif %}{% if pwm_pins or servo_pins or gpio_pins %}    poll_commands()
 {% endif %}    time.sleep({{ loop_sleep }})

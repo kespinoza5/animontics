@@ -14,6 +14,7 @@ compiled sources** — they parameterize the generic runtime
 | `scan_follower` | sensor | scanned-matrix **follower**: watch/sample/ack on the DAC handshake; provides the row-tag channel (-1 on timeout) |
 | `pwm_out` | actuator | `pwmio` PWM outputs (e.g. 25 kHz fan PWM); driven by `set_duty` commands |
 | `servo_out` | actuator | 50 Hz servo pulses; driven by `set_us` commands (µs, safety-clamped) |
+| `gpio_out` | actuator | digital outputs (`digitalio`); driven by `set_gpio` commands — the node's `core/gpio.py` mcu backend |
 | `transport_serial` | transport | marks the USB-serial uplink (framing lives in `code.py`) |
 
 The runtime composes an ordered, kind-tagged `FRAME_SOURCES` list (ADS reads,

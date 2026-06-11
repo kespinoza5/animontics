@@ -1,0 +1,11 @@
+module: gpio_out
+platforms: [circuit_python]
+role: actuator
+description: Digital output pins (digitalio), driven by inbound set_gpio commands.
+accepts:
+  set_gpio: {channel: int, value: int}   # 0|1; channel = position in pin order
+config:
+  initial: 0                    # all pins start at this level (0 = safe-off)
+# The node side drives these through core/gpio.py's `mcu` backend
+# ({backend: mcu, device: <id>, channel: N}) — e.g. power-rail relays and the
+# brainstem power/reset lines on the Waveshare RP2040 controllers.

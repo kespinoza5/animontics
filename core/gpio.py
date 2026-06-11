@@ -10,8 +10,12 @@ for an `OutputLine` from a small spec dict and just calls `.set(value)`.
 Spec shape (from a device's `params` in the board config):
 
     {backend: libgpiod, chip: "gpiochip1", line: 262, active_low: false}
-    {backend: mcu, device: "<id>", command: 0x10, channel: 0}   # future seam
+    {backend: mcu, device: "<id>", channel: 0, active_low: false}
     {backend: none}                                              # explicit no-op
+
+The `mcu` backend drives a pin through a device's command sink (CMD_SET_GPIO →
+a gpio_out firmware channel) — pass the node's device registry to
+`make_output_line(spec, devices=...)` for it to resolve.
 
 `backend` defaults to `libgpiod`. Backends are looked up by name; gpiod is
 lazy-imported so dev machines and boards without it stay importable. If a line
@@ -111,12 +115,37 @@ class LibgpiodOutputLine(OutputLine):
             pass
 
 
-def make_output_line(spec: dict[str, Any] | None) -> OutputLine:
+class McuOutputLine(OutputLine):
+    """A digital output driven through a device's command sink.
+
+    Sends CMD_SET_GPIO command frames to an MCU running the `gpio_out` firmware
+    module; `channel` is the pin's position in that module's wire order. A
+    down link degrades to a logged failure (the next state change retries) —
+    same philosophy as the libgpiod fallback.
+    """
+
+    def __init__(self, device: Any, channel: int, active_low: bool = False) -> None:
+        self._device = device
+        self._channel = channel
+        self._active_low = active_low
+
+    def set(self, value: bool) -> None:
+        from core.mcu_link import CMD_SET_GPIO  # local to keep import surface lean
+
+        level = 1 if (value != self._active_low) else 0
+        if not self._device.send_command(CMD_SET_GPIO, [self._channel, level]):
+            log.warning("gpio: mcu line ch%d set(%s) failed — link down",
+                        self._channel, value)
+
+
+def make_output_line(spec: dict[str, Any] | None,
+                     devices: dict[str, Any] | None = None) -> OutputLine:
     """Build an `OutputLine` from a spec dict.
 
     Returns a `NullOutputLine` (never raises) when no pin is configured or the
     backend can't be opened — failures are logged. `backend` defaults to
-    `libgpiod`; `none`/`null` force a no-op; `mcu` is a documented seam.
+    `libgpiod`; `none`/`null` force a no-op; `mcu` drives a pin through a
+    device's command sink and needs the `devices` registry passed in.
     """
     if not spec:
         return NullOutputLine("no spec")
@@ -141,10 +170,16 @@ def make_output_line(spec: dict[str, Any] | None) -> OutputLine:
             return NullOutputLine(f"libgpiod error: {exc}")
 
     if backend == "mcu":
-        # Seam: drive a pin through a device's command sink (e.g. an MCU GPIO).
-        # Not implemented — the modem can also be wired to power on by default.
-        log.warning("gpio: 'mcu' backend not implemented yet — %s", spec)
-        return NullOutputLine("mcu backend stub")
+        dev_id = spec.get("device")
+        device = (devices or {}).get(dev_id)
+        if device is None:
+            log.warning("gpio: mcu backend device %r not available — %s", dev_id, spec)
+            return NullOutputLine(f"mcu device {dev_id!r} unavailable")
+        return McuOutputLine(
+            device=device,
+            channel=int(spec.get("channel", 0)),
+            active_low=bool(spec.get("active_low", False)),
+        )
 
     log.warning("gpio: unknown backend %r — %s", backend, spec)
     return NullOutputLine(f"unknown backend {backend}")

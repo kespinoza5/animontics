@@ -167,6 +167,19 @@ def test_validate_scan_modules(tmp_path):
     assert any("watch_pin and ack_pin" in i for i in builder.validate(ctx))
 
 
+def test_compose_gpio_out(tmp_path):
+    ctx = _scan_ctx(tmp_path, "pw", [
+        {"module": "gpio_out", "pins": ["GP0", "GP1"], "initial": 0},
+    ])
+    code = (CircuitPythonBuilder().compose(ctx) / "code.py").read_text(encoding="utf-8")
+    assert "import digitalio" in code
+    assert "def _set_gpio(ch, value):" in code
+    assert "if cmd == 3 and nargs >= 2:" in code          # CMD_SET_GPIO dispatch
+    assert "switch_to_output(value=bool(0))" in code      # safe-off at boot
+    assert "def read_all()" not in code                   # actuator-only board
+    compile(code, "pw.py", "exec")
+
+
 def test_compose_pwm_plus_tach(tmp_path):
     # the LXiao shape: drive fans + read their RPM on one bidirectional board
     target = McuTarget.model_validate({
