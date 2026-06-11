@@ -240,12 +240,9 @@ python -c "from tools.fleet.reconcile import load_all_metadata; print(sorted(loa
 python -m tools.fleet.animon status
 python -m tools.fleet.animon deploy <node-id> --dry-run
 
-# Tests — run SCOPED, not bare `pytest` (root collection trips on
-# sensors/*/test_raw.py|test_sensor.py hardware scripts that sys.exit on import):
-pytest core/ tools/forge/ sensors/mq_array/ sensors/pressure_array/ \
-       sensors/analog_in/ sensors/ir_xcvr/test_codec.py \
-       sensors/servo_feedback/ sensors/current/ sensors/radar_motion/ \
-       sensors/audio_in/ effectors/ policies/ -q
+# Tests — bare pytest from the root works (hardware bench scripts are named
+# validate_*.py, NOT test_*.py — keep that convention so collection stays clean):
+pytest -q
 
 # forge — compose/compile firmware (offline; no board needed)
 python -m tools.forge.forge validate <mcu-id>

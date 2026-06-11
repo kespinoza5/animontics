@@ -150,10 +150,11 @@ The current sensor streaming API (`GET /sensors/{id}/stream`, `WS /sensors/{id}/
 - [~] `tools/firmware/flash_*.sh` — SUPERSEDED by `tools/forge`. Firmware is
       composed + compiled + flashed from a contract (`config/mcus/<id>.yaml`)
       rather than hand-flashed by per-runtime scripts. See `docs/forge.md`.
-- [ ] `tools/forge/test_raw.py`-style collection hazard: bare `pytest` at the
-      repo root crashes on `sensors/*/test_raw.py` (interactive hardware scripts
-      that `sys.exit` on import). Rename them to `*_raw_check.py` or add a
-      `conftest.py` `collect_ignore_glob` so the root suite is runnable.
+- [x] Bare-`pytest` collection hazard — resolved (2026-06): all interactive
+      hardware bench scripts renamed `test_*` → `validate_*` (tf_mini,
+      lv_maxsonar, mlx90640, vl53l1x, ir_xcvr). Bare `pytest -q` at the root
+      now passes. Convention: pytest tests are `test_*.py`; on-hardware bench
+      scripts are `validate_*.py`.
 - [x] `tools/ssh/gen_keys.sh` — generate a dedicated Ed25519 fleet key pair
 - [x] `tools/ssh/distribute_keys.sh` — ssh-copy-id the fleet key to every node
       in `animon.yaml`; `--harden`/`--unharden` toggle board password auth

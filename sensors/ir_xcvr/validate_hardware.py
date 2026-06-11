@@ -9,18 +9,18 @@ the full animontics stack is involved.  No animontics imports required.
 Usage
 -----
   # Listen for IR codes (point any remote at the receiver):
-  python3 test_hardware.py rx
+  python3 validate_hardware.py rx
 
   # Send a test NEC code (NEC addr=0x04 cmd=0x08 by default):
-  python3 test_hardware.py tx
+  python3 validate_hardware.py tx
 
   # Loopback: send a code then listen for it back (emitter pointed at receiver):
-  python3 test_hardware.py loopback
+  python3 validate_hardware.py loopback
 
   # Override devices or test payload:
-  python3 test_hardware.py rx   --rx /dev/lirc0
-  python3 test_hardware.py tx   --tx /dev/lirc1 --addr 0x20 --cmd 0x01
-  python3 test_hardware.py loopback --rx /dev/lirc0 --tx /dev/lirc1
+  python3 validate_hardware.py rx   --rx /dev/lirc0
+  python3 validate_hardware.py tx   --tx /dev/lirc1 --addr 0x20 --cmd 0x01
+  python3 validate_hardware.py loopback --rx /dev/lirc0 --tx /dev/lirc1
 
 Options
 -------
@@ -313,7 +313,7 @@ def test_tx(tx_device: str, address: int, command: int) -> bool:
     if success:
         print(ok("Write succeeded"))
         print(info("Verify with a phone IR camera / phone camera (some detect 940 nm)"))
-        print(info("Or run 'python3 test_hardware.py loopback' to verify electrically"))
+        print(info("Or run 'python3 validate_hardware.py loopback' to verify electrically"))
         return True
     else:
         print(fail("Write returned fewer bytes than expected"))
@@ -439,7 +439,7 @@ def test_loopback(rx_device: str, tx_device: str,
         print(      "   • Transistor base resistor (1 kΩ) wired to PH0/PWM3")
         print(      "   • 33 Ω current-limiting resistor on TSAL6200 anode")
         print(      "   • pwm-ir-tx overlay enabled and /dev/lirc1 present")
-        print(      "   • Run 'python3 test_hardware.py rx' with a known-good remote")
+        print(      "   • Run 'python3 validate_hardware.py rx' with a known-good remote")
         print(      "     to confirm the receiver works independently first")
         return False
 

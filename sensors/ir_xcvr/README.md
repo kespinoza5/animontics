@@ -190,7 +190,7 @@ codec.py    — IR protocol logic.  Pure Python, no hardware, no imports
 
 driver.py   — Linux LIRC device I/O.  Opens file descriptors, calls ioctl,
               reads/writes structs.  No threading, no Pydantic, no animontics.
-              Imported by test_hardware.py without the full stack.
+              Imported by validate_hardware.py without the full stack.
 
 sensor.py   — animontics integration.  Owns the background thread, retry
               loop, SensorBase lifecycle, and the transmit() public method.
@@ -389,13 +389,13 @@ sensor is configured.
 pytest sensors/ir_xcvr/test_codec.py -v
 
 # Hardware debug on the node — listen for any IR remote (15 s):
-python3 sensors/ir_xcvr/test_hardware.py rx
+python3 sensors/ir_xcvr/validate_hardware.py rx
 
 # Send a test NEC code:
-python3 sensors/ir_xcvr/test_hardware.py tx --addr 0x04 --cmd 0x08
+python3 sensors/ir_xcvr/validate_hardware.py tx --addr 0x04 --cmd 0x08
 
 # Loopback: emit and receive back (aim emitter at receiver, < 10 cm):
-python3 sensors/ir_xcvr/test_hardware.py loopback
+python3 sensors/ir_xcvr/validate_hardware.py loopback
 
 # Bench viewer: open web/viewers/ir_xcvr.html (repo root) in a browser,
 # enter the board IP + sensor id. Live RX log via the node's
