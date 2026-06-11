@@ -95,6 +95,8 @@ def load_fleet(
     # ── Load desired state files and merge ────────────────────────────────────
     nodes: list[AnimonNodeEntry] = []
     for yaml_file in sorted(nodes_dir.glob("*.yaml")):
+        if yaml_file.name == "example.yaml":
+            continue  # tracked template, not a fleet member
         raw = yaml.safe_load(yaml_file.read_text(encoding="utf-8"))
         if not raw:
             continue

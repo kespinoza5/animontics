@@ -251,6 +251,15 @@ class AnimonNodeEntry(BaseModel):
     deploy_path: str | None = None
     connection: AnimonNodeConnection | None = None
 
+    @property
+    def reachable_host(self) -> str | None:
+        """Best direct address for this node: wired, then name, then WiFi.
+
+        USB-gadget-only nodes (ip/hostname/wifi_ip all unset) return None —
+        they are reached through their gadget host, not directly.
+        """
+        return self.ip or self.hostname or self.wifi_ip
+
 
 class BoardOverride(BaseModel):
     """Marker for an ad-hoc config deployed to a board outside the normal flow.

@@ -63,7 +63,7 @@ def status(
     any_drift = False
 
     for node in nodes:
-        host = node.ip or node.hostname
+        host = node.reachable_host
         port = node.port
         url = f"http://{host}:{port}/config"
 
@@ -123,7 +123,7 @@ def diff(
         print(f"error: node '{node_id}' not found")
         return EXIT_ERROR
 
-    host = node.ip or node.hostname
+    host = node.reachable_host
     user = user_override or animon.effective_ssh_user(node)
     deploy_path = animon.effective_deploy_path(node)
 
@@ -192,7 +192,7 @@ def pull(
         print(f"error: node '{node_id}' not found in config/nodes/")
         return EXIT_ERROR
 
-    host = node.ip or node.hostname
+    host = node.reachable_host
     user = user_override or animon.effective_ssh_user(node)
     deploy_path = animon.effective_deploy_path(node)
 
@@ -311,4 +311,6 @@ def _print_status_table(results: list[dict]) -> None:
         else:
             status_str = "in-sync"
             drift_str = ""
-        print(f"{r['node_id']:<24}  {r['host']:<18}  {status_str:<12}  {drift_str}")
+        # USB-gadget-only nodes have no direct address — reached via their host.
+        host = r["host"] or "(via gadget host)"
+        print(f"{r['node_id']:<24}  {host:<18}  {status_str:<12}  {drift_str}")

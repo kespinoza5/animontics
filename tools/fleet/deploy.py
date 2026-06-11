@@ -97,7 +97,7 @@ def deploy(
         print(f"  known nodes: {ids}")
         return 1
 
-    host = host_override or node.ip or node.hostname
+    host = host_override or node.reachable_host
     if not host:
         print(
             f"error: node '{node_id}' has no ip or hostname.\n"
