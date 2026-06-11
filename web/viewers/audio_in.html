@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Audio In</title>
+  <link rel="stylesheet" href="../shared/viewer.css" />
+  <style>
+    .meters { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; margin: 12px 0; }
+    .card { border: 1px solid #30363d; border-radius: 8px; padding: 10px 12px; background: #0d1117; }
+    .card .sig { font-size: 0.85rem; color: #8b949e; text-transform: uppercase; letter-spacing: 0.04em; }
+    .card .dbfs { font-size: 1.9rem; font-weight: 600; }
+    .card .bar { height: 10px; border-radius: 5px; background: #21262d; margin: 8px 0 4px; overflow: hidden; }
+    .card .bar .fill { height: 100%; background: linear-gradient(90deg, #3fb950 70%, #d29922 85%, #f85149); width: 0%; }
+    .card .peak { font-size: 0.8rem; color: #58a6ff; }
+    #wave-wrap { border: 1px solid #30363d; border-radius: 8px; background: #0d1117; padding: 8px; margin: 12px 0; }
+    #wave { display: block; width: 100%; height: 160px; }
+    #meta-line { color: #8b949e; }
+  </style>
+</head>
+<body>
+  <h1>Audio In · PCM1808</h1>
+  <div class="meta"><span id="meta-line">format: —</span></div>
+
+  <div class="meters" id="meters"></div>
+  <div id="wave-wrap"><canvas id="wave" width="960" height="160"></canvas></div>
+
+  <div class="bottom-bar">
+    <div class="conn-bar">
+      <label for="ip">Host IP</label>
+      <input id="ip" type="text" value="192.168.1.x" spellcheck="false" />
+      <input id="sid" type="text" value="audio_1" style="width:9ch"
+             spellcheck="false" title="Sensor ID" />
+      <button class="btn" id="reconnect">Connect</button>
+    </div>
+    <span class="status" id="status">connecting…</span>
+  </div>
+
+<script src="../shared/stream.js"></script>
+<script>
+  // Two lanes: SSE for the per-channel level summaries (cards), and the
+  // binary frame lane for the live waveform — header <IHHI> LE =
+  // (frame_id, channels, bits, rate) + interleaved S16_LE samples.
+  const metersEl = document.getElementById("meters");
+  const cards = {};
+
+  function cardFor(name) {
+    if (cards[name]) return cards[name];
+    const el = document.createElement("div");
+    el.className = "card";
+    el.innerHTML =
+      `<div class="sig">${name}</div>` +
+      `<div class="dbfs">—</div>` +
+      `<div class="bar"><div class="fill"></div></div>` +
+      `<div class="peak"></div>`;
+    metersEl.appendChild(el);
+    return (cards[name] = {
+      dbfsEl: el.querySelector(".dbfs"),
+      fillEl: el.querySelector(".fill"),
+      peakEl: el.querySelector(".peak"),
+    });
+  }
+
+  // ── SSE: level meters ───────────────────────────────────────────────────────
+  let conn = null;
+  function startSSE() {
+    if (conn) conn.close();
+    conn = AnimStream.connect({
+      hostInput: document.getElementById("ip"),
+      sensorId: document.getElementById("sid").value.trim(),
+      onStatus: (text, cls) => {
+        const s = document.getElementById("status");
+        s.textContent = text; s.className = "status " + (cls || "");
+      },
+      onReading: (d) => {
+        if (d.rate) document.getElementById("meta-line").textContent =
+          `format: ${d.rate} Hz · S16_LE`;
+        for (const [name, ch] of Object.entries(d.channels || {})) {
+          const c = cardFor(name);
+          c.dbfsEl.textContent = ch.dbfs.toFixed(1) + " dBFS";
+          // map -60..0 dBFS onto the bar
+          c.fillEl.style.width = Math.max(0, Math.min(100, (ch.dbfs + 60) / 0.6)) + "%";
+          c.peakEl.textContent = "peak " + ch.peak.toFixed(3);
+        }
+      },
+    });
+  }
+
+  // ── Frames WS: waveform ─────────────────────────────────────────────────────
+  const wave = document.getElementById("wave");
+  const wctx = wave.getContext("2d");
+  const COLORS = ["#3fb950", "#58a6ff", "#d29922", "#f85149"];
+  let ws = null;
+
+  function startWS() {
+    if (ws) { try { ws.close(); } catch {} }
+    const host = document.getElementById("ip").value.trim();
+    const sid = document.getElementById("sid").value.trim();
+    ws = new WebSocket(`ws://${host}:8080/sensors/${sid}/frames`);
+    ws.binaryType = "arraybuffer";
+    ws.onmessage = (e) => {
+      const buf = e.data;
+      if (!buf || buf.byteLength < 12) return;
+      const view = new DataView(buf);
+      const channels = view.getUint16(4, true);
+      const samples = new Int16Array(buf, 12);
+      drawWave(samples, channels);
+    };
+    ws.onclose = () => setTimeout(() => { if (ws && ws.readyState === 3) startWS(); }, 3000);
+  }
+
+  function drawWave(samples, channels) {
+    const W = wave.width, H = wave.height;
+    wctx.clearRect(0, 0, W, H);
+    wctx.strokeStyle = "#21262d";
+    wctx.beginPath(); wctx.moveTo(0, H / 2); wctx.lineTo(W, H / 2); wctx.stroke();
+    const frames = Math.floor(samples.length / channels);
+    if (!frames) return;
+    for (let ch = 0; ch < channels; ch++) {
+      wctx.strokeStyle = COLORS[ch % COLORS.length];
+      wctx.lineWidth = 1.2;
+      wctx.beginPath();
+      for (let x = 0; x < W; x++) {
+        const i = Math.floor(x / W * frames) * channels + ch;
+        const y = H / 2 - (samples[i] / 32768) * (H / 2 - 4);
+        x === 0 ? wctx.moveTo(x, y) : wctx.lineTo(x, y);
+      }
+      wctx.stroke();
+    }
+  }
+
+  function start() { startSSE(); startWS(); }
+  document.getElementById("reconnect").addEventListener("click", start);
+  start();
+</script>
+</body>
+</html>

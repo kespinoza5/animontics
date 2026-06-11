@@ -25,6 +25,10 @@ the types below are the concrete plugins in `effectors/`.
 
 ::: effectors.power_rail.effector.PowerRail
 
+## speaker
+
+::: effectors.speaker.effector.Speaker
+
 ## stream_sink
 
 ::: effectors.stream_sink.effector.StreamSink

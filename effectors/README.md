@@ -20,6 +20,7 @@ their backend device.
 | [`fan_array/`](fan_array/README.md) | `fan_array` | request | named fans (PWM + per-fan `min_duty`) |
 | [`servo/`](servo/README.md) | `servo` | request | hobby servos by angle/µs — `mcu` (CMD_SET_US) or `sbc_pwm` (/sys/class/pwm) backend |
 | [`power_rail/`](power_rail/README.md) | `power_rail` | request | a switchable power rail; members report *gated*, not failed; publishes `power.<id>` |
+| [`speaker/`](speaker/README.md) | `speaker` | request + stream | ALSA playback (raw S16_LE) + the amp's SD-pin gate |
 | [`stream_sink/`](stream_sink/README.md) | `stream_sink` | stream | reference continuous-flow sink |
 
 ## Adding an effector

@@ -14,7 +14,7 @@ hardware dependencies — importable on any machine (hardware libs load lazily).
 ## device
 
 The base class, registry, and factory for devices. Concrete kinds
-(`McuSerialDevice`, `Ads1115Device`, `SaraR5Device`) live in the `devices/`
+(`McuSerialDevice`, `Ads1115Device`, `SaraR5Device`, `Si5351Device`) live in the `devices/`
 plugin tree, auto-discovered like sensors.
 
 ::: core.device.Device
@@ -31,6 +31,11 @@ plugin tree, auto-discovered like sensors.
 ### devices.sara_r5
 
 ::: devices.sara_r5.device.SaraR5Device
+
+### devices.si5351
+
+::: devices.si5351.device.Si5351Device
+::: devices.si5351.device.plan_clock
 
 ## gpio
 

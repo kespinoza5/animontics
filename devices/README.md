@@ -20,6 +20,7 @@ sensors/effectors that bind to them by id).
 | [`mcu_serial/`](mcu_serial/README.md) | `mcu_serial` | push (frames out, commands in) | MCU serial link (`core/mcu_link.py`) |
 | [`ads1115/`](ads1115/README.md) | `ads1115` | pull (muxed single-shot reads) | ADS1115 ADC on I2C |
 | [`sara_r5/`](sara_r5/README.md) | `sara_r5` | mixed (NMEA push + AT poll) | u-blox SARA-R5 modem on UART |
+| [`si5351/`](si5351/README.md) | `si5351` | configure-at-boot (no data) | Si5351A clock generator — the audio clock tree's root |
 
 ## Adding a device
 

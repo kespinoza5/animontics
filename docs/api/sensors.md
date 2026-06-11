@@ -59,3 +59,8 @@ Each sensor package registers itself via `@register("type_key")`. The classes be
 ## radar_motion
 
 ::: sensors.radar_motion.sensor.RadarMotion
+
+## audio_in
+
+::: sensors.audio_in.sensor.AudioIn
+::: sensors.audio_in.driver

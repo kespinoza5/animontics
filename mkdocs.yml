@@ -55,6 +55,7 @@ nav:
     - Servo Feedback (Proprioception): sensors/servo_feedback.md
     - Current (ACS712): sensors/current.md
     - Radar Motion (RCWL-0516): sensors/radar_motion.md
+    - Audio In (I2S Capture): sensors/audio_in.md
   - Node Agent: node.md
   - Core Library: core.md
   - Tools:
