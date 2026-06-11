@@ -1,25 +1,30 @@
 # mcu/circuit_python/ — CircuitPython firmware family
 
 Source for forge's `target: mcu.circuit_python` — any CircuitPython-capable board
-(XIAO SAMD21, RP2040, …). Unlike the AVR family there is **no compile step**:
-`CircuitPythonBuilder` renders one generic runtime with the instance's ADS1115
-chip list baked in, into `firmware/<id>/code.py`, and "deploys" by copying it to
-the board's `CIRCUITPY` drive. Families are organized by runtime, not chip — the
-board is just a profile in `platform.yaml`.
+(XIAO SAMD21, RP2040, Feather M4, …). Unlike the AVR family there is **no compile
+step**: `CircuitPythonBuilder` renders one generic runtime with the instance's
+module configuration baked in, into `firmware/<id>/code.py`, and "deploys" by
+copying it to the board's `CIRCUITPY` drive. Families are organized by runtime, not
+chip — the board is just a profile in `platform.yaml`.
 
-The runtime is bidirectional: it streams ADS1115 channels (afferent) **and/or**
-drives PWM outputs from inbound commands (efferent) — whichever modules the
-contract composes.
+The runtime is bidirectional: it streams sensor channels (afferent) **and/or**
+drives outputs from inbound commands (efferent) — whichever modules the contract
+composes.
 
 ```
 circuit_python/
-├── platform.yaml          board profiles (xiao_samd21/rp2040/rp2350, pico), runtime, deploy: copy
-├── templates/code.py.j2   generic runtime: ADS1115 stream + PWM command lane (conditional)
+├── platform.yaml          board profiles (xiao_samd21/rp2040/rp2350/feather_m4/qtpy_samd21/pico)
+├── templates/code.py.j2   generic runtime: afferent frame sources + efferent command dispatch
 └── modules/
-    ├── ads1115/           sensor — declares chips (addr/gain/channels), provides channels
-    ├── tach/              sensor — countio edge-counting for fan FG (RPM); one channel per pin
+    ├── ads1115/           sensor — I2C ADS1115 chips (addr/gain/channels)
+    ├── analog_in/         sensor — board's own ADC pins (analogio); value >> 1 → int16
+    ├── tach/              sensor — countio edge-counting for fan FG → RPM
+    ├── matrix_scan/       sensor — CD4051 row conductor for multi-MCU scanned matrices
+    ├── scan_follower/     sensor — follower half of the matrix-scan handshake
     ├── pwm_out/           actuator — pwmio PWM (e.g. 25 kHz fan PWM), set_duty commands
-    └── transport_serial/  marks the uplink transport (framing is in code.py)
+    ├── servo_out/         actuator — 50 Hz servo pulses, set_us commands (CMD_SET_US)
+    ├── gpio_out/          actuator — digital outputs, set_gpio commands (CMD_SET_GPIO)
+    └── transport_serial/  marks the USB-serial uplink (framing lives in code.py)
 ```
 
 ## How a build works

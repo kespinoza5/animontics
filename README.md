@@ -167,8 +167,12 @@ sensors/        Sensor plugin packages (submodules; trivial ones in-tree)
   pressure_array/  Pressure surface across MCUs (via devices)
   analog_in/    Heterogeneous analog inputs (ADS1115 device) — in-tree
   board_temp/   SBC board/CPU temperature (sysfs) — in-tree
-effectors/      Effector plugin packages (efferent: pwm, fan_array, stream_sink)
-policies/       Policy plugin packages (control loops: curve, …)
+  servo_feedback/  Servo position proprioception (analog pot via ADS1115) — in-tree
+  current/      ACS712 current sensing (via ADS1115) — in-tree
+  radar_motion/ RCWL-0516 microwave presence — in-tree
+  audio_in/     I2S microphone capture — in-tree
+effectors/      Effector plugin packages (efferent: pwm, fan_array, servo, power_rail, speaker, stream_sink)
+policies/       Policy plugin packages (control loops: curve, threshold)
 mcu/            Firmware source by runtime (composed by forge)
   arduino/      compiled C++ (AVR/ATmega328P)
   circuit_python/  generic runtime for CircuitPython boards (XIAO, RP2040)
@@ -197,6 +201,7 @@ Each node exposes:
 | `GET` | `/sensors` · `/sensors/{id}` | List / latest reading (JSON) |
 | `GET` | `/sensors/{id}/stream` | SSE stream of readings |
 | `WS` | `/sensors/{id}/ws` · `/sensors/{id}/frames` | JSON / binary-frame stream |
+| `GET` | `/devices` · `/devices/{id}` | Devices: health with gating awareness (healthy / gated / down) |
 | `GET` | `/effectors` · `/effectors/{id}` | Outputs: list / descriptor + state |
 | `POST` | `/effectors/{id}` | **Drive** the request lane (e.g. pwm `{"levels": {...}}`) |
 | `WS` | `/effectors/{id}/stream` | Drive the stream lane (continuous flow) |

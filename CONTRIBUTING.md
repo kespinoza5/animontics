@@ -335,7 +335,12 @@ that reads `request.app.state.*`.
   `@register_effector("type")`, set `lanes`, and implement the lane(s) your type
   uses: `handle_request(payload)` (request) and/or `feed(chunk)` (stream). Drive
   values are type-defined and normalized; the node scales to the device's raw
-  command. Declare under `effectors:`.
+  command. Optional: override `attach_relay(relay)` if your effector needs to
+  publish named signals to the thalamus (e.g. `power_rail` publishes `power.<id>`
+  so policies and other cortices can observe power state as a relay signal). A
+  deliberate power cut (`power_rail`) gates the member devices — `GET /devices`
+  reports them **gated** (not failed), and the `mcu_serial` reconnect loop
+  re-adopts them when the rail returns. Declare under `effectors:`.
 - **Policy** — a control loop. Add a package under `policies/<type>/` (base +
   `PolicyRuntime` in `core/policy.py`): subclass `PolicyBase`,
   `@register_policy("type")`, implement `step(obs) → action` (obs are relay signal

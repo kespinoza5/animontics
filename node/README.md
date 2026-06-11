@@ -10,6 +10,7 @@ the HTTP API. See [docs/cortex.md](../docs/cortex.md) for the runtime model.
 |------|---------|
 | `app.py` | FastAPI app factory + lifespan (devices → sensors → effectors → relay → policies) |
 | `routers/sensors.py` | Sensor REST + SSE + WebSocket endpoints |
+| `routers/devices.py` | Device list/health — distinguishes healthy / gated / down |
 | `routers/effectors.py` | Effector list/state + request (POST) and stream (WS) drive |
 | `routers/policies.py` | Policy list/state + enable/disable |
 | `routers/camera.py` | MJPEG camera stream endpoint |
@@ -61,6 +62,7 @@ camera, releasing hardware in reverse order.
 | `GET` | `/sensors/{id}/stream` | Server-Sent Events stream (keepalive every 25 s) |
 | `WS` | `/sensors/{id}/ws` | WebSocket JSON reading stream |
 | `WS` | `/sensors/{id}/frames` | Binary frame stream (high-rate array sensors) |
+| `GET` | `/devices` · `/devices/{id}` | Device list / health (healthy \| gated \| down) |
 | `GET` | `/effectors` · `/effectors/{id}` | Effector list / descriptor + cached state |
 | `POST` | `/effectors/{id}` | Request-lane drive (type-defined body, e.g. pwm levels) |
 | `WS` | `/effectors/{id}/stream` | Stream-lane drive (continuous flow) |

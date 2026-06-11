@@ -236,13 +236,20 @@ web/
 ├── shared/
 │   ├── viewer.css      ← dark theme, layout shell (body, conn-bar, status, btn)
 │   ├── stream.js       ← AnimStream — SSE envelope parsing + auto-reconnect
-│   └── timeseries.js   ← AnimChart — rolling Chart.js line chart + ring buffer
+│   ├── timeseries.js   ← AnimChart — rolling Chart.js line chart + ring buffer
+│   └── heatmap.js      ← AnimHeatmap — grid renderer (palette LUT, EMA denoise, colorbar)
 └── viewers/
     ├── tf_mini.html        distance / scalar
     ├── lv_maxsonar.html    distance / scalar
     ├── vl53l1x.html        distance + Short/Medium/Long/Auto range controls
     ├── mlx90640.html       thermal heatmap (binary frame lane)
-    └── ir_xcvr.html        IR receive log + transmit panel
+    ├── ir_xcvr.html        IR receive log + transmit panel
+    ├── mq_array.html       multi-channel gas array (card + sparkline per signal)
+    ├── pressure_array.html pressure lattice heatmap (binary frame lane, sweep composition)
+    ├── servo_feedback.html servo angle / µs timeseries
+    ├── current.html        ACS712 current + alert timeseries
+    ├── radar_motion.html   RCWL-0516 presence event log
+    └── audio_in.html       I2S capture level + waveform
 ```
 
 Shared JS files are classic globals (`window.AnimStream`, `window.AnimChart`) loaded via

@@ -67,11 +67,18 @@ mcu/arduino/
     <name>.h / <name>.cpp   the hand-written, audited lean C++ library
     {decl,setup,read,send,loop}.j2   jinja fragments the composer buckets into main.ino
   templates/main.ino.j2     fixed skeleton: setup() inits modules, loop() ticks + flushes
+
+mcu/circuit_python/
+  platform.yaml             board profiles (xiao_samd21/rp2040/feather_m4/…), deploy: copy
+  modules/<name>/manifest.yaml   parameterize the generic runtime (no compiled sources)
+  templates/code.py.j2      one runtime for all boards: FRAME_SOURCES list + command dispatch
 ```
 
-The composer emits **direct, concrete calls** (no runtime registry, no vtables);
-only the modules an instance uses are compiled in. Current modules: `analog_in`,
-`pwm_out`, `gpio_out`, `transport_serial`.
+The AVR composer emits **direct, concrete calls** (no runtime registry, no
+vtables); only the modules an instance uses are compiled in. AVR modules:
+`analog_in`, `pwm_out`, `gpio_out`, `transport_serial`. CircuitPython modules:
+`ads1115`, `analog_in`, `tach`, `matrix_scan`, `scan_follower`, `pwm_out`,
+`servo_out`, `gpio_out`, `transport_serial`.
 
 ## Toolchain
 

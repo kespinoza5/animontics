@@ -67,9 +67,9 @@ Beside sensors, the node runtime has three tiers, each a base class + registry
 
 | Tier | Module | Registry | Notes |
 |------|--------|----------|-------|
-| Device | base `core/device.py`; kinds `devices/` | `@register_device` | `devices/mcu_serial` (push: frames + `send_command`), `devices/ads1115` (pull), `devices/sara_r5` (mixed: NMEA push + AT poll) |
-| Effector | base `core/effector_base.py`; types `effectors/` | `@register_effector` | `effectors/pwm`, `effectors/stream_sink`, `effectors/fan_array` |
-| Policy | base `core/policy.py`; types `policies/` | `@register_policy` | `policies/curve` (always-on fan reflex); `PolicyRuntime` ticks the stack |
+| Device | base `core/device.py`; kinds `devices/` | `@register_device` | `devices/mcu_serial` (push: frames + `send_command`), `devices/ads1115` (pull), `devices/sara_r5` (mixed: NMEA push + AT poll), `devices/si5351` (clock root, configure-at-boot) |
+| Effector | base `core/effector_base.py`; types `effectors/` | `@register_effector` | `effectors/pwm`, `effectors/fan_array`, `effectors/servo` (CMD_SET_US / sbc_pwm), `effectors/power_rail` (gated≠failed), `effectors/speaker` (ALSA + SD gate), `effectors/stream_sink` |
+| Policy | base `core/policy.py`; types `policies/` | `@register_policy` | `policies/curve` (always-on fan reflex), `policies/threshold` (trip/release overcurrent guard); `PolicyRuntime` ticks the stack |
 | Relay | `core/relay.py` | — | the thalamus: named-signal pub/sub + gating; inter-cortex seam |
 
 Devices, effectors, and policies are all **plugin trees** (`devices/`,
@@ -247,7 +247,9 @@ python -m tools.fleet.animon deploy <node-id> --dry-run
 # Tests — run SCOPED, not bare `pytest` (root collection trips on
 # sensors/*/test_raw.py|test_sensor.py hardware scripts that sys.exit on import):
 pytest core/ tools/forge/ sensors/mq_array/ sensors/pressure_array/ \
-       sensors/analog_in/ sensors/ir_xcvr/test_codec.py -q
+       sensors/analog_in/ sensors/ir_xcvr/test_codec.py \
+       sensors/servo_feedback/ sensors/current/ sensors/radar_motion/ \
+       sensors/audio_in/ effectors/ policies/ -q
 
 # forge — compose/compile firmware (offline; no board needed)
 python -m tools.forge.forge validate <mcu-id>
@@ -265,7 +267,8 @@ Every hand-authored directory has a `README.md` (exempt: `docs/`, `.claude/`,
 generated output, `__pycache__`). Orientation docs (`CLAUDE.md`, `CONTRIBUTING.md`,
 root `README.md`) and the `docs/` site stay current with the code. Many `docs/*.md`
 are `include-markdown` of a source README — edit the source, not the page; the
-`docs/api/{core,node,sensors}.md` mkdocstrings lists are hand-maintained.
+`docs/api/{core,node,sensors,effectors,policies}.md` mkdocstrings lists are
+hand-maintained.
 
 After a feature or architecture change, spawn the **`doc-steward`** agent (give it
 a git ref to scope, or "full audit") to refresh READMEs + `docs/` and catch drift.

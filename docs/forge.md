@@ -94,14 +94,16 @@ Firmware families are organized by **runtime**, not chip:
   from `analog_in`/`pwm_out`/`gpio_out`/`transport_serial` modules and compiles a
   real `.hex` with `arduino-cli` (WSL fallback).
 - **`mcu/circuit_python/`** (`target: mcu.circuit_python`) — XIAO SAMD21, RP2040,
-  any CircuitPython board. *No compile*: one generic runtime
-  (`templates/code.py.j2`) is composed with the instance's chip list into
-  `firmware/<id>/code.py`; deploy copies it to the `CIRCUITPY` drive. Both
+  Feather M4, any CircuitPython board. *No compile*: one generic runtime
+  (`templates/code.py.j2`) is composed with the instance's module configuration
+  into `firmware/<id>/code.py`; deploy copies it to the `CIRCUITPY` drive. Both
   stream the same `core/mcu_link.py` frames, so the node device decodes them
-  identically. The runtime is **bidirectional**: it streams sensor channels
-  (ADS1115, tach RPM) uplink *and* drives PWM outputs from inbound commands —
-  whichever modules the contract composes. Current modules: `ads1115`, `tach`
-  (fan FG/RPM via hardware edge-counting), `pwm_out`, `transport_serial`.
+  identically. The runtime is **bidirectional**: it streams sensor channels uplink
+  *and* drives outputs from inbound commands — whichever modules the contract
+  composes. Current modules: `ads1115`, `analog_in` (native ADC pins), `tach`
+  (fan FG/RPM), `matrix_scan` + `scan_follower` (multi-MCU pressure lattice),
+  `pwm_out`, `servo_out` (CMD_SET_US), `gpio_out` (CMD_SET_GPIO),
+  `transport_serial`.
 
 The MCU↔node command lane is built end to end: `AC` command frames in
 `core/mcu_link.py`, `transport_serial.poll()` + a generated `onCommand` dispatch
@@ -113,10 +115,10 @@ sensor.
 
 Implemented: the forge core (validate/build/flash/clean/channels/resolve), the
 AVR/Arduino target (compose **+** compile to a real `.hex`), the CircuitPython
-family (compose a bidirectional runtime — ADS1115 + tach + PWM command lane,
-copy-deploy), and the node-side [`mq_array`](sensors/mq_array.md),
-[`pressure_array`](sensors/pressure_array.md), and
-[`fan_tach`](sensors/fan_tach.md) sensors. `forge resolve` derives a
+family (compose a bidirectional runtime — ADS1115, native ADC, tach, matrix-scan
+pair, PWM/servo/GPIO command lanes, copy-deploy), and the node-side
+[`mq_array`](sensors/mq_array.md), [`pressure_array`](sensors/pressure_array.md),
+and [`fan_tach`](sensors/fan_tach.md) sensors. `forge resolve` derives a
 device-fed sensor's `channels` from its MCU contracts — author the channel map
 once. Deferred (reserved behind seams): the **models** tier (accelerator
 perception nets — `accel.hailo`/`accel.coral` builders), flash/copy-deploy against
