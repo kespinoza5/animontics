@@ -52,6 +52,18 @@ python -m tools.fleet.animon probe my_sbc_node
 
 **Requirements:** `i2c-tools` for I2C scanning (`sudo apt install i2c-tools`)
 
+### `validate_blinka.py`
+
+I2C bus scan through the Adafruit Blinka/CircuitPython layer (board pins
+SDA/SCL). Run on a board to confirm Blinka itself is installed and can reach
+the bus — only relevant when using the optional Adafruit driver path (the
+built-in drivers use smbus2 directly). Moved here from `sensors/vl53l1x/`
+because it checks the board layer, not any one sensor.
+
+```bash
+python3 validate_blinka.py
+```
+
 **Expected output example:**
 ```
 ========================================

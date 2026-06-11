@@ -77,8 +77,8 @@ viewer reflects switches it didn't initiate.
 ## Dev Tools
 
 ```bash
-# Test Blinka/CircuitPython I2C access
-python3 test_blinka.py
+# Check Blinka/CircuitPython I2C access (generic board check — lives in tools/board/)
+python3 tools/board/validate_blinka.py
 
 # Bench viewer: open web/viewers/vl53l1x.html (repo root) in a browser,
 # enter the board IP + sensor id. Connects to the node's
