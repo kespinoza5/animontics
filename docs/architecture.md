@@ -322,18 +322,16 @@ perception) and a cross-node predict/error substrate are reserved seams. See
 
 ## Git Structure
 
-```
-animontics/             parent repo
-sensors/tf_mini/        git submodule — independent history (migrated from TFmini/)
-sensors/lv_maxsonar/    git submodule (migrated from LV-MaxSonar-EZ/)
-sensors/vl53l1x/        git submodule (migrated from VL53L1X/)
-sensors/mlx90640/       git submodule (migrated from Thermal/)
-sensors/ir_xcvr/        git submodule
-tools/usb/usbport/      git submodule (standalone USB-NET tool)
-```
+Animontics is a **monorepo**: every sensor/device/effector/policy package is a
+plain directory in the one repository. The sensor packages were git submodules
+until June 2026; they were folded in with `git subtree` merges, so each
+package's pre-migration standalone history is preserved in this repo's log
+(`git log --follow sensors/<type>/<file>` walks across the boundary).
 
-Each sensor package has its own commit history. New sensors are created as independent git repos
-and registered as submodules — never as plain directories in the parent repo. Deleting a sensor
-directory without first preserving its history with `git filter-repo` is permanently destructive.
+New sensors are plain directories — do not register them as submodules. A
+package would only be split back out (with a real remote) if it gained an
+independent consumer or release cycle. Deleting a directory without first
+preserving its history (subtree merge or `git filter-repo`) is permanently
+destructive.
 
 See `CONTRIBUTING.md` for the full new-sensor walkthrough.

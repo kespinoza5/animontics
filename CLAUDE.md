@@ -173,7 +173,7 @@ sensor reads; an effector writes; the device owns the shared transport.
 
 ## Adding a new sensor — checklist
 
-1. `sensors/<type>/` directory (git submodule — see below)
+1. `sensors/<type>/` directory (a plain package directory — see "Repo layout" below)
 2. `driver.py` — hardware I/O only, no threading, no HTTP
 3. `sensor.py` — `@register("type")` + `SensorBase` subclass
 4. `__init__.py` — `try/except` import + `METADATA` dict (see above)
@@ -193,28 +193,24 @@ Steps 7-9 are easy to forget. The fleet tool and docs break silently without the
 **Variants:** a *device-fed array* sensor (`mq_array`, `pressure_array`) subclasses
 `core.analog_array.AnalogArrayBase` instead of writing a hardware `driver.py` — the
 device does the I/O; the sensor just declares `channels` and overrides `enrich`.
-A *trivial SBC-native* sensor (`board_temp`, `analog_in`, `fan_tach`) can live **in-tree**
-(not a submodule). To add a **device, effector, or policy**, see
+To add a **device, effector, or policy**, see
 `CONTRIBUTING.md` → "Adding a device, effector, or policy".
 
 ---
 
-## Git submodule workflow
+## Repo layout: monorepo (submodules retired 2026-06)
 
-Each sensor package is a git submodule (independent repo). New sensors:
+All sensor packages are **plain directories** in this repo. They were git
+submodules until June 2026; the seven were folded in via `git subtree` merges,
+so each package's full standalone history is preserved in this repo's log
+(`git log --follow sensors/<type>/<file>` walks across the migration). Do NOT
+re-add sensors as submodules. Split a package back out only when it gains a
+genuinely independent lifecycle (an external consumer, its own release
+cadence) — and give it a real remote, never a local-path URL.
 
-```bash
-# Create new repo for the sensor
-git init sensors/my_sensor
-cd sensors/my_sensor && git add . && git commit -m "feat: ..."
-
-# Register in parent
-cd ../..
-git submodule add ./sensors/my_sensor sensors/my_sensor
-```
-
-**Never delete a sensor directory without preserving its git history first.**
-See `memory/feedback_history_migration.md` for the lesson learned.
+**Never delete a directory that has history without preserving that history
+first** (subtree merge or `git filter-repo`). See
+`memory/feedback_history_migration.md` for the lesson learned.
 
 ---
 

@@ -7,7 +7,7 @@ description: >-
   before wrapping a session, to catch doc drift. Give it a git ref/range to scope
   to recent changes (e.g. "since main", "HEAD~5..HEAD") or say "full audit". It
   EDITS docs (creates missing READMEs, updates stale ones) and reports what it
-  changed — it does not touch code, generated output, or submodule internals.
+  changed — it does not touch code or generated output.
 tools: Read, Grep, Glob, Bash, Edit, Write
 model: sonnet
 ---
@@ -44,7 +44,7 @@ READMEs. Dev tooling is `tools/forge` (firmware compose/flash/resolve) + `tools/
    ```
    **Exempt** (do NOT add READMEs): `docs/` and subdirs (that IS the docs site),
    `.claude/`, generated output (`site/`, `firmware/<id>/`), `__pycache__`,
-   virtualenvs, and submodule-internal dirs (e.g. a stray `.claude/`). Create a
+   virtualenvs, and stray local dirs (e.g. a `.claude/`). Create a
    short, accurate README for each genuinely-missing dir (what's here, the key
    files, how it fits — match the voice of sibling READMEs; see `mcu/README.md`,
    `node/routers/README.md`).
@@ -84,16 +84,14 @@ READMEs. Dev tooling is `tools/forge` (firmware compose/flash/resolve) + `tools/
 
 - Edit documentation only: `*.md`, `mkdocs.yml`. Never edit code, tests, YAML
   config, or anything under `firmware/`, `site/`, or `__pycache__`.
-- For a **submodule** (a sensor package under `sensors/`), you may edit its own
-  `README.md`, but note in your report that it needs a separate commit inside the
-  submodule — do not commit. Never commit anything; the main session does.
+- Never commit anything; the main session does.
 - Don't invent behavior. If a directory's purpose is unclear, read its code first;
   if still unclear, say so in the report rather than guessing.
 
 ## Output
 
 Report grouped as **Created** (new READMEs), **Updated** (which files + the gist
-of each change), and **Flagged** (drift you saw but couldn't resolve, or
-submodule READMEs needing their own commit). End with the `mkdocs build` result
+of each change), and **Flagged** (drift you saw but couldn't resolve).
+End with the `mkdocs build` result
 (clean / warnings) and a one-line verdict: *docs in sync* / *docs updated* /
 *needs author input*.

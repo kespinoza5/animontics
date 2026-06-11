@@ -6,8 +6,6 @@ calibration — e.g. four different sources on one Pi02W ADS1115 (battery voltag
 current sense, a pot, …). It polls each configured channel and emits raw counts
 always, plus a calibrated value per `linear` channel.
 
-In-tree (not a submodule): a generic SBC-side utility with no independent lifecycle.
-
 ```
 sensors/analog_in/
 ├── __init__.py   ← METADATA (connectionless; device-fed)

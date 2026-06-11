@@ -99,9 +99,10 @@ Resolve every ERROR; resolve WARNs unless you have a real reason not to.
 
 ## Constraints (non-negotiable)
 
-- **Git submodules**: each sensor package is its own git repo. Commit inside the
-  submodule first, then advance the parent pointer. Don't delete an original
-  directory during a migration without preserving history (`git filter-repo`).
+- **Monorepo**: sensor packages are plain directories in this repo (submodules
+  were retired June 2026 — do not re-add them). Don't delete an original
+  directory during a migration without preserving history (`git filter-repo`
+  or a subtree merge).
 - **Security**: no secrets (WiFi passwords, tokens) in `config.yaml`, `config/nodes/`,
   or METADATA. SSH is key-auth only.
 - **Windows dev box**: `fcntl`/`smbus2`/`serial` are Linux-only — keep them out of

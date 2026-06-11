@@ -186,16 +186,17 @@ The current sensor streaming API (`GET /sensors/{id}/stream`, `WS /sensors/{id}/
 
 - [x] `sensors/mq_array/` — MQ gas sensor array read over an MCU serial uplink
       (`AnalogArrayBase` + forge-built firmware)
-- [x] `sensors/pressure_array/` (submodule) — logical surface across MCUs via the
+- [x] `sensors/pressure_array/` — logical surface across MCUs via the
       `mcu/circuit_python` family's `ads1115` module. Plus `sensors/analog_in`
       (heterogeneous scalars via `Ads1115Device`) and `sensors/board_temp` (sysfs).
 - [x] `sensors/sara_r5_gnss` + `sensors/sara_r5_lte` — GNSS + LTE-M from the
       u-blox SARA-R5 modem (UART), two logical sensors over one `devices/sara_r5`
       device. Plus `sensors/ozzmaker_10dof` — LSM6DSL + MMC5983MA + BMP388 over I2C.
-- [ ] Promote in-tree sensors (`analog_in`, `board_temp`, `sara_r5_gnss`,
-      `sara_r5_lte`, `ozzmaker_10dof`) to submodules if they grow independent
-      lifecycles (convention: hardware sensors are submodules). The three new ones
-      are intentionally in-tree while their drivers stabilize against real hardware.
+- [~] Promote in-tree sensors to submodules — SUPERSEDED (2026-06): the
+      submodule convention is retired. All seven sensor submodules were folded
+      into the monorepo via `git subtree` (history preserved); every sensor is
+      now a plain directory. A package would only be split out again (with a
+      real remote) if it gained an external consumer or release cycle.
 - [ ] `sensors/sara_r5_gnss` + `sensors/sara_r5_lte` are two views of ONE physical
       board on ONE UART (unified at the `sara_r5` device). They're separate packages
       only because `load_all_metadata` binds one METADATA per package. If the fleet
@@ -255,8 +256,10 @@ The current sensor streaming API (`GET /sensors/{id}/stream`, `WS /sensors/{id}/
       tracked `setup_ap.sh` into a gitignored secrets file).
 - [ ] `docs/API.md` — complete endpoint reference (depends on API design above)
 - [ ] `docs/boards/` — per-board wiring and setup guides
-- [ ] Register `tools/usb/usbport/` as a git submodule
-- [ ] Graft `LV-MaxSonar-EZ/` git history onto `sensors/lv_maxsonar` — directory is gone, can now proceed when desired
+- [~] Register `tools/usb/usbport/` as a git submodule — SUPERSEDED (2026-06):
+      submodule convention retired; it stays a plain tracked directory.
+- [ ] Graft `LV-MaxSonar-EZ/` git history into the monorepo's `sensors/lv_maxsonar`
+      path (subtree merge of the old standalone repo) — can proceed when desired
 
 ---
 

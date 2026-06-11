@@ -70,7 +70,7 @@ viewer reflects switches it didn't initiate.
 
 ## Driver
 
-`driver.py` is a pure smbus2 implementation requiring no Adafruit/Blinka stack. The original sensor server also supported the Adafruit CircuitPython driver as an alternative; that code lives in the `sensors/vl53l1x` submodule git history (pre-migration commits).
+`driver.py` is a pure smbus2 implementation requiring no Adafruit/Blinka stack. The original sensor server also supported the Adafruit CircuitPython driver as an alternative; that code lives in this repo's git history for `sensors/vl53l1x` (pre-migration commits).
 
 `orangepizero2.py` is a custom Blinka board definition for the OrangePi Zero 2 (needed only with the Adafruit driver path).
 

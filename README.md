@@ -161,16 +161,16 @@ a base class + registry, declared in config, no wiring edits:
 ```
 core/           Cortex runtime + shared infra: SensorBase, AnalogArrayBase, device,
                 effector_base, policy, relay, mcu_link, models, registry
-sensors/        Sensor plugin packages (submodules; trivial ones in-tree)
+sensors/        Sensor plugin packages
   tf_mini/, lv_maxsonar/, vl53l1x/, mlx90640/, ir_xcvr/   distance / thermal / IR
   mq_array/     MQ gas sensor array (via an MCU device)
   pressure_array/  Pressure surface across MCUs (via devices)
-  analog_in/    Heterogeneous analog inputs (ADS1115 device) — in-tree
-  board_temp/   SBC board/CPU temperature (sysfs) — in-tree
-  servo_feedback/  Servo position proprioception (analog pot via ADS1115) — in-tree
-  current/      ACS712 current sensing (via ADS1115) — in-tree
-  radar_motion/ RCWL-0516 microwave presence — in-tree
-  audio_in/     I2S microphone capture — in-tree
+  analog_in/    Heterogeneous analog inputs (ADS1115 device)
+  board_temp/   SBC board/CPU temperature (sysfs)
+  servo_feedback/  Servo position proprioception (analog pot via ADS1115)
+  current/      ACS712 current sensing (via ADS1115)
+  radar_motion/ RCWL-0516 microwave presence
+  audio_in/     I2S microphone capture
 effectors/      Effector plugin packages (efferent: pwm, fan_array, servo, power_rail, speaker, stream_sink)
 policies/       Policy plugin packages (control loops: curve, threshold)
 mcu/            Firmware source by runtime (composed by forge)

@@ -5,8 +5,6 @@ No external hardware, no device — a connectionless sensor. Emits one key per z
 (`zone0_c`, `zone1_c`, …) plus `cpu_c` (the primary, zone 0). A common input to a
 cooling-control policy (e.g. the fan loop runs on the worse of gas and `cpu_c`).
 
-In-tree (not a submodule): trivial and SBC-native.
-
 ```
 sensors/board_temp/
 ├── __init__.py   ← METADATA (connectionless)

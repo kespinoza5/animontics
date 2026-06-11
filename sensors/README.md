@@ -24,8 +24,9 @@ This means:
 | [`analog_in/`](analog_in/README.md) | Heterogeneous analog inputs | device (ADS1115) | `raw{}`, per-signal |
 | [`board_temp/`](board_temp/README.md) | SBC board/CPU temperature | sysfs (none) | `cpu_c`, `zoneN_c` |
 
-Most sensors are git submodules; trivial SBC-native ones (`analog_in`, `board_temp`)
-live in-tree. Array sensors (`mq_array`, `pressure_array`) are fed by **devices**
+Every sensor is a plain package directory in this monorepo (the original seven
+were submodules until June 2026 — folded in with history preserved). Array
+sensors (`mq_array`, `pressure_array`) are fed by **devices**
 (see [docs/cortex.md](../docs/cortex.md)) and built with **forge** firmware.
 
 ## Adding a New Sensor

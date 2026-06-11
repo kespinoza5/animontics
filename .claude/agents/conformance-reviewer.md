@@ -60,8 +60,6 @@ Two non-negotiable boundaries to check everywhere:
      `pressure_array`, `fan_tach`) have **no hardware `driver.py`** (the device
      does I/O) — they declare `channels`/`devices` and override `enrich`; their
      keys are dynamic (`raw` + derived). Don't require `driver.py` or static `data_keys`.
-   - *In-tree sensors* (`board_temp`, `analog_in`, `fan_tach`) are **not
-     submodules** — that's allowed for trivial/SBC-native packages.
    - *Connectionless sensors* (`connection.supported: []`) need no `connection`.
 
 3. **Other tiers (effector / policy / device).** Same shape, different contract:

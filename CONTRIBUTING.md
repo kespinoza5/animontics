@@ -3,7 +3,7 @@
 ## Adding a New Sensor
 
 Each sensor type is a self-contained Python package under `sensors/`. Adding a new
-type requires creating a package directory (as a git submodule), writing four files,
+type requires creating a plain package directory, writing four files,
 and updating three places in the repo.
 
 **Two common variants** (see also [docs/cortex.md](docs/cortex.md)):
@@ -12,22 +12,21 @@ and updating three places in the repo.
   `driver.py` — subclass `core.analog_array.AnalogArrayBase`, which reads one or
   more **devices** and composes the frame; you just declare `channels`
   (`device`+`index`→signal+calibration) and override `enrich`.
-- **Trivial SBC-native sensor** (`board_temp`, `analog_in`): may live **in-tree**
-  (a plain package directory, not a submodule) — submodules are for hardware
-  packages with an independent lifecycle.
+- **Trivial SBC-native sensor** (`board_temp`, `analog_in`): same as any other —
+  a plain package directory.
 
 To add a non-sensor tier (device / effector / policy), see
 "Adding a device, effector, or policy" below.
 
-### 1. Create the package as a git submodule
+> **Note:** sensor packages were git submodules until June 2026; they are now
+> plain directories (folded in via `git subtree`, history preserved). Do not
+> re-add sensors as submodules — see CLAUDE.md → "Repo layout".
+
+### 1. Create the package directory
 
 ```bash
 # From the project root
-git init sensors/my_sensor
-cd sensors/my_sensor
-# ... add files, initial commit
-cd ../..
-git submodule add ./sensors/my_sensor sensors/my_sensor
+mkdir sensors/my_sensor
 ```
 
 Directory layout:
