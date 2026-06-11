@@ -37,6 +37,7 @@ from node.routers import camera as camera_router_module
 from node.routers import sensors as sensors_router_module
 from node.routers.camera import start_camera, stop_camera
 from node.routers.config import router as config_router
+from node.routers.devices import router as devices_router
 from node.routers.effectors import router as effectors_router
 from node.routers.i2c import router as i2c_router
 from node.routers.ir_xcvr import router as ir_xcvr_router
@@ -84,6 +85,7 @@ async def lifespan(app: FastAPI):
             log.error("Sensor '%s': %s", sc.id, exc)
 
     # ── Effectors (outputs) — write through devices.
+    relay = Relay()        # created early: effectors may publish state signals
     active_effectors: dict[str, EffectorBase] = {}
     for ec in config.effectors:
         if not ec.enabled:
@@ -92,6 +94,8 @@ async def lifespan(app: FastAPI):
             effector = create_effector(ec)
             if hasattr(effector, "attach_devices"):
                 effector.attach_devices(active_devices)
+            if hasattr(effector, "attach_relay"):
+                effector.attach_relay(relay)    # e.g. power_rail's power.<id> signal
             effector.start()
             active_effectors[ec.id] = effector
             log.info("Effector '%s' (%s): ready", ec.id, ec.type)
@@ -99,7 +103,6 @@ async def lifespan(app: FastAPI):
             log.error("Effector '%s': %s", ec.id, exc)
 
     # ── Policies (control loops) — read sensors via the relay, drive effectors.
-    relay = Relay()
     active_policies = {}
     for pc in config.policies:
         try:
@@ -152,6 +155,7 @@ def create_app() -> FastAPI:
     app.include_router(i2c_router)
     app.include_router(camera_router_module.router)
     app.include_router(ir_xcvr_router)
+    app.include_router(devices_router)
     app.include_router(effectors_router)
     app.include_router(policies_router)
     app.include_router(vl53l1x_router)

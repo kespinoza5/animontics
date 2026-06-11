@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Radar Motion</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="../shared/viewer.css" />
+  <style>
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; margin: 12px 0; }
+    .card { border: 1px solid #30363d; border-radius: 8px; padding: 10px 12px; background: #0d1117; transition: border-color 0.2s; }
+    .card.moving { border-color: #f85149; }
+    .card .sig { font-size: 0.85rem; color: #8b949e; text-transform: uppercase; letter-spacing: 0.04em; }
+    .card .level { font-size: 2rem; font-weight: 600; }
+    .card .badge { display: inline-block; font-size: 0.75rem; padding: 2px 10px; border-radius: 10px;
+                   background: #21262d; color: #8b949e; letter-spacing: 0.08em; }
+    .card .badge.on { background: #4d1714; color: #ff7b72; }
+    .card .raw { font-size: 0.8rem; color: #58a6ff; min-height: 1em; }
+    .card canvas { margin-top: 6px; }
+    #seq { color: #8b949e; }
+  </style>
+</head>
+<body>
+  <h1>Radar Motion · RCWL-0516 (analog)</h1>
+  <div class="meta"><span id="seq">seq: —</span></div>
+
+  <div class="grid" id="grid"></div>
+
+  <div class="bottom-bar">
+    <div class="conn-bar">
+      <label for="ip">Host IP</label>
+      <input id="ip" type="text" value="192.168.1.x" spellcheck="false" />
+      <input id="sid" type="text" value="motion_1" style="width:10ch"
+             spellcheck="false" title="Sensor ID" />
+      <button class="btn" id="reconnect">Connect</button>
+    </div>
+    <span class="status" id="status">connecting…</span>
+  </div>
+
+<script src="../shared/stream.js"></script>
+<script src="../shared/timeseries.js"></script>
+<script>
+  // One card per radar from data.raw; level = |deviation from the adaptive
+  // baseline| and motion = thresholded boolean, both computed node-side.
+  const gridEl = document.getElementById("grid");
+  const cards = {};
+
+  function cardFor(signal) {
+    if (cards[signal]) return cards[signal];
+    const el = document.createElement("div");
+    el.className = "card";
+    el.innerHTML =
+      `<div class="sig">${signal} <span class="badge">still</span></div>` +
+      `<div class="level">—</div>` +
+      `<div class="raw"></div>` +
+      `<canvas height="70"></canvas>`;
+    gridEl.appendChild(el);
+    const chart = AnimChart.makeLine(el.querySelector("canvas"), {
+      color: "#a371f7",
+      max: 2000,
+      history: 240,
+      tickFmt: (v) => String(v),
+      tipFmt: (v) => v + " counts",
+    });
+    return (cards[signal] = {
+      el,
+      badgeEl: el.querySelector(".badge"),
+      levelEl: el.querySelector(".level"),
+      rawEl: el.querySelector(".raw"),
+      chart,
+    });
+  }
+
+  let conn = null;
+  function start() {
+    if (conn) conn.close();
+    conn = AnimStream.connect({
+      hostInput: document.getElementById("ip"),
+      sensorId: document.getElementById("sid").value.trim(),
+      onStatus: (text, cls) => {
+        const s = document.getElementById("status");
+        s.textContent = text; s.className = "status " + (cls || "");
+      },
+      onReading: (d) => {
+        if (d.seq != null) document.getElementById("seq").textContent = `seq: ${d.seq}`;
+        const level = d.level || {};
+        const motion = d.motion || {};
+        for (const [signal, raw] of Object.entries(d.raw || {})) {
+          const c = cardFor(signal);
+          c.rawEl.textContent = "raw " + raw;
+          if (signal in level) {
+            c.levelEl.textContent = level[signal].toFixed(0);
+            c.chart.push(level[signal]);
+          } else {
+            c.chart.push(raw);
+          }
+          const moving = motion[signal] === true;
+          c.el.classList.toggle("moving", moving);
+          c.badgeEl.textContent = moving ? "MOTION" : "still";
+          c.badgeEl.classList.toggle("on", moving);
+        }
+      },
+    });
+  }
+
+  document.getElementById("reconnect").addEventListener("click", start);
+  start();
+</script>
+</body>
+</html>

@@ -12,3 +12,7 @@ Policy plugin packages. The base class, `PolicyRuntime`, and registry live in
 ## curve
 
 ::: policies.curve.policy.CurvePolicy
+
+## threshold
+
+::: policies.threshold.policy.ThresholdPolicy

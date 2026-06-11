@@ -21,6 +21,10 @@ the types below are the concrete plugins in `effectors/`.
 ::: effectors.servo.effector.ServoEffector
 ::: effectors.servo.effector.SysfsPwm
 
+## power_rail
+
+::: effectors.power_rail.effector.PowerRail
+
 ## stream_sink
 
 ::: effectors.stream_sink.effector.StreamSink

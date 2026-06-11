@@ -7,6 +7,7 @@ request time — **never** a module-level global or a `register_*()` function.
 | Router | Surface |
 |--------|---------|
 | `sensors.py` | `/sensors`, `/sensors/{id}` (+ `/stream` SSE, `/ws`, `/frames` WS) |
+| `devices.py` | `/devices[/{id}]` — health with gating awareness (healthy / gated / down) |
 | `effectors.py` | `/effectors[/{id}]`, `POST /effectors/{id}` (request), `WS /effectors/{id}/stream` |
 | `policies.py` | `/policies[/{id}]`, `POST /policies/{id}/enable` |
 | `camera.py` | `/camera` MJPEG stream + camera lifecycle helpers |

@@ -20,6 +20,7 @@ controller implement the identical `step(obs) → action` contract.
 | Package | Type | Notes |
 |---------|------|-------|
 | [`curve/`](curve/README.md) | `curve` | max-linear reflex over normalized inputs (the fan loop) |
+| [`threshold/`](threshold/README.md) | `threshold` | trip/release guard with hysteresis + latch (the overcurrent reflex) |
 
 ## Adding a policy
 

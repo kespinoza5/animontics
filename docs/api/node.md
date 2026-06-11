@@ -8,6 +8,10 @@
 
 ::: node.routers.sensors
 
+## routers.devices
+
+::: node.routers.devices
+
 ## routers.effectors
 
 ::: node.routers.effectors

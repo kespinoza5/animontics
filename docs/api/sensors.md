@@ -51,3 +51,11 @@ Each sensor package registers itself via `@register("type_key")`. The classes be
 ## servo_feedback
 
 ::: sensors.servo_feedback.sensor.ServoFeedback
+
+## current
+
+::: sensors.current.sensor.CurrentSensor
+
+## radar_motion
+
+::: sensors.radar_motion.sensor.RadarMotion

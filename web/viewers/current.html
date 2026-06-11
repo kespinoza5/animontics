@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rail Current</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="../shared/viewer.css" />
+  <style>
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; margin: 12px 0; }
+    .card { border: 1px solid #30363d; border-radius: 8px; padding: 10px 12px; background: #0d1117; }
+    .card .sig { font-size: 0.85rem; color: #8b949e; text-transform: uppercase; letter-spacing: 0.04em; }
+    .card .amps { font-size: 2rem; font-weight: 600; }
+    .card .amps.hot { color: #ff5533; }
+    .card .raw { font-size: 0.8rem; color: #58a6ff; min-height: 1em; }
+    .card canvas { margin-top: 6px; }
+    #seq { color: #8b949e; }
+  </style>
+</head>
+<body>
+  <h1>Rail Current · ACS712</h1>
+  <div class="meta"><span id="seq">seq: —</span></div>
+
+  <div class="grid" id="grid"></div>
+
+  <div class="bottom-bar">
+    <div class="conn-bar">
+      <label for="ip">Host IP</label>
+      <input id="ip" type="text" value="192.168.1.x" spellcheck="false" />
+      <input id="sid" type="text" value="rail_current" style="width:12ch"
+             spellcheck="false" title="Sensor ID" />
+      <button class="btn" id="reconnect">Connect</button>
+    </div>
+    <span class="status" id="status">connecting…</span>
+  </div>
+
+<script src="../shared/stream.js"></script>
+<script src="../shared/timeseries.js"></script>
+<script>
+  // One card per rail signal from data.raw; amps appears for acs712-calibrated
+  // channels. The amps readout turns hot near the overcurrent guard's trip
+  // point so a bench eye catches what the reflex is about to act on.
+  const HOT_AMPS = 6.0;
+  const gridEl = document.getElementById("grid");
+  const cards = {};
+
+  function cardFor(signal) {
+    if (cards[signal]) return cards[signal];
+    const el = document.createElement("div");
+    el.className = "card";
+    el.innerHTML =
+      `<div class="sig">${signal}</div>` +
+      `<div class="amps">—</div>` +
+      `<div class="raw"></div>` +
+      `<canvas height="70"></canvas>`;
+    gridEl.appendChild(el);
+    const chart = AnimChart.makeLine(el.querySelector("canvas"), {
+      color: "#ff8844",
+      max: 10,
+      history: 240,
+      tickFmt: (v) => v + " A",
+      tipFmt: (v) => v + " A",
+    });
+    return (cards[signal] = {
+      ampsEl: el.querySelector(".amps"),
+      rawEl: el.querySelector(".raw"),
+      chart,
+    });
+  }
+
+  let conn = null;
+  function start() {
+    if (conn) conn.close();
+    conn = AnimStream.connect({
+      hostInput: document.getElementById("ip"),
+      sensorId: document.getElementById("sid").value.trim(),
+      onStatus: (text, cls) => {
+        const s = document.getElementById("status");
+        s.textContent = text; s.className = "status " + (cls || "");
+      },
+      onReading: (d) => {
+        if (d.seq != null) document.getElementById("seq").textContent = `seq: ${d.seq}`;
+        const amps = d.amps || {};
+        for (const [signal, raw] of Object.entries(d.raw || {})) {
+          const c = cardFor(signal);
+          c.rawEl.textContent = "raw " + raw;
+          if (signal in amps) {
+            c.ampsEl.textContent = amps[signal].toFixed(2) + " A";
+            c.ampsEl.className = "amps" + (Math.abs(amps[signal]) >= HOT_AMPS ? " hot" : "");
+            c.chart.push(amps[signal]);
+          } else {
+            c.ampsEl.textContent = "uncal";
+            c.chart.push(raw);
+          }
+        }
+      },
+    });
+  }
+
+  document.getElementById("reconnect").addEventListener("click", start);
+  start();
+</script>
+</body>
+</html>
