@@ -91,7 +91,14 @@ The current sensor streaming API (`GET /sensors/{id}/stream`, `WS /sensors/{id}/
 - [ ] Multiplexed stream endpoint (all sensors in one connection)?
 - [ ] Command/control API (set VL53L1X ranging mode, etc.)?
 - [ ] Node-to-node API for aggregator nodes pulling from sensor nodes?
-- [ ] Authentication / access control?
+- [ ] **Tiered authentication / access control** — deliberately deferred while the
+      fleet lives on a trusted bench LAN, but it is the gate before any node binds
+      beyond it. Design goal is *tiers*, not a single shared token: read-only
+      telemetry (streams/status), actuation (effectors/policies), and admin
+      (config/deploy) as separate credentials, so a dashboard can watch without
+      being able to move the body. Credentials belong in the per-board gitignored
+      `secrets.yaml` (see Infrastructure → peering projection) — note this secrets
+      loading mechanism is documented in CLAUDE.md but not yet implemented in code.
 
 ---
 
@@ -230,7 +237,9 @@ The current sensor streaming API (`GET /sensors/{id}/stream`, `WS /sensors/{id}/
 - [ ] API auth before the served port is exposed beyond a trusted network — the node
       HTTP API is currently unauthenticated, so anyone who can reach `host:port` can
       read sensors / drive effectors. Prerequisite for binding to a non-loopback
-      interface on an untrusted network. (See API Design → access control.)
+      interface on an untrusted network. Acknowledged and deferred (2026-06): we are
+      bench-only on a trusted LAN; the design target is tiered credentials — see
+      API Design → tiered authentication.
 - [ ] Peering projection — when the cross-node relay tracts land, the node serving
       config grows a `peers:` section projected from the fleet topology
       (`config/animon.yaml`); inter-node auth credentials come from a gitignored
