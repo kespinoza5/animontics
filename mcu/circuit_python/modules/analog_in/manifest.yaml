@@ -1,0 +1,10 @@
+module: analog_in
+platforms: [circuit_python]
+role: sensor
+description: Sample the board's own ADC pins (analogio) into uplink frame channels.
+provides:
+  channels: per_pin             # one frame channel per configured pin (wire order = pin order)
+config:
+  sample_hz: 2
+# Counts are AnalogIn.value >> 1 (0..32767) so they fit the int16 frame lane —
+# the node-side calibration owns the volts mapping, as always.

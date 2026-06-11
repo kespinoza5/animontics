@@ -45,6 +45,8 @@ _MIN_FRAME = _HEADER.size + 1       # header + checksum, with zero channels
 CMD_MAGIC = b"AC"
 CMD_VERSION = 1
 CMD_SET_DUTY = 1                     # args: [channel, duty(0..255)]
+CMD_SET_US = 2                       # args: [channel, microseconds] — servo pulse width
+CMD_SET_GPIO = 3                     # args: [channel, 0|1] — digital output line
 
 _CMD_HEADER = struct.Struct("<2sBBB")   # magic, version, cmd_id, nargs
 

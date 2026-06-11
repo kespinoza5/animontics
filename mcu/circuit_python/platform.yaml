@@ -13,6 +13,8 @@ boards:
   xiao_rp2040: {board: seeed_xiao_rp2040}
   xiao_rp2350: {board: seeed_xiao_rp2350}
   rp2040:      {board: raspberry_pi_pico}
+  feather_m4:  {board: adafruit_feather_m4_express}
+  qtpy_samd21: {board: adafruit_qtpy_samd21}
 
 deploy:
   method: copy            # copy firmware/<id>/ to the CIRCUITPY mount (over host SSH)

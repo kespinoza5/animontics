@@ -1,0 +1,12 @@
+module: servo_out
+platforms: [circuit_python]
+role: actuator
+description: Hobby-servo pulse outputs (pwmio @ 50 Hz), driven by inbound set_us commands.
+accepts:
+  set_us: {channel: int, us: int}   # microsecond pulse width; clamped to [min_us, max_us]
+config:
+  freq_hz: 50                   # servo frame rate
+  min_us: 500                   # absolute safety clamps — NOT per-servo limits
+  max_us: 2500                  #   (those live in the node-side servo effector)
+# Firmware moves microseconds; angle→µs maps, soft limits, and trim are the
+# effectors/servo tier's job on the node.

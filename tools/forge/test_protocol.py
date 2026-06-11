@@ -6,6 +6,8 @@ import pytest
 from tools.forge import protocol
 from tools.forge.protocol import (
     CMD_SET_DUTY,
+    CMD_SET_GPIO,
+    CMD_SET_US,
     Frame,
     FrameStream,
     decode,
@@ -131,3 +133,16 @@ class TestCommandCodec:
         # distinct magic ('AC' vs 'AM') so neither end mistakes one for the other
         assert decode(encode_command(CMD_SET_DUTY, [1, 2])) is None
         assert decode_command(encode([1, 2], seq=0)) is None
+
+    def test_set_us_round_trip(self):
+        # servo pulse widths span the full hobby range as int16 args
+        for us in (500, 1500, 2500):
+            cmd = decode_command(encode_command(CMD_SET_US, [1, us]))
+            assert cmd.cmd_id == CMD_SET_US and list(cmd.args) == [1, us]
+
+    def test_set_gpio_round_trip(self):
+        cmd = decode_command(encode_command(CMD_SET_GPIO, [4, 1]))
+        assert cmd.cmd_id == CMD_SET_GPIO and list(cmd.args) == [4, 1]
+
+    def test_command_ids_are_distinct(self):
+        assert len({CMD_SET_DUTY, CMD_SET_US, CMD_SET_GPIO}) == 3

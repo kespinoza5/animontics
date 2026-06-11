@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from core.mcu_link import (  # noqa: F401
     CMD_SET_DUTY,
+    CMD_SET_GPIO,
+    CMD_SET_US,
     MAGIC,
     MAX_CHANNELS,
     VERSION,
