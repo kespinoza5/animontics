@@ -4,6 +4,86 @@ Items not yet implemented. Grouped by area.
 
 ---
 
+## Embodiment Expansion
+
+Auditory cortex, pressure lattice, servo proprioception, visceral sensing,
+power-control brainstem. All software phases landed; design rationale lives
+beside the code (module/sensor/effector READMEs, contract headers,
+docs/cortex.md). What remains is bench bring-up + research tracks.
+
+- [x] Phase 0 — config groundwork: `pizero_sonar` → `pizero_auditory`;
+      node/board configs for `neocore2_hub` + `pizero_auditory`; QtPy RP2040
+      placeholder on the orangepi configs
+- [x] Phase 1 — forge: `mcu/circuit_python` modules `analog_in`, `servo_out`,
+      `matrix_scan`, `scan_follower`; `feather_m4`/`qtpy_samd21`/`rp2040_zero`
+      board profiles; contracts `featherm4_lattice`, `samd21_press0/1/2`
+      (renamed from press0), `samd21_cervical`; CMD_SET_US/CMD_SET_GPIO
+- [x] Phase 2 — `pressure_array` row-aligned sweep composition (row-tag
+      channel 0, -1 sentinels, partial-sweep force emit); `web/shared/heatmap.js`
+      extraction + lattice viewer
+- [x] Phase 3 — `effectors/servo` (mcu + sbc_pwm backends) +
+      `sensors/servo_feedback` (servo_pot calibration absorbs divider ratios)
+- [x] Phase 4 — `sensors/current` + `sensors/radar_motion`;
+      `effectors/power_rail` + gated≠failed (`GET /devices`, `power.<id>` relay
+      signal); `policies/threshold` overcurrent guard; CP `gpio_out` module +
+      `core/gpio.py` mcu backend; brainstem contracts `rp2040_power0/1`
+- [x] Phase 5 — `devices/si5351` (clock-tree root, AN619 planner);
+      `sensors/audio_in` (frame lane + level summaries); `effectors/speaker`
+      (aplay stream + SD-pin gate)
+
+### Bench backlog (hardware bring-up, in order)
+
+- [ ] Lattice: flash featherm4_lattice + samd21_press0/1/2 (`forge build` →
+      copy to CIRCUITPY); bench-test **CD4051 select/INH drive at 3.3 V**
+      (VIH ≈ 3.5 V at 5 V mux supply — shift the 5 lines or swap the conductor
+      to an RA4M1-Zero if lattice signal is weak); fill real
+      `/dev/serial/by-id/` paths; `animon deploy neocore2_hub`; confirm
+      84-channel sweeps in `web/viewers/pressure_array.html`
+- [ ] Cervical: VERIFY A4/A5/A6 are pwmio-capable on the QtPy SAMD21; fit
+      **dividers on every pot tap** (DS3218 wiper swings to servo V+ 6–7.4 V);
+      `set_us` round-trip → movement; calibrate `servo_pot` counts↔degrees
+      endpoints; measure ACS712 `zero_counts` at rest
+- [ ] Ears: dtoverlay pwm-2chan on GPIO12/13; ear ADS1115 at VDD=5 V behind
+      the BSS138 shifter (5 V pull-ups on the ADS segment); calibrate ear
+      feedback endpoints
+- [ ] Power: wire the SRD-05VDC relay into the servo V+ rail (VERIFY
+      active-low drive + the gpio line offset); overcurrent trip test under
+      deliberate load; confirm members report `gated` in `GET /devices`;
+      brainstem RP2040s: fill the GP-pin → power/reset wiring map in
+      `config/mcus/rp2040_power0/1.yaml`, decide controller hosting
+      (each can reset the other's host; neither strands the fleet)
+- [ ] Audition: `tools/board/setup_i2s.sh` overlay on the pizero (PCM1808
+      MASTER / Pi slave full-duplex — slave-mode PCM1808 needs SCKI synced to
+      LRCK, which is why master mode is the plan); SI5351 readback on the
+      3.3 V I2C segment; `arecord`/`aplay` sanity, then the sensor +
+      effector lanes; set the MAX98357A gain strap conservatively (1 W driver)
+- [ ] `larduino` MQ array unchanged but re-verify after hub re-cabling
+
+### Research tracks / open seams
+
+- [ ] CircuitPython `audiobusio.I2SIn` + clock-slave I2S TX (upstream
+      contribution) → the Broca's-area QtPy RP2040 on the orangepi takes over
+      the MAX98357A DIN (one wire + one effector backend change — the shared
+      clock tree keeps it sample-coherent)
+- [ ] rpi5 I2S tap onto the clock tree (4-pin connector already wired) — only
+      if the network audio lane measures short; revisit with the FPGA fabric
+- [ ] `fpga.ice40` forge builder (yosys/nextpnr/icepack) for the TinyFPGA BXs;
+      reconfigurable 4-lane I2S/SPI fabric links; reflash via the brainstem
+- [ ] Brainstem autonomy: watchdog firmware on the rp2040_power boards
+      (deterministic, acts without a cortex) — today they are command-driven
+- [ ] forge: cross-contract validation for shared scan params (`rows`,
+      `max_code` must match across featherm4_lattice + samd21_press0/1/2;
+      manual today)
+- [ ] RA4M1-Zero swap points (boards ordered): lattice conductor (5 V mux
+      drive + unshifted 5 V ADS I2C; cap DAC codes ≤3.3 V for the followers),
+      visceral analog front-end (drops the shifted-I2C ADS1115), cervical
+      (5 V servo logic). Forge cost: CP board profile if supported, else an
+      arduino-family Renesas platform entry (fqbn + DFU flash)
+- [ ] `animon status` device-tier surface: roll `GET /devices`
+      (healthy/gated/down) into fleet status output
+
+---
+
 ## API Design
 
 The current sensor streaming API (`GET /sensors/{id}/stream`, `WS /sensors/{id}/ws`) is a starting point. Finalize with project team:

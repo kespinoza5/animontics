@@ -95,10 +95,22 @@ tick. Today it is local; it is the seam for the brain-inspired substrate to come
 between cortices (predictive coding / active inference). A fleet aggregator will
 nest the node trees by cortex.
 
+## Power gating — gated ≠ failed
+
+Power is a body state the cortex can act on, and a deliberate power cut is not
+a fault. The `power_rail` effector switches one rail (relay or brainstem GPIO
+channel), names the devices powered *through* it (`params.members`), and
+publishes `power.<id>` on the relay so gating is observable like any signal.
+While a rail is off its members report **gated** — `GET /devices` distinguishes
+healthy / gated / down — and the `mcu_serial` reconnect loop re-adopts them
+when power returns. The canonical loop is the overcurrent reflex:
+`sensors/current` (ACS712) → `policies/threshold` → servo rail off.
+
 ## API (node-implicit, logical)
 
 ```
 /sensors    /sensors/{id}    (+ /stream SSE, /frames WS)
+/devices    /devices/{id}    (health: healthy | gated | down)
 /effectors  /effectors/{id}  (+ POST request lane, WS /stream lane)
 /policies   /policies/{id}   (+ POST /{id}/enable)
 ```
@@ -107,10 +119,13 @@ The node is implicit locally; devices are metadata, never a path segment.
 
 ## Status
 
-Built: devices (MCU + ADS1115), logical array sensors, effectors (request +
-stream lanes), policies + relay + the always-on fan reflex, and the
-`mcu/circuit_python` forge family feeding `pressure_array`. Reserved behind seams:
-the **models** tier (accelerator perception nets via forge), **learned/stochastic
-policies** + on-device training, **cross-node relay + predict/error tracts**, the
-fleet aggregator, and concrete stream-lane hardware (speakers, LED strips). See
+Built: devices (MCU + ADS1115 + Si5351 clock root), logical array sensors
+(including the row-scanned pressure lattice), effectors (request + stream
+lanes: pwm, fan_array, servo, power_rail, speaker), policies (curve fan
+reflex + threshold overcurrent guard) + relay, and the `mcu/circuit_python`
+forge family (analog_in, servo_out, gpio_out, matrix_scan/scan_follower).
+Reserved behind seams: the **models** tier (accelerator perception nets via
+forge), **learned/stochastic policies** + on-device training, **cross-node
+relay + predict/error tracts**, the fleet aggregator, and the brainstem's
+autonomous watchdog firmware. See
 `TODO.md`.
