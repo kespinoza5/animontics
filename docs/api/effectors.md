@@ -16,6 +16,11 @@ the types below are the concrete plugins in `effectors/`.
 
 ::: effectors.fan_array.effector.FanArray
 
+## servo
+
+::: effectors.servo.effector.ServoEffector
+::: effectors.servo.effector.SysfsPwm
+
 ## stream_sink
 
 ::: effectors.stream_sink.effector.StreamSink

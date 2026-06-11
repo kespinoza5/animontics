@@ -47,3 +47,7 @@ Each sensor package registers itself via `@register("type_key")`. The classes be
 ## fan_tach
 
 ::: sensors.fan_tach.sensor.FanTach
+
+## servo_feedback
+
+::: sensors.servo_feedback.sensor.ServoFeedback
