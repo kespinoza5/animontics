@@ -1,0 +1,26 @@
+module: matrix_scan
+platforms: [circuit_python]
+role: sensor
+description: >
+  Scanned-matrix conductor: energizes one CD4051-selected row per tick and
+  coordinates follower MCUs over an analog DAC/ack handshake. Emits the
+  current row index as one frame channel (list this module FIRST so the row
+  tag is channel 0).
+provides:
+  channels: 1                   # the row index (pin-independent virtual channel)
+config:
+  # pins: 3 shared select lines (A/B/C) followed by one inhibit line per mux,
+  # in that order — rows = 8 × number of inhibit pins, row N = (INH N//8, ABC N%8).
+  rows: 16
+  dac_pin: A0                   # AnalogOut broadcasting the row level to followers
+  ack_pins: []                  # AnalogIn pins, one per follower (their DAC acks)
+  settle_ms: 2                  # row energize → sample settle
+  ack_timeout_ms: 50            # max wait for all follower acks before sampling anyway
+  max_code: 65535               # DAC code ceiling — lower it if the conductor's DAC
+                                #   rail exceeds the followers' ADC rail (e.g. 5 V → 3.3 V)
+  sample_hz: 32                 # row ticks per second → sweeps/s = sample_hz / rows
+# Handshake (must match scan_follower on every follower contract):
+#   code(row) = (row + 1) * max_code // (rows + 1); idle = 0;
+#   decode tolerance = ±half a step. The conductor advances the row, broadcasts
+#   code(row), waits for every ack pin to read code(row), settles, samples its
+#   own channels, and emits the frame with the row index in this channel.

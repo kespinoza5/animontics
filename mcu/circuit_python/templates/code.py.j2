@@ -2,9 +2,10 @@
 # Contract: config/mcus/{{ id }}.yaml   (target {{ target }}, board {{ board }})
 # Regenerate: python -m tools.forge.forge build {{ id }}
 #
-# Generic CircuitPython runtime: stream configured sensor channels (ADS1115 and/or
-# fan tach) and/or drive PWM outputs from inbound commands, over USB serial. The
-# on-wire layout MUST match core/mcu_link.py — the node decodes/encodes with it.
+# Generic CircuitPython runtime: stream configured sensor channels (ADS1115,
+# native ADC pins, fan tach, scan row tags) and/or drive PWM/servo outputs from
+# inbound commands, over USB serial. The on-wire layout MUST match
+# core/mcu_link.py — the node decodes/encodes with it.
 import struct
 import time
 
@@ -14,11 +15,89 @@ import usb_cdc
 import adafruit_ads1x15.ads1115 as ADS
 from adafruit_ads1x15.analog_in import AnalogIn
 {% endif %}{% if tach_pins %}import countio
-{% endif %}{% if pwm_pins %}import pwmio
+{% endif %}{% if pwm_pins or servo_pins %}import pwmio
+{% endif %}{% if analog_pins or scan or follower %}import analogio
+{% endif %}{% if scan %}import digitalio
 {% endif %}
 PROTOCOL_VERSION = 1
 _serial = usb_cdc.data if usb_cdc.data is not None else usb_cdc.console
-{% if frame_sources %}
+{% if scan or follower %}
+# ── Scan sync: analog DAC/ack handshake (see modules/matrix_scan/README.md) ───
+SCAN_ROWS = {{ (scan or follower).rows }}
+SCAN_MAX_CODE = {{ (scan or follower).max_code }}
+SCAN_STEP = SCAN_MAX_CODE // (SCAN_ROWS + 1)
+SCAN_TOL = SCAN_STEP // 2
+SCAN_SETTLE_S = {{ (scan or follower).settle_s }}
+_row = -1
+
+def _scan_code(row):                            # idle = 0; rows at evenly spaced levels
+    return (row + 1) * SCAN_MAX_CODE // (SCAN_ROWS + 1)
+{% endif %}{% if scan %}
+# Conductor: CD4051 row energization + row broadcast on the DAC.
+_sel = []
+for _p in {{ scan.sel_pins }}:
+    _d = digitalio.DigitalInOut(getattr(board, _p))
+    _d.switch_to_output(value=False)
+    _sel.append(_d)
+_inh = []
+for _p in {{ scan.inh_pins }}:
+    _d = digitalio.DigitalInOut(getattr(board, _p))
+    _d.switch_to_output(value=True)             # start with every mux inhibited
+    _inh.append(_d)
+_dac = analogio.AnalogOut(getattr(board, "{{ scan.dac_pin }}"))
+_acks = [analogio.AnalogIn(getattr(board, p)) for p in {{ scan.ack_pins }}]
+SCAN_ACK_TIMEOUT_S = {{ scan.ack_timeout_s }}
+
+def _advance_row():
+    """Energize the next row, broadcast it, wait for every follower's ack."""
+    global _row
+    _row = (_row + 1) % SCAN_ROWS
+    for inh in _inh:
+        inh.value = True                        # break-before-make
+    sel = _row & 7
+    for bit, line in enumerate(_sel):
+        line.value = bool((sel >> bit) & 1)
+    _inh[_row >> 3].value = False               # enable this row's mux
+    code = _scan_code(_row)
+    _dac.value = code
+    deadline = time.monotonic() + SCAN_ACK_TIMEOUT_S
+    while time.monotonic() < deadline:          # timeout → sample anyway; the node
+        ok = True                               # sees the misalignment in the row tags
+        for p in _acks:
+            if abs(p.value - code) > SCAN_TOL:
+                ok = False
+                break
+        if ok:
+            break
+    time.sleep(SCAN_SETTLE_S)
+{% endif %}{% if follower %}
+# Follower: watch the conductor's broadcast, sample, then ack (see README).
+_watch = analogio.AnalogIn(getattr(board, "{{ follower.watch_pin }}"))
+_ack = analogio.AnalogOut(getattr(board, "{{ follower.ack_pin }}"))
+SCAN_WATCH_TIMEOUT_S = {{ follower.watch_timeout_s }}
+
+def _decode_row(code):
+    row = (code + SCAN_STEP // 2) // SCAN_STEP - 1
+    if 0 <= row < SCAN_ROWS and abs(code - _scan_code(row)) <= SCAN_TOL:
+        return row
+    return None                                 # idle / between levels / out of range
+
+def _await_row():
+    """Block until a NEW row level arrives; on timeout set the -1 sentinel."""
+    global _row
+    deadline = time.monotonic() + SCAN_WATCH_TIMEOUT_S
+    while time.monotonic() < deadline:
+        row = _decode_row(_watch.value)
+        if row is not None and row != _row:
+            _row = row
+            time.sleep(SCAN_SETTLE_S)
+            return
+    _row = -1
+
+def _ack_row():
+    if _row >= 0:
+        _ack.value = _scan_code(_row)
+{% endif %}{% if frame_sources %}
 # ── Afferent: sensor channels → uplink frames ('AM') ──────────────────────────
 PERIOD_S = {{ period }}
 {% if has_ads %}_i2c = busio.I2C(board.SCL, board.SDA)
@@ -32,8 +111,12 @@ def _read_rpm(i):
     c = _counters[i].count
     _counters[i].count = 0
     return int(c * 60.0 / PULSES_PER_REV / PERIOD_S)
+{% endif %}{% if analog_pins %}_analogs = [
+{% for p in analog_pins %}    analogio.AnalogIn(getattr(board, "{{ p }}")),
+{% endfor %}]
 {% endif %}
-# (kind, a, b, c): 0 = ads (addr, channel, gain), 1 = tach (counter_index, _, _)
+# (kind, a, b, c): 0 = ads (addr, channel, gain), 1 = tach (counter_index, _, _),
+#                  2 = native adc (analog_index, _, _), 3 = scan row tag (_, _, _)
 FRAME_SOURCES = [
 {% for s in frame_sources %}    {{ s }},
 {% endfor %}]
@@ -45,14 +128,31 @@ def read_all():
             adc = _adcs[a]
             adc.gain = c
             out.append(AnalogIn(adc, b).value)
-        else:
+{% if tach_pins %}        elif kind == 1:
             out.append(_read_rpm(a))
-    return out
+{% endif %}{% if analog_pins %}        elif kind == 2:
+            out.append(_analogs[a].value >> 1)   # uint16 → int16-safe raw counts
+{% endif %}{% if scan or follower %}        elif kind == 3:
+            out.append(_row)                     # scan row tag (-1 = follower timeout)
+{% endif %}    return out
 
 def send(samples, seq):
     body = b"AM" + bytes([PROTOCOL_VERSION, seq & 0xFF, len(samples)])
     body += struct.pack("<%dh" % len(samples), *samples)
     _serial.write(body + bytes([sum(body) & 0xFF]))
+{% endif %}{% if servo_pins %}
+# ── Efferent: servo pulse outputs ← inbound set_us commands ('AC') ────────────
+SERVO_FREQ = {{ servo_freq }}
+SERVO_MIN_US = {{ servo_min_us }}
+SERVO_MAX_US = {{ servo_max_us }}
+_servos = [
+{% for p in servo_pins %}    pwmio.PWMOut(getattr(board, "{{ p }}"), frequency=SERVO_FREQ, duty_cycle=0),
+{% endfor %}]                                    # duty 0 = no pulses until first command
+
+def _set_us(ch, us):                             # µs pulse → pwmio duty at SERVO_FREQ
+    if 0 <= ch < len(_servos):
+        us = max(SERVO_MIN_US, min(SERVO_MAX_US, us))
+        _servos[ch].duty_cycle = us * SERVO_FREQ * 65535 // 1000000
 {% endif %}{% if pwm_pins %}
 # ── Efferent: PWM outputs ← inbound commands ('AC') ───────────────────────────
 PWM_FREQ = {{ pwm_freq }}
@@ -63,7 +163,7 @@ _pwms = [
 def _set_duty(ch, duty):                       # duty 0..255 → pwmio 0..65535
     if 0 <= ch < len(_pwms):
         _pwms[ch].duty_cycle = max(0, min(255, duty)) * 257
-
+{% endif %}{% if pwm_pins or servo_pins %}
 _rx = bytearray()
 
 def poll_commands():
@@ -89,13 +189,21 @@ def poll_commands():
             continue
         cmd = _rx[3]
         args = struct.unpack_from("<%dh" % nargs, frame, 5)
-        if cmd == 1 and nargs >= 2:            # CMD_SET_DUTY
+{% if pwm_pins %}        if cmd == 1 and nargs >= 2:            # CMD_SET_DUTY
             _set_duty(args[0], args[1])
-        del _rx[:total]
+{% endif %}{% if servo_pins %}        if cmd == 2 and nargs >= 2:            # CMD_SET_US
+            _set_us(args[0], args[1])
+{% endif %}        del _rx[:total]
 {% endif %}
 seq = 0
 while True:
-{% if frame_sources %}    send(read_all(), seq)
+{% if scan %}    _advance_row()
+{% endif %}{% if follower %}    _await_row()
+    samples = read_all()
+    _ack_row()                                   # ack = "I sampled this row"
+    send(samples, seq)
     seq = (seq + 1) & 0xFF
-{% endif %}{% if pwm_pins %}    poll_commands()
+{% elif frame_sources %}    send(read_all(), seq)
+    seq = (seq + 1) & 0xFF
+{% endif %}{% if pwm_pins or servo_pins %}    poll_commands()
 {% endif %}    time.sleep({{ loop_sleep }})

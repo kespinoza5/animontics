@@ -84,6 +84,89 @@ def test_compose_sensor_plus_pwm(tmp_path):
     assert "send(read_all(), seq)" in code and "poll_commands()" in code
 
 
+def _scan_ctx(tmp_path, mcu_id: str, modules: list[dict]) -> BuildContext:
+    target = McuTarget.model_validate({
+        "id": mcu_id, "target": "mcu.circuit_python", "board": "xiao_samd21",
+        "modules": modules + [{"module": "transport_serial"}],
+    })
+    return BuildContext(contract=target, project_root=PROJECT_ROOT, out_dir=tmp_path / mcu_id)
+
+
+_CONDUCTOR = {
+    "module": "matrix_scan", "pins": ["D5", "D6", "D9", "D4", "D13"],
+    "rows": 16, "dac_pin": "A0", "ack_pins": ["A1", "A2", "A3"],
+    "settle_ms": 2, "ack_timeout_ms": 50, "sample_hz": 32,
+}
+_FOLLOWER = {
+    "module": "scan_follower", "rows": 16,
+    "watch_pin": "A1", "ack_pin": "A0", "watch_timeout_ms": 250,
+}
+
+
+def test_compose_matrix_scan_conductor(tmp_path):
+    ctx = _scan_ctx(tmp_path, "cond", [
+        _CONDUCTOR,
+        {"module": "analog_in", "pins": ["A4", "A5"]},
+    ])
+    code = (CircuitPythonBuilder().compose(ctx) / "code.py").read_text(encoding="utf-8")
+    assert "SCAN_ROWS = 16" in code and "def _advance_row():" in code
+    assert "(3, 0, 0, 0)," in code                       # row tag frame source
+    assert code.index("(3, 0, 0, 0),") < code.index("(2, 0, 0, 0),")  # row tag is channel 0
+    assert '_dac = analogio.AnalogOut(getattr(board, "A0"))' in code
+    assert "['D5', 'D6', 'D9']" in code and "['D4', 'D13']" in code   # sel + inh pins
+    assert "_advance_row()" in code.split("while True:")[1]           # runs every tick
+    assert "def _await_row():" not in code                            # not a follower
+    compile(code, "cond.py", "exec")                                  # valid python
+
+
+def test_compose_scan_follower(tmp_path):
+    ctx = _scan_ctx(tmp_path, "fol", [
+        _FOLLOWER,
+        {"module": "analog_in", "pins": ["A2", "A3"], "sample_hz": 4},
+    ])
+    code = (CircuitPythonBuilder().compose(ctx) / "code.py").read_text(encoding="utf-8")
+    assert "def _await_row():" in code and "def _ack_row():" in code
+    assert "_row = -1" in code                            # timeout sentinel
+    loop = code.split("while True:")[1]
+    # spec order: await -> sample -> ack -> send
+    assert loop.index("_await_row()") < loop.index("read_all()") \
+        < loop.index("_ack_row()") < loop.index("send(samples, seq)")
+    assert "time.sleep(0.005)" in loop                    # paced by the conductor
+    assert "def _advance_row():" not in code              # not a conductor
+    compile(code, "fol.py", "exec")
+
+
+def test_compose_servo_out(tmp_path):
+    ctx = _scan_ctx(tmp_path, "neck", [
+        {"module": "servo_out", "pins": ["A4", "A5", "A6"], "freq_hz": 50,
+         "min_us": 500, "max_us": 2500},
+        {"module": "analog_in", "pins": ["A1", "A2", "A3"], "sample_hz": 50},
+    ])
+    code = (CircuitPythonBuilder().compose(ctx) / "code.py").read_text(encoding="utf-8")
+    assert "SERVO_FREQ = 50" in code and "SERVO_MIN_US = 500" in code
+    assert 'pwmio.PWMOut(getattr(board, "A4"), frequency=SERVO_FREQ, duty_cycle=0)' in code
+    assert "if cmd == 2 and nargs >= 2:" in code          # CMD_SET_US dispatch
+    assert "def _set_us(ch, us):" in code
+    assert ".value >> 1" in code                          # native ADC int16-safe
+    assert "def poll_commands()" in code and "def read_all()" in code
+    compile(code, "neck.py", "exec")
+
+
+def test_validate_scan_modules(tmp_path):
+    builder = CircuitPythonBuilder()
+    # conductor + follower on one board is contradictory
+    both = _scan_ctx(tmp_path, "x", [dict(_CONDUCTOR), dict(_FOLLOWER)])
+    assert any("mutually exclusive" in i for i in builder.validate(both))
+    # rows must fit 8 x inhibit pins
+    too_many_rows = dict(_CONDUCTOR, pins=["D5", "D6", "D9", "D4"], rows=16)
+    ctx = _scan_ctx(tmp_path, "y", [too_many_rows])
+    assert any("rows > 8 x" in i for i in builder.validate(ctx))
+    # follower needs its handshake pins
+    bare = {"module": "scan_follower", "rows": 16}
+    ctx = _scan_ctx(tmp_path, "z", [bare])
+    assert any("watch_pin and ack_pin" in i for i in builder.validate(ctx))
+
+
 def test_compose_pwm_plus_tach(tmp_path):
     # the LXiao shape: drive fans + read their RPM on one bidirectional board
     target = McuTarget.model_validate({
