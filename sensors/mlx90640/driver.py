@@ -62,14 +62,22 @@ class MLX90640:
     fill a 768-element list with temperatures in °C.
     """
 
-    REFRESH_8HZ = 0b100   # bits [9:7] of control register 1
+    #: The chip's eight refresh rates (Hz) → bits [9:7] of control register 1.
+    REFRESH_CODES = {0.5: 0b000, 1: 0b001, 2: 0b010, 4: 0b011,
+                     8: 0b100, 16: 0b101, 32: 0b110, 64: 0b111}
 
     REG_STATUS = 0x8000
     REG_CTRL1  = 0x800D
     REG_EEPROM = 0x2400
     REG_RAM    = 0x0400
 
-    def __init__(self, bus: smbus2.SMBus, addr: int = 0x33) -> None:
+    def __init__(self, bus: smbus2.SMBus, addr: int = 0x33,
+                 refresh_hz: float = 8) -> None:
+        if refresh_hz not in self.REFRESH_CODES:
+            raise ValueError(
+                f"mlx90640 refresh_hz {refresh_hz} not supported "
+                f"(one of {sorted(self.REFRESH_CODES)})")
+        self.refresh_hz = refresh_hz
         self.bus  = bus
         self.addr = addr
         log.info("Reading MLX90640 EEPROM…")
@@ -77,8 +85,9 @@ class MLX90640:
         log.info("Extracting calibration parameters…")
         self._p: dict = {}
         self._extract_params()
-        self._set_refresh_rate(self.REFRESH_8HZ)
-        log.info("MLX90640 ready (8 Hz, %s mode)", "chess" if self._p["chess"] else "interleaved")
+        self._set_refresh_rate(self.REFRESH_CODES[self.refresh_hz])
+        log.info("MLX90640 ready (%s Hz, %s mode)", self.refresh_hz,
+                 "chess" if self._p["chess"] else "interleaved")
 
     # ── Refresh rate ──────────────────────────────────────────────────────────
 

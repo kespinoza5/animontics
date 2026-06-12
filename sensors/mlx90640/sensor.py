@@ -87,7 +87,8 @@ class MLX90640Sensor(SensorBase):
         while not self._stop_event.is_set():
             try:
                 bus    = smbus2.SMBus(bus_num)
-                sensor = MLX90640(bus, addr)
+                refresh = float(self.config.params.get("refresh_hz", 8))
+                sensor = MLX90640(bus, addr, refresh_hz=refresh)
                 log.info("%s: MLX90640 ready on i2c-%d addr=0x%02X", self.id, bus_num, addr)
                 self._healthy = True
                 self._inner_loop(sensor)

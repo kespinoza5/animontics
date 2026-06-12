@@ -38,18 +38,33 @@ def load_sbc_profile(node_type: str, project_root: Path) -> dict | None:
 
 
 def _check_valid(owner: str, spec: dict, value_of) -> list[str]:
-    """Value constraints: METADATA `valid: {key: [allowed…]}` vs declared values.
+    """Value constraints: METADATA `valid:` vs declared values.
 
-    `value_of(key)` resolves a key to the entry's declared value (a config
-    field or a params key) or None when unset — unset never errors; defaults
-    are the plugin's business.
+    A constraint is either an enumerated list (`{address: [0x48, 0x49]}`) or a
+    range dict (`{min_duty: {min: 0, max: 1}}`). `value_of(key)` resolves a key
+    to the entry's declared value (a config field or a params key) or None
+    when unset — unset never errors; defaults are the plugin's business.
     """
     errs: list[str] = []
     for key, allowed in (spec.get("valid") or {}).items():
         value = value_of(key)
-        if value is None or value in allowed:
+        if value is None:
             continue
-        if key == "address" and isinstance(value, int):
+        if isinstance(allowed, dict):                      # range constraint
+            lo, hi = allowed.get("min"), allowed.get("max")
+            try:
+                bad = (lo is not None and value < lo) or (hi is not None and value > hi)
+            except TypeError:
+                bad = True                                 # non-numeric vs range
+            if bad:
+                errs.append(
+                    f"{owner}: {key} {value!r} outside the valid range "
+                    f"[{lo}, {hi}]"
+                )
+            continue
+        if value in allowed:
+            continue
+        if "address" in key and isinstance(value, int):
             shown, opts = hex(value), [hex(v) for v in allowed]
         else:
             shown, opts = repr(value), allowed
@@ -414,6 +429,13 @@ def validate_board_tiers(
     for sc in config.sensors:
         if not sc.enabled:
             continue
+        # Top-level `valid:` in sensor METADATA constrains params values
+        # (chip strap addresses, refresh rates) — connection fields stay with
+        # validate_connection in reconcile.
+        errors += _check_valid(
+            f"sensor '{sc.id}' ({sc.type})", sensor_specs.get(sc.type) or {},
+            sc.params.get,
+        )
         for dev_ref in sc.devices:
             if dev_ref not in device_ids:
                 errors.append(

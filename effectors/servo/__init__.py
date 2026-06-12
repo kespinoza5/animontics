@@ -9,6 +9,7 @@ METADATA = {
     "backends": {"mcu": ["device"], "sbc_pwm": []},
     "default_backend": "mcu",
     "mcu_command": "set_us",
+    "valid": {"freq_hz": {"min": 1, "max": 400}},   # analog 50 Hz … digital ~333 Hz
     "params": ["freq_hz", "min_us", "max_us", "deg_min", "deg_max",
                "trim_deg", "invert", "per_channel"],
 }

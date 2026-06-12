@@ -5,6 +5,10 @@ except ImportError:
 
 #: Hardware constraints and defaults for the fleet tool.
 METADATA = {
+    # The three chips' strap-limited I2C addresses; checked at deploy.
+    "valid": {"imu_address": [0x6A, 0x6B],     # LSM6DSL (JP8)
+              "mag_address": [0x30],           # MMC5983MA (fixed)
+              "baro_address": [0x76, 0x77]},   # BMP388 (JP4)
     "type": "ozzmaker_10dof",
     "name": "OzzMaker LTE-M GPS + 10DOF (IMU + Mag + Baro)",
     "description": (

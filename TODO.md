@@ -336,6 +336,15 @@ an existing seam:
       (`tools/forge/drift.py`: unbuilt / stale-vs-contract per declared usb_mcu)
       surfaces in `status`, `diff`, and as deploy warnings. Deploy still never
       builds/flashes — that stays a forge step because it needs the hardware.
+- [ ] forge: manifest-level `valid:` for module config values — the CP
+      `ads1115` module's `chips: [{addr, gain}]` accept any addr/gain today;
+      a manifest schema for nested config (like the board-config `valid:`)
+      would close the same gap one layer down. Path expressions needed for
+      list-of-dict params; deferred until a second case appears.
+- [ ] `sensors/ir_xcvr` — declare its LIRC dependency as a bus/overlay
+      requirement (gpio-ir / gpio-ir-tx overlays + the rx/tx GPIO choices)
+      once a profile section shape for IR is settled; today only the lirc
+      device paths are configured.
 - [ ] `animon probe` live pin/overlay verification — read `/sys/class/pwm`,
       `/proc/device-tree`, and `gpioinfo` over SSH to confirm what the offline
       profile checks can't: overlays actually enabled, gpiochip names/line

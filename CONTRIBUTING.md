@@ -363,8 +363,10 @@ at a missing effector) fails on the dev machine instead of at runtime on the
 board. Fields by tier (all optional; `type` + `description` always):
 
 - **devices**: `required` / `optional` (DeviceConfig fields), `params` (known
-  `params:` keys — unknown keys warn), `valid` ({key: [allowed values]} — e.g.
-  the ads1115's four ADDR strap addresses; violations are errors), `bus`
+  `params:` keys — unknown keys warn), `valid` ({key: [allowed values]} or
+  {key: {min, max}} for ranges — e.g. the ads1115's four ADDR strap addresses,
+  min_duty ∈ [0, 1]; violations are errors; applies to every tier, sensors
+  included for params keys), `bus`
   ({kind, roles?} — the transport class this kind occupies: a uart modem needs
   tx+rx; checked against the node_type's `config/profiles/` role tables)
 - **effectors**: `backends` ({kind: [required backend keys]}),

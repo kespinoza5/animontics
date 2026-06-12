@@ -25,14 +25,24 @@ class Ads1115Device(Device):
     """An ADS1115 ADC chip on the SBC's I2C bus (pull model)."""
 
     _CONV, _CONFIG = 0x00, 0x01
-    # config: OS=1 | MUX(AIN_n single-ended) | PGA(gain) | MODE single-shot |
-    #         DR=128SPS | comparator disabled
-    _BASE = 0x8000 | 0x0100 | (0b100 << 5) | 0b00011
+    #: The chip's eight conversion rates (SPS) → DR field bits [7:5].
+    DATA_RATES = {8: 0b000, 16: 0b001, 32: 0b010, 64: 0b011,
+                  128: 0b100, 250: 0b101, 475: 0b110, 860: 0b111}
 
     def __init__(self, device_id: str, config: "DeviceConfig") -> None:
         super().__init__(device_id, config)
         self._bus_no = config.bus if config.bus is not None else 1
         self._addr = config.address if config.address is not None else 0x48
+        rate = int((config.params or {}).get("data_rate", 128))
+        if rate not in self.DATA_RATES:
+            raise ValueError(
+                f"ads1115 data_rate {rate} not supported (one of {sorted(self.DATA_RATES)})")
+        self._rate = rate
+        # config: OS=1 | MUX(AIN_n single-ended) | PGA(gain) | MODE single-shot |
+        #         DR=data_rate | comparator disabled
+        self._base = 0x8000 | 0x0100 | (self.DATA_RATES[rate] << 5) | 0b00011
+        # conversion time + 15% margin (e.g. ~9 ms at 128 SPS, ~144 ms at 8 SPS)
+        self._wait_s = 1.15 / rate
         self._bus = None
         self._lock = threading.Lock()
 
@@ -59,13 +69,13 @@ class Ads1115Device(Device):
         """Single-shot read of single-ended AINx. Returns signed counts, or None."""
         if self._bus is None or not 0 <= channel <= 3:
             return None
-        config = self._BASE | ((0b100 | channel) << 12) | ((gain & 0b111) << 9)
+        config = self._base | ((0b100 | channel) << 12) | ((gain & 0b111) << 9)
         with self._lock:
             try:
                 self._bus.write_i2c_block_data(
                     self._addr, self._CONFIG, [(config >> 8) & 0xFF, config & 0xFF]
                 )
-                time.sleep(0.009)              # ~128 SPS conversion
+                time.sleep(self._wait_s)       # one conversion at the configured rate
                 hi, lo = self._bus.read_i2c_block_data(self._addr, self._CONV, 2)
             except OSError as exc:
                 log.warning("device %s: ADS1115 read failed — %s", self.id, exc)

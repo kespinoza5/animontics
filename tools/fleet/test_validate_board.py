@@ -502,3 +502,49 @@ modules:
         config, device_specs=DEVICE_SPECS, effector_specs={}, policy_specs={},
         sensor_specs={}, project_root=root)
     assert any("baud 9600 != the contract's transport.baud 115200" in e for e in errors)
+
+
+# ── range constraints + sensor params valid ───────────────────────────────────
+
+RANGE_EFFECTOR_SPECS = {
+    "fader": {"valid": {"min_duty": {"min": 0, "max": 1}}, "params": ["min_duty"]},
+    "rail": {"valid": {"initial": ["on", "off"]}, "params": ["initial"]},
+}
+RANGE_SENSOR_SPECS = {
+    "thermal": {"valid": {"refresh_hz": [0.5, 1, 2, 4, 8, 16, 32, 64]}},
+    "tendof": {"valid": {"imu_address": [0x6A, 0x6B]}},
+}
+
+
+def _validate_range(**cfg):
+    config = NodeConfig(node_id="n1", node_type="t", **cfg)
+    return validate_board_tiers(
+        config, device_specs={}, effector_specs=RANGE_EFFECTOR_SPECS,
+        policy_specs={}, sensor_specs=RANGE_SENSOR_SPECS)
+
+
+def test_range_constraint():
+    errors, _ = _validate_range(
+        effectors=[{"id": "f", "type": "fader", "params": {"min_duty": 1.5}}])
+    assert any("min_duty 1.5 outside the valid range [0, 1]" in e for e in errors)
+    errors, _ = _validate_range(
+        effectors=[{"id": "f", "type": "fader", "params": {"min_duty": 0.3}}])
+    assert errors == []
+
+
+def test_power_rail_initial_typo_caught():
+    errors, _ = _validate_range(
+        effectors=[{"id": "r", "type": "rail", "params": {"initial": "offf"}}])
+    assert any("initial 'offf' is not a valid value" in e for e in errors)
+
+
+def test_sensor_params_valid():
+    errors, _ = _validate_range(
+        sensors=[{"id": "t", "type": "thermal", "params": {"refresh_hz": 3}}])
+    assert any("refresh_hz 3 is not a valid value" in e for e in errors)
+    errors, _ = _validate_range(
+        sensors=[{"id": "x", "type": "tendof", "params": {"imu_address": 0x6C}}])
+    assert any("imu_address 0x6c is not a valid value" in e for e in errors)
+    errors, _ = _validate_range(
+        sensors=[{"id": "t", "type": "thermal", "params": {"refresh_hz": 8}}])
+    assert errors == []

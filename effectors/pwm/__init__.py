@@ -9,6 +9,7 @@ METADATA = {
     "backends": {"mcu": ["device"]},
     "default_backend": "mcu",
     "mcu_command": "set_duty",
+    "valid": {"min_duty": {"min": 0, "max": 1}},
     "params": ["min_duty"],
 }
 

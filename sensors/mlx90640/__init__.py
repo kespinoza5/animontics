@@ -6,6 +6,8 @@ except ImportError:
 #: Hardware constraints and defaults for the fleet tool.
 #: Connection details (actual bus/address used) live in the board's config.yaml.
 METADATA = {
+    # params: refresh_hz — the chip's eight refresh rates; checked at deploy.
+    "valid": {"refresh_hz": [0.5, 1, 2, 4, 8, 16, 32, 64]},
     "type": "mlx90640",
     "name": "Melexis MLX90640 32×24 Thermal Array",
     "description": "Far-infrared thermal camera, 32×24 pixels, −40 to +300 °C.",
