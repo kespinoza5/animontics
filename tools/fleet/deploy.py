@@ -208,7 +208,10 @@ def deploy(
     try:
         _ensure_remote_dir(host, user, deploy_path)
 
-        for subdir in ("core", "node"):
+        # core + node + the three non-sensor plugin trees. node/app.py imports
+        # devices/effectors/policies unconditionally, so they must ship with it
+        # (sensors stay selective — only the packages the node actually runs).
+        for subdir in ("core", "node", "devices", "effectors", "policies"):
             log(f"  → {subdir}/")
             rsync_to(project_root / subdir, host, user, f"{deploy_path}/{subdir}/", delete=True)
 
@@ -321,7 +324,11 @@ def _remote_packages(host: str, user: str, deploy_path: str) -> set[str]:
 
 
 def _ensure_remote_dir(host: str, user: str, path: str) -> None:
-    run_remote(host, user, f"mkdir -p {path}/sensors {path}/config {path}/core {path}/node")
+    subdirs = " ".join(
+        f"{path}/{d}" for d in
+        ("sensors", "config", "core", "node", "devices", "effectors", "policies")
+    )
+    run_remote(host, user, f"mkdir -p {subdirs}")
 
 
 def _validate_against_metadata(config: NodeConfig, metadata: dict[str, dict]) -> list[str]:
