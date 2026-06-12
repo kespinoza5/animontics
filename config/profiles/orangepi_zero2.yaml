@@ -1,0 +1,32 @@
+# Orange Pi Zero 2 (Allwinner H616) — SBC pin-capability profile.
+#
+# Line offsets follow the Allwinner formula: line = bank_index × 32 + pin,
+# banks A=0 … C=2 … H=7, I=8 (so PI6 = 8×32+6 = 262). The table below is
+# PARTIAL (complete: false) — it covers the lines the fleet actually wires.
+# VERIFY each entry on a live board with `gpioinfo gpiochip0` before first
+# power-up; Armbian H616 builds have been seen exposing more than one chip.
+
+node_type: orangepi_zero2
+logic_v: 3.3
+
+gpio:
+  chip: gpiochip0          # VERIFY: main pinctrl chip name on the deployed image
+  complete: false
+  lines:
+    PI6: 262               # SARA-R5 power line (VERIFY — bank arithmetic, unconfirmed)
+    PI16: 272              # SARA-R5 reset line (VERIFY)
+    PH2: 226               # header I2C3 SCL (VERIFY)
+    PH3: 227               # header I2C3 SDA (VERIFY)
+    PH5: 229               # header UART5 TX (VERIFY)
+    PH4: 228               # header UART5 RX (VERIFY)
+
+# No pwm chips declared: the H616 PWM is not used by this fleet yet, and
+# Armbian exposure varies by image. Add {chips: …} when one is wired.
+
+uart:
+  roles: {tx: PH5, rx: PH4}
+  overlay: ph-uart5 via armbianEnv.txt overlays (NOT config.txt — see TODO on
+    Armbian support in tools/board/)
+i2c:
+  roles: {sda: PH3, scl: PH2}
+  overlay: ph-i2c3 via armbianEnv.txt overlays

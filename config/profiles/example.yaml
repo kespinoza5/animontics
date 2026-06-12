@@ -1,0 +1,32 @@
+# config/profiles/example.yaml — SBC pin-capability profile template.
+#
+# Copy to config/profiles/<node_type>.yaml (the node_type in the node/board
+# configs). Tracked in git: this describes the board MODEL, not your fleet.
+
+node_type: example_board
+logic_v: 3.3
+
+gpio:
+  chip: gpiochip0          # the gpiochip libgpiod line specs must name
+  complete: true           # true = `lines` is exhaustive (unknown offset ⇒ error);
+                           # false = partial table (unknown offset ⇒ warning)
+  lines:                   # header pin name → kernel line offset (verify: gpioinfo)
+    GPIO17: 17
+    GPIO27: 27
+
+pwm:
+  chips:                   # /sys/class/pwm/pwmchip<N> the model can expose
+    0:
+      pins: [GPIO12, GPIO13]
+      overlay: pwm-2chan   # device-tree overlay that activates it (warning text)
+
+# Bus protocols are role-bound — TX≠RX, BCLK≠DIN:
+i2s:
+  roles: {bclk: GPIO18, lrck: GPIO19, din: GPIO20, dout: GPIO21}
+  overlay: enable via tools/board/setup_i2s.sh
+uart:
+  roles: {tx: GPIO14, rx: GPIO15}
+  overlay: enable_uart (tools/board/setup_uart.sh)
+i2c:
+  roles: {sda: GPIO2, scl: GPIO3}
+  overlay: i2c_arm (tools/board/setup_i2c.sh)

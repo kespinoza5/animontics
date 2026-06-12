@@ -1,0 +1,9 @@
+# NeoCore2 hub — SBC pin-capability profile STUB.
+#
+# Fill in once the hub's SBC model and header map are pinned down: gpio chip
+# name + line offsets (from `gpioinfo`), pwm chips + overlays, bus roles.
+# With no `gpio:`/`pwm:` sections, deploy performs no SBC pin checks for
+# this node_type — it skips, it does not fail.
+
+node_type: neocore2
+logic_v: 3.3

@@ -266,3 +266,102 @@ def test_missing_contract_is_warning_not_error(tmp_path):
         policy_specs=POLICY_SPECS, project_root=root)
     assert errors == []
     assert any("no contract config/mcus/ghostmcu.yaml" in w for w in warnings)
+
+
+# ── SBC pin profile checks ────────────────────────────────────────────────────
+
+SBC_EFFECTOR_SPECS = {
+    "rail": {"backends": {"gpio": ["line"], "mcu": ["device"]},
+             "default_backend": "gpio", "params": ["members", "initial"]},
+    "wiggler": {"backends": {"mcu": ["device"], "sbc_pwm": []},
+                "default_backend": "mcu", "params": []},
+}
+
+
+def _sbc_project(tmp_path, *, complete=True, pwm_chips="0:\n      overlay: pwm-2chan"):
+    profiles = tmp_path / "config" / "profiles"
+    profiles.mkdir(parents=True, exist_ok=True)
+    (profiles / "testboard.yaml").write_text(f"""
+node_type: testboard
+gpio:
+  chip: gpiochip0
+  complete: {str(complete).lower()}
+  lines: {{GPIO17: 17, GPIO27: 27}}
+pwm:
+  chips:
+    {pwm_chips}
+""", encoding="utf-8")
+    return tmp_path
+
+
+def _validate_sbc(tmp_path, *, complete=True, **cfg):
+    config = NodeConfig(node_id="n1", node_type="testboard", **cfg)
+    return validate_board_tiers(
+        config, device_specs=DEVICE_SPECS, effector_specs=SBC_EFFECTOR_SPECS,
+        policy_specs=POLICY_SPECS,
+        project_root=_sbc_project(tmp_path, complete=complete),
+    )
+
+
+def test_sbc_valid_line_and_pwm_pass_with_overlay_warning(tmp_path):
+    errors, warnings = _validate_sbc(tmp_path, effectors=[
+        {"id": "r", "type": "rail",
+         "backend": {"kind": "gpio",
+                     "line": {"backend": "libgpiod", "chip": "gpiochip0", "line": 17}}},
+        {"id": "w", "type": "wiggler", "backend": {"kind": "sbc_pwm", "chip": 0}},
+    ])
+    assert errors == []
+    assert any("requires overlay 'pwm-2chan'" in w for w in warnings)
+
+
+def test_sbc_wrong_chip_is_error(tmp_path):
+    errors, _ = _validate_sbc(tmp_path, effectors=[
+        {"id": "r", "type": "rail",
+         "backend": {"kind": "gpio",
+                     "line": {"backend": "libgpiod", "chip": "gpiochip4", "line": 17}}}])
+    assert any("chip 'gpiochip4'" in e for e in errors)
+
+
+def test_sbc_unknown_line_complete_vs_partial(tmp_path):
+    bad = {"id": "r", "type": "rail",
+           "backend": {"kind": "gpio",
+                       "line": {"backend": "libgpiod", "chip": "gpiochip0", "line": 99}}}
+    errors, warnings = _validate_sbc(tmp_path, complete=True, effectors=[bad])
+    assert any("line 99 is not a known header GPIO" in e for e in errors)
+    errors, warnings = _validate_sbc(tmp_path, complete=False, effectors=[bad])
+    assert errors == []
+    assert any("line 99" in w and "partial table" in w for w in warnings)
+
+
+def test_sbc_device_power_line_checked(tmp_path):
+    errors, _ = _validate_sbc(tmp_path, devices=[
+        {"id": "modem", "kind": "serlink", "port": "/dev/ttyS5",
+         "params": {"power_line": {"backend": "libgpiod",
+                                   "chip": "gpiochip0", "line": 99}}}])
+    assert any("device 'modem' params.power_line: line 99" in e for e in errors)
+
+
+def test_sbc_missing_pwmchip_is_error(tmp_path):
+    errors, _ = _validate_sbc(tmp_path, effectors=[
+        {"id": "w", "type": "wiggler", "backend": {"kind": "sbc_pwm", "chip": 3}}])
+    assert any("pwmchip3 does not exist" in e for e in errors)
+
+
+def test_sbc_mcu_backend_lines_skipped(tmp_path):
+    # An mcu-driven line spec never touches SBC pins — must not be checked.
+    errors, warnings = _validate_sbc(tmp_path, devices=[
+        {"id": "modem", "kind": "serlink", "port": "/dev/ttyS5",
+         "params": {"power_line": {"backend": "mcu", "device": "x", "channel": 0}}}])
+    assert errors == []
+    # (an unknown-param warning is fine; no header-GPIO complaint may appear)
+    assert not any("header GPIO" in w for w in warnings)
+
+
+def test_sbc_no_profile_skips(tmp_path):
+    (tmp_path / "config" / "profiles").mkdir(parents=True)   # empty dir, no file
+    config = NodeConfig(node_id="n1", node_type="mystery_sbc", effectors=[
+        {"id": "w", "type": "wiggler", "backend": {"kind": "sbc_pwm", "chip": 9}}])
+    errors, warnings = validate_board_tiers(
+        config, device_specs=DEVICE_SPECS, effector_specs=SBC_EFFECTOR_SPECS,
+        policy_specs=POLICY_SPECS, project_root=tmp_path)
+    assert errors == [] and warnings == []

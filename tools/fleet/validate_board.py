@@ -16,12 +16,43 @@ print but do not block — a SPEC may simply lag a freshly added param.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Iterator
+
+import yaml
 
 from tools.fleet.reconcile import load_tier_metadata
 
 if TYPE_CHECKING:
     from core.models import NodeConfig
+
+
+def load_sbc_profile(node_type: str, project_root: Path) -> dict | None:
+    """The board model's pin-capability profile, or None if not authored.
+
+    config/profiles/<node_type>.yaml — tracked hardware facts (see its README).
+    """
+    path = project_root / "config" / "profiles" / f"{node_type}.yaml"
+    if not path.exists():
+        return None
+    return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+
+
+def _gpio_line_specs(config: "NodeConfig") -> Iterator[tuple[str, dict]]:
+    """Every libgpiod output-line spec a board config can carry, with its owner."""
+    for dc in config.devices:
+        for key in ("power_line", "reset_line"):
+            spec = dc.params.get(key)
+            if isinstance(spec, dict):
+                yield f"device '{dc.id}' params.{key}", spec
+    for ec in config.effectors:
+        if not ec.enabled:
+            continue
+        spec = (ec.backend or {}).get("line")
+        if isinstance(spec, dict):
+            yield f"effector '{ec.id}' backend.line", spec
+        spec = ec.params.get("sd_line")
+        if isinstance(spec, dict):
+            yield f"effector '{ec.id}' params.sd_line", spec
 
 
 def _mcu_command_slots(
@@ -205,6 +236,58 @@ def validate_board_tiers(
                     warnings.append(
                         f"policy '{pc.id}' ({pc.type}): unknown param '{key}' "
                         f"(known: {known_params})"
+                    )
+
+    # ── SBC pin checks against the node_type's profile ────────────────────────
+    # Silicon facts (wrong chip, unknown header line) are errors; activation
+    # facts (an overlay must be enabled) are warnings — offline checks can't
+    # see live device-tree state. No profile authored → skip entirely.
+    profile = (load_sbc_profile(config.node_type, project_root)
+               if project_root is not None else None)
+    if profile:
+        gpio = profile.get("gpio") or {}
+        chip = gpio.get("chip")
+        known_lines = gpio.get("lines") or {}
+        complete = bool(gpio.get("complete", False))
+        for owner, spec in _gpio_line_specs(config):
+            if spec.get("backend") != "libgpiod":
+                continue  # mcu/null backends don't touch SBC pins
+            if chip and spec.get("chip") != chip:
+                errors.append(
+                    f"{owner}: chip '{spec.get('chip')}' — the "
+                    f"{config.node_type} profile puts header GPIOs on '{chip}'"
+                )
+            offset = spec.get("line")
+            if offset is not None and known_lines and offset not in known_lines.values():
+                msg = (
+                    f"{owner}: line {offset} is not a known header GPIO on "
+                    f"{config.node_type} (profile lines: {known_lines})"
+                )
+                (errors if complete else warnings).append(
+                    msg if complete else msg + " — partial table, verify with gpioinfo"
+                )
+
+        pwm_chips = {int(k): (v or {}) for k, v in
+                     ((profile.get("pwm") or {}).get("chips") or {}).items()}
+        for ec in config.effectors:
+            if not ec.enabled:
+                continue
+            backend = ec.backend or {}
+            if backend.get("kind") != "sbc_pwm":
+                continue
+            n = int(backend.get("chip", 0))
+            if n not in pwm_chips:
+                errors.append(
+                    f"effector '{ec.id}' ({ec.type}): pwmchip{n} does not exist "
+                    f"on {config.node_type} (profile chips: {sorted(pwm_chips)})"
+                )
+            else:
+                overlay = pwm_chips[n].get("overlay")
+                if overlay:
+                    warnings.append(
+                        f"effector '{ec.id}' ({ec.type}): pwmchip{n} requires "
+                        f"overlay '{overlay}' — offline check can't confirm it "
+                        f"is enabled on the board"
                     )
 
     # ── Sensors' device references (device-fed array sensors) ────────────────
