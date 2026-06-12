@@ -41,3 +41,49 @@ def test_msynth_encoding_integer_divider():
     assert p1 == 128 * 64 - 512
     assert regs[6] == 0 and regs[7] == 0          # p2 = 0
     assert regs[1] == 1                           # p3 low byte = 1
+
+
+# ── plan_outputs (PLL assignment across CLK0–CLK2) ────────────────────────────
+
+def test_single_output_uses_plla():
+    from devices.si5351.device import plan_outputs
+    plls, assign = plan_outputs({0: 12_288_000})
+    assert set(plls) == {"A"}
+    pll, div = assign[0]
+    assert pll == "A" and div % 2 == 0
+
+
+def test_shared_frequency_shares_one_pll():
+    from devices.si5351.device import plan_outputs
+    plls, assign = plan_outputs({0: 12_288_000, 2: 12_288_000})
+    assert set(plls) == {"A"}
+    assert assign[0] == assign[2]
+
+
+def test_two_distinct_frequencies_use_both_plls():
+    from devices.si5351.device import plan_outputs
+    plls, assign = plan_outputs({0: 12_288_000, 1: 11_289_600, 2: 12_288_000})
+    assert set(plls) == {"A", "B"}
+    assert assign[0] == assign[2]                  # shared freq → shared PLL
+    assert assign[1][0] != assign[0][0]            # distinct freq → the other PLL
+
+
+def test_three_distinct_frequencies_rejected():
+    import pytest
+    from devices.si5351.device import plan_outputs
+    with pytest.raises(ValueError, match="two PLLs"):
+        plan_outputs({0: 12_288_000, 1: 11_289_600, 2: 24_576_000})
+
+
+def test_bad_output_index_rejected():
+    import pytest
+    from devices.si5351.device import plan_outputs
+    with pytest.raises(ValueError, match="outputs 0-2"):
+        plan_outputs({3: 12_288_000})
+
+
+def test_no_outputs_rejected():
+    import pytest
+    from devices.si5351.device import plan_outputs
+    with pytest.raises(ValueError, match="no outputs"):
+        plan_outputs({})

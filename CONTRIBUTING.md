@@ -363,12 +363,23 @@ at a missing effector) fails on the dev machine instead of at runtime on the
 board. Fields by tier (all optional; `type` + `description` always):
 
 - **devices**: `required` / `optional` (DeviceConfig fields), `params` (known
-  `params:` keys — unknown keys warn)
+  `params:` keys — unknown keys warn), `valid` ({key: [allowed values]} — e.g.
+  the ads1115's four ADDR strap addresses; violations are errors), `bus`
+  ({kind, roles?} — the transport class this kind occupies: a uart modem needs
+  tx+rx; checked against the node_type's `config/profiles/` role tables)
 - **effectors**: `backends` ({kind: [required backend keys]}),
-  `default_backend`, `params`, `mcu_command` (the firmware command this type
-  sends — set_duty/set_us/set_gpio; lets deploy cross-check channel indices
-  against the device's contract)
-- **policies**: `needs_effector`, `needs_observation`, `params`
+  `default_backend`, `params`, `valid`, `bus` (e.g. the speaker's playback-only
+  `{kind: i2s, roles: [bclk, lrck, dout]}` — role subsets matter),
+  `mcu_command` (the firmware command this type sends —
+  set_duty/set_us/set_gpio; lets deploy cross-check channel indices against
+  the device's contract)
+- **policies**: `needs_effector`, `needs_observation`, `params`, `valid`
+
+Sensors may also declare `bus` (audio_in's capture-side
+`{kind: i2s, roles: [bclk, lrck, din]}`); a sensor without it falls back to
+its `connection.type` for the bus check (a uart sensor needs the header UART).
+A device whose id has an MCU contract additionally gets its `baud` checked
+against the contract's `transport.baud` — the two ends of the link must agree.
 
 `animon types` lists every tier from METADATA. A new type without it still
 works (only its existence is checked), but add it: it is the difference between

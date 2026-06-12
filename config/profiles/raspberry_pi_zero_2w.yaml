@@ -20,11 +20,11 @@ pwm:
   chips:
     0:
       pins: [GPIO12, GPIO13, GPIO18, GPIO19]   # PWM0 on 12/18, PWM1 on 13/19
-      overlay: pwm-2chan (GPIO12=PWM0 + GPIO13=PWM1 — the auditory ear servos)
+      overlay: pwm-2chan (GPIO12=PWM0, GPIO13=PWM1)
 
 i2s:
   roles: {bclk: GPIO18, lrck: GPIO19, din: GPIO20, dout: GPIO21}
-  overlay: enable via tools/board/setup_i2s.sh (PCM1808 master / Pi slave plan)
+  overlay: enable via tools/board/setup_i2s.sh
 uart:
   roles: {tx: GPIO14, rx: GPIO15}
   overlay: enable_uart (tools/board/setup_uart.sh strips the console)

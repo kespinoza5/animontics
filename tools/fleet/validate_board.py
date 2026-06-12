@@ -37,6 +37,63 @@ def load_sbc_profile(node_type: str, project_root: Path) -> dict | None:
     return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
 
 
+def _check_valid(owner: str, spec: dict, value_of) -> list[str]:
+    """Value constraints: METADATA `valid: {key: [allowed…]}` vs declared values.
+
+    `value_of(key)` resolves a key to the entry's declared value (a config
+    field or a params key) or None when unset — unset never errors; defaults
+    are the plugin's business.
+    """
+    errs: list[str] = []
+    for key, allowed in (spec.get("valid") or {}).items():
+        value = value_of(key)
+        if value is None or value in allowed:
+            continue
+        if key == "address" and isinstance(value, int):
+            shown, opts = hex(value), [hex(v) for v in allowed]
+        else:
+            shown, opts = repr(value), allowed
+        errs.append(f"{owner}: {key} {shown} is not a valid value (valid: {opts})")
+    return errs
+
+
+#: Roles a bus kind needs when METADATA doesn't narrow them (i2s MUST narrow —
+#: speaker is playback-only, a capture sensor is din-only).
+_DEFAULT_BUS_ROLES = {"uart": ["tx", "rx"], "i2c": ["scl", "sda"],
+                      "spi": ["sck", "mosi", "miso"]}
+
+
+def _bus_requirements(
+    config: "NodeConfig",
+    device_specs: dict, effector_specs: dict, sensor_specs: dict,
+) -> Iterator[tuple[str, str, list[str]]]:
+    """(owner, bus kind, required roles) for every entity that needs a bus.
+
+    Declared explicitly via METADATA `bus: {kind, roles?}`; sensors without it
+    fall back to their connection.type (a uart sensor needs the header UART).
+    usb_cdc/ir need no SBC header pins and are skipped.
+    """
+    tiers = (
+        ("device", config.devices, device_specs, "kind"),
+        ("effector", [e for e in config.effectors if e.enabled], effector_specs, "type"),
+        ("sensor", [s for s in config.sensors if s.enabled], sensor_specs, "type"),
+    )
+    for tier, entries, specs, key_attr in tiers:
+        for entry in entries:
+            spec = specs.get(getattr(entry, key_attr)) or {}
+            bus = spec.get("bus") or {}
+            kind = bus.get("kind")
+            roles = bus.get("roles")
+            if kind is None and tier == "sensor":
+                conn = getattr(entry, "connection", None)
+                if conn is not None and conn.type in ("uart", "i2c"):
+                    kind = conn.type
+            if kind in (None, "usb_cdc", "ir", "none"):
+                continue
+            yield (f"{tier} '{entry.id}'", kind,
+                   roles if roles is not None else _DEFAULT_BUS_ROLES.get(kind, []))
+
+
 def _gpio_line_specs(config: "NodeConfig") -> Iterator[tuple[str, dict]]:
     """Every libgpiod output-line spec a board config can carry, with its owner."""
     for dc in config.devices:
@@ -85,6 +142,7 @@ def validate_board_tiers(
     device_specs: dict[str, dict] | None = None,
     effector_specs: dict[str, dict] | None = None,
     policy_specs: dict[str, dict] | None = None,
+    sensor_specs: dict[str, dict] | None = None,
     project_root: Path | None = None,
 ) -> tuple[list[str], list[str]]:
     """Validate the devices/effectors/policies tiers of a board config.
@@ -97,6 +155,7 @@ def validate_board_tiers(
     device_specs = device_specs if device_specs is not None else load_tier_metadata("devices")
     effector_specs = effector_specs if effector_specs is not None else load_tier_metadata("effectors")
     policy_specs = policy_specs if policy_specs is not None else load_tier_metadata("policies")
+    sensor_specs = sensor_specs if sensor_specs is not None else load_tier_metadata("sensors")
 
     errors: list[str] = []
     warnings: list[str] = []
@@ -133,6 +192,11 @@ def validate_board_tiers(
                         f"device '{dc.id}' ({dc.kind}): unknown param '{key}' "
                         f"(known: {known_params})"
                     )
+        errors += _check_valid(
+            f"device '{dc.id}' ({dc.kind})", spec,
+            lambda key, dc=dc: getattr(dc, key, None) if getattr(dc, key, None) is not None
+            else dc.params.get(key),
+        )
 
     # ── Effectors ─────────────────────────────────────────────────────────────
     for ec in config.effectors:
@@ -203,6 +267,7 @@ def validate_board_tiers(
                         f"effector '{ec.id}' ({ec.type}): unknown param '{key}' "
                         f"(known: {known_params})"
                     )
+        errors += _check_valid(f"effector '{ec.id}' ({ec.type})", spec, ec.params.get)
 
     # ── Policies ──────────────────────────────────────────────────────────────
     for pc in config.policies:
@@ -237,6 +302,7 @@ def validate_board_tiers(
                         f"policy '{pc.id}' ({pc.type}): unknown param '{key}' "
                         f"(known: {known_params})"
                     )
+        errors += _check_valid(f"policy '{pc.id}' ({pc.type})", spec, pc.params.get)
 
     # ── SBC pin checks against the node_type's profile ────────────────────────
     # Silicon facts (wrong chip, unknown header line) are errors; activation
@@ -289,6 +355,60 @@ def validate_board_tiers(
                         f"overlay '{overlay}' — offline check can't confirm it "
                         f"is enabled on the board"
                     )
+
+    # ── Bus requirements vs the SBC profile's role tables ─────────────────────
+    # METADATA `bus: {kind, roles?}` (a uart modem needs tx+rx; the speaker
+    # needs only bclk/lrck/dout — playback, no capture line). A role missing
+    # from a declared bus section is silicon = error; a board whose profile
+    # doesn't declare the bus at all gets one warning per kind.
+    if profile:
+        undeclared: set[str] = set()
+        overlay_warned: set[str] = set()
+        for owner, kind, roles in _bus_requirements(
+                config, device_specs, effector_specs, sensor_specs):
+            section = profile.get(kind)
+            if not isinstance(section, dict):
+                if kind not in undeclared:
+                    warnings.append(
+                        f"{config.node_type} profile declares no '{kind}' bus "
+                        f"(needed by {owner}) — add roles to "
+                        f"config/profiles/{config.node_type}.yaml"
+                    )
+                    undeclared.add(kind)
+                continue
+            have = section.get("roles") or {}
+            missing = [r for r in roles if r not in have]
+            if missing:
+                errors.append(
+                    f"{owner}: {kind} role(s) {missing} not available on "
+                    f"{config.node_type} (profile roles: {sorted(have)})"
+                )
+            overlay = section.get("overlay")
+            if overlay and kind not in overlay_warned:
+                warnings.append(
+                    f"{kind} bus (needed by {owner}) requires overlay/setup "
+                    f"'{overlay}' — offline check can't confirm it is enabled"
+                )
+                overlay_warned.add(kind)
+
+    # ── Device baud vs the MCU contract's transport ───────────────────────────
+    # (the one value constraint that's per-instance, not per-kind: the link
+    # speed is authored in config/mcus/<id>.yaml and must match the board side)
+    if project_root is not None:
+        from tools.forge.contract import load_contract
+        for dc in config.devices:
+            if dc.baud is None:
+                continue
+            try:
+                target = load_contract(dc.id, project_root)
+            except Exception:
+                continue  # no contract for this device — nothing to compare
+            if target.transport.baud is not None and target.transport.baud != dc.baud:
+                errors.append(
+                    f"device '{dc.id}': baud {dc.baud} != the contract's "
+                    f"transport.baud {target.transport.baud} "
+                    f"(config/mcus/{dc.id}.yaml) — the two ends must agree"
+                )
 
     # ── Sensors' device references (device-fed array sensors) ────────────────
     for sc in config.sensors:

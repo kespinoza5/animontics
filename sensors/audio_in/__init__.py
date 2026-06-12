@@ -16,6 +16,8 @@ METADATA = {
         "defaults": {},
         "valid": {},
     },
+    # Capture only: needs the I2S clocks + the Pi's data-IN line, not data-out.
+    "bus": {"kind": "i2s", "roles": ["bclk", "lrck", "din"]},
     "data_keys": {
         "frame_id": "int — id of the newest binary frame at summary time",
         "rate": "int — sample rate in Hz",

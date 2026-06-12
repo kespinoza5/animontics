@@ -6,8 +6,10 @@ except ImportError:
 METADATA = {
     "type": "sara_r5",
     "description": "u-blox SARA-R5 modem — NMEA push + AT poll over one UART.",
+    "bus": {"kind": "uart"},
     "required": ["port"],
     "optional": ["baud"],
+    "valid": {"baud": [115200]},   # the rate the driver's AT init assumes
     "params": ["init", "power_on_delay_s", "reset_settle_s",
                "power_line", "reset_line"],
 }

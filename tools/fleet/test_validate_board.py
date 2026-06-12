@@ -365,3 +365,140 @@ def test_sbc_no_profile_skips(tmp_path):
         config, device_specs=DEVICE_SPECS, effector_specs=SBC_EFFECTOR_SPECS,
         policy_specs=POLICY_SPECS, project_root=tmp_path)
     assert errors == [] and warnings == []
+
+
+# ── METADATA valid: value constraints ─────────────────────────────────────────
+
+VALID_DEVICE_SPECS = {
+    "adc4": {"optional": ["bus", "address"],
+             "valid": {"address": [0x48, 0x49, 0x4A, 0x4B]}, "params": ["gain"]},
+    "modem": {"required": ["port"], "optional": ["baud"],
+              "valid": {"baud": [115200]}, "params": []},
+}
+VALID_EFFECTOR_SPECS = {
+    "noise": {"valid": {"channels": [1, 2]}, "params": ["channels"]},
+}
+
+
+def _validate_valid(**cfg):
+    config = NodeConfig(node_id="n1", node_type="t", **cfg)
+    return validate_board_tiers(
+        config, device_specs=VALID_DEVICE_SPECS,
+        effector_specs=VALID_EFFECTOR_SPECS, policy_specs={}, sensor_specs={})
+
+
+def test_valid_address_constraint():
+    errors, _ = _validate_valid(devices=[{"id": "a", "kind": "adc4", "address": 0x50}])
+    assert any("address 0x50 is not a valid value" in e and "0x48" in e for e in errors)
+    errors, _ = _validate_valid(devices=[{"id": "a", "kind": "adc4", "address": 0x4B}])
+    assert errors == []
+
+
+def test_valid_unset_value_is_fine():
+    errors, _ = _validate_valid(devices=[{"id": "a", "kind": "adc4"}])
+    assert errors == []                     # defaults are the plugin's business
+
+
+def test_valid_baud_constraint():
+    errors, _ = _validate_valid(
+        devices=[{"id": "m", "kind": "modem", "port": "/dev/ttyS5", "baud": 9600}])
+    assert any("baud 9600 is not a valid value" in e for e in errors)
+
+
+def test_valid_effector_param():
+    errors, _ = _validate_valid(
+        effectors=[{"id": "s", "type": "noise", "params": {"channels": 4}}])
+    assert any("channels 4 is not a valid value" in e for e in errors)
+
+
+# ── bus requirements vs SBC profile role tables ───────────────────────────────
+
+BUS_DEVICE_SPECS = {
+    "modem": {"required": ["port"], "bus": {"kind": "uart"}, "params": []},
+    "adc4": {"bus": {"kind": "i2c"}, "params": []},
+}
+BUS_EFFECTOR_SPECS = {
+    "talker": {"bus": {"kind": "i2s", "roles": ["bclk", "lrck", "dout"]}, "params": []},
+}
+BUS_SENSOR_SPECS = {
+    "listener": {"bus": {"kind": "i2s", "roles": ["bclk", "lrck", "din"]}},
+    "ranger": {},                            # falls back to connection.type
+}
+
+
+def _bus_project(tmp_path, profile_yaml):
+    profiles = tmp_path / "config" / "profiles"
+    profiles.mkdir(parents=True, exist_ok=True)
+    (profiles / "busboard.yaml").write_text(profile_yaml, encoding="utf-8")
+    return tmp_path
+
+
+FULL_PROFILE = """
+node_type: busboard
+uart: {roles: {tx: GPIO14, rx: GPIO15}, overlay: enable_uart}
+i2c: {roles: {sda: GPIO2, scl: GPIO3}}
+i2s: {roles: {bclk: GPIO18, lrck: GPIO19, dout: GPIO21}}   # capture line not wired
+"""
+
+
+def _validate_bus(tmp_path, profile_yaml=FULL_PROFILE, **cfg):
+    config = NodeConfig(node_id="n1", node_type="busboard", **cfg)
+    return validate_board_tiers(
+        config, device_specs=BUS_DEVICE_SPECS, effector_specs=BUS_EFFECTOR_SPECS,
+        policy_specs={}, sensor_specs=BUS_SENSOR_SPECS,
+        project_root=_bus_project(tmp_path, profile_yaml))
+
+
+def test_bus_roles_satisfied_with_overlay_warning(tmp_path):
+    errors, warnings = _validate_bus(
+        tmp_path,
+        devices=[{"id": "m", "kind": "modem", "port": "/dev/ttyS0"}],
+        effectors=[{"id": "amp", "type": "talker"}])
+    assert errors == []                      # i2s dout present; uart tx/rx present
+    assert any("requires overlay/setup 'enable_uart'" in w for w in warnings)
+
+
+def test_bus_missing_role_is_error(tmp_path):
+    # The capture sensor needs din — this profile's i2s has no din role.
+    errors, _ = _validate_bus(
+        tmp_path, sensors=[{"id": "mic", "type": "listener"}])
+    assert any("i2s role(s) ['din'] not available" in e for e in errors)
+
+
+def test_bus_undeclared_kind_warns_once(tmp_path):
+    profile = "node_type: busboard\n"        # declares no buses at all
+    errors, warnings = _validate_bus(
+        tmp_path, profile_yaml=profile,
+        devices=[{"id": "a1", "kind": "adc4"}, {"id": "a2", "kind": "adc4"}])
+    assert errors == []
+    assert sum("declares no 'i2c' bus" in w for w in warnings) == 1   # deduped
+
+
+def test_sensor_connection_type_implies_bus(tmp_path):
+    errors, warnings = _validate_bus(
+        tmp_path, profile_yaml="node_type: busboard\n",
+        sensors=[{"id": "r", "type": "ranger",
+                  "connection": {"type": "uart", "port": "/dev/ttyS0"}}])
+    assert any("declares no 'uart' bus" in w for w in warnings)
+
+
+# ── device baud vs contract transport.baud ────────────────────────────────────
+
+def test_device_baud_must_match_contract(tmp_path):
+    root = _mcu_project(tmp_path)
+    (root / "config" / "mcus" / "mcu0.yaml").write_text("""
+id: mcu0
+target: mcu.circuit_python
+board: xiao_rp2040
+transport: {type: serial, baud: 115200}
+modules:
+  - {module: pwm_out, pins: [D1, D2]}
+  - {module: transport_serial}
+""", encoding="utf-8")
+    config = NodeConfig(
+        node_id="n1", node_type="t",
+        devices=[{"id": "mcu0", "kind": "serlink", "port": "/dev/x", "baud": 9600}])
+    errors, _ = validate_board_tiers(
+        config, device_specs=DEVICE_SPECS, effector_specs={}, policy_specs={},
+        sensor_specs={}, project_root=root)
+    assert any("baud 9600 != the contract's transport.baud 115200" in e for e in errors)
