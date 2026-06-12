@@ -19,7 +19,9 @@ gpio:
 pwm:
   chips:
     0:
-      pins: [GPIO12, GPIO13, GPIO18, GPIO19]   # PWM0 on 12/18, PWM1 on 13/19
+      # Channel order — index 0 = PWM0, index 1 = PWM1. (GPIO18/19 are
+      # alternative muxes of the SAME two channels, not channels 2/3.)
+      pins: [GPIO12, GPIO13]
       overlay: pwm-2chan (GPIO12=PWM0, GPIO13=PWM1)
 
 i2s:

@@ -363,6 +363,18 @@ def validate_board_tiers(
                     f"on {config.node_type} (profile chips: {sorted(pwm_chips)})"
                 )
             else:
+                # Channel index = PWM line on the chip; the profile's pin list
+                # is the chip's channels in order, so it bounds the index space
+                # (the SBC twin of the effector→MCU-contract channel check).
+                chip_pins = pwm_chips[n].get("pins") or []
+                if chip_pins:
+                    for idx in sorted(c.index for c in ec.channels
+                                      if c.index >= len(chip_pins)):
+                        errors.append(
+                            f"effector '{ec.id}' ({ec.type}): channel index {idx} "
+                            f"out of range — pwmchip{n} on {config.node_type} has "
+                            f"{len(chip_pins)} channel(s) ({chip_pins})"
+                        )
                 overlay = pwm_chips[n].get("overlay")
                 if overlay:
                     warnings.append(

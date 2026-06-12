@@ -548,3 +548,18 @@ def test_sensor_params_valid():
     errors, _ = _validate_range(
         sensors=[{"id": "t", "type": "thermal", "params": {"refresh_hz": 8}}])
     assert errors == []
+
+
+def test_sbc_pwm_channel_index_bounded_by_chip(tmp_path):
+    """pwmchip channel space = the profile's pin list — index 2 on a
+    two-channel chip is the SBC twin of the MCU channel range check."""
+    root = _sbc_project(tmp_path,
+                        pwm_chips="0:\n      pins: [GPIO12, GPIO13]\n      overlay: pwm-2chan")
+    config = NodeConfig(node_id="n1", node_type="testboard", effectors=[
+        {"id": "w", "type": "wiggler", "backend": {"kind": "sbc_pwm", "chip": 0},
+         "channels": [{"name": "a", "index": 0}, {"name": "b", "index": 2}]}])
+    errors, _ = validate_board_tiers(
+        config, device_specs=DEVICE_SPECS, effector_specs=SBC_EFFECTOR_SPECS,
+        policy_specs={}, sensor_specs={}, project_root=root)
+    assert any("channel index 2 out of range" in e and "2 channel(s)" in e
+               for e in errors)
