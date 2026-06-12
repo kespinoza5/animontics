@@ -2,6 +2,8 @@ module: gpio_out
 platforms: [circuit_python]
 role: actuator
 description: Digital output pins (digitalio), driven by inbound set_gpio commands.
+claims:
+  pins: gpio
 accepts:
   set_gpio: {channel: int, value: int}   # 0|1; channel = position in pin order
 config:

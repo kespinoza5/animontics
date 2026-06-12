@@ -3,7 +3,7 @@ platforms: [arduino]
 role: sensor
 description: Sample one or more ADC pins into uplink frame channels.
 claims:
-  kind: adc                 # `pins` must be valid adc pins on the board
+  pins: adc                 # each entry of `pins` must be adc-capable on the board
 provides:
   channels: per_pin         # one frame channel per configured pin (wire order = pin order)
 config:

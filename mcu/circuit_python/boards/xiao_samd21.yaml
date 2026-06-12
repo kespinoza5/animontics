@@ -1,0 +1,27 @@
+# Seeed XIAO SAMD21 — pin capability table for forge validation.
+#
+# All eleven pads (A0/D0 … A10/D10) are analog-capable; A0 is the single
+# 10-bit DAC (the scan_follower ack line). Run validate_pins.py to confirm
+# any VERIFY entry before relying on it at the bench.
+
+board: seeed_xiao_samd21
+logic_v: 3.3
+
+pins:
+  gpio: [A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10,
+         D0, D1, D2, D3, D4, D5, D6, D7, D8, D9, D10]
+  adc:  [A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10,
+         D0, D1, D2, D3, D4, D5, D6, D7, D8, D9, D10]
+  dac:  [A0, D0]                  # one true DAC pad
+  # VERIFY: Seeed lists ~10 PWM channels across the 11 pads — identify the
+  # non-PWM pad(s) with validate_pins.py before trusting an edge entry.
+  pwm:  [A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10,
+         D0, D1, D2, D3, D4, D5, D6, D7, D8, D9, D10]
+  # VERIFY: SAMD21 countio rides the EIC; not every pad has a distinct
+  # EXTINT line. No contract claims countio on this board yet.
+  countio: [A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10]
+  # Bus silk positions:
+  uart: {tx: [D6, A6], rx: [D7, A7]}
+  i2c:  {scl: [D5, A5], sda: [D4, A4]}
+  spi:  {sck: [D8, A8], mosi: [D10, A10], miso: [D9, A9],
+         cs: [D0, D1, D2, D3, D4, D5, D6, D7, D8, D9, D10]}

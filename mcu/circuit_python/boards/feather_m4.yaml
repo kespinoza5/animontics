@@ -1,0 +1,24 @@
+# Adafruit Feather M4 Express (SAMD51J19) — pin capability table for forge.
+#
+# The lattice conductor lives here: matrix_scan needs gpio (mux selects),
+# one dac (row-code broadcast, A0) and adc ack inputs (A1–A3); analog_in
+# samples A4/A5. A0 and A1 are the two true DACs.
+
+board: adafruit_feather_m4_express
+logic_v: 3.3
+
+pins:
+  gpio: [A0, A1, A2, A3, A4, A5,
+         D0, D1, D4, D5, D6, D9, D10, D11, D12, D13,
+         SDA, SCL, SCK, MOSI, MISO, RX, TX]
+  adc:  [A0, A1, A2, A3, A4, A5]
+  dac:  [A0, A1]
+  # VERIFY: SAMD51 TCC coverage is broad — Adafruit lists PWM on all D pins
+  # and A2/A3; confirm edge pins with validate_pins.py before claiming them.
+  pwm:  [A2, A3, D0, D1, D4, D5, D6, D9, D10, D11, D12, D13, SDA, SCL]
+  # VERIFY: EIC coverage untested; no contract claims countio here yet.
+  countio: [A0, A1, A2, A3, A4, A5, D4, D5, D6, D9, D10, D11, D12, D13]
+  uart: {tx: [TX, D1], rx: [RX, D0]}
+  i2c:  {scl: [SCL], sda: [SDA]}
+  spi:  {sck: [SCK], mosi: [MOSI], miso: [MISO],
+         cs: [A0, A1, A2, A3, A4, A5, D4, D5, D6, D9, D10, D11, D12, D13]}

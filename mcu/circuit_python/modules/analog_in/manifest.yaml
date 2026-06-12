@@ -2,6 +2,8 @@ module: analog_in
 platforms: [circuit_python]
 role: sensor
 description: Sample the board's own ADC pins (analogio) into uplink frame channels.
+claims:
+  pins: adc
 provides:
   channels: per_pin             # one frame channel per configured pin (wire order = pin order)
 config:

@@ -2,6 +2,8 @@ module: pwm_out
 platforms: [circuit_python]
 role: actuator
 description: Hardware PWM outputs (e.g. 4-pin fan PWM input) via CircuitPython pwmio.
+claims:
+  pins: pwm                 # each pin must be pwm-capable on the board
 accepts:
   set_duty: {channel: int, duty: int}   # duty 0..255 → pwmio 0..65535
 config:

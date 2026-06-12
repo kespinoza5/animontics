@@ -2,6 +2,8 @@ module: tach
 platforms: [circuit_python]
 role: sensor
 description: Count fan FG (tach) pulses per pin and stream RPM as frame channels.
+claims:
+  pins: countio             # RP2040: countio = PWM B channel = odd GP numbers only
 provides:
   channels: per_pin           # one RPM channel per FG pin (signed int16)
 config:

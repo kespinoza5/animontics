@@ -105,10 +105,25 @@ def load_contract(mcu_id: str, project_root: Path) -> McuTarget:
 
 
 def load_platform(target: McuTarget, project_root: Path) -> dict[str, Any]:
+    """Family platform.yaml, with per-board files merged over the inline map.
+
+    `mcu/<family>/boards/<profile>.yaml` (one small file per board profile)
+    holds what would bloat platform.yaml: the pin-capability tables, logic
+    voltage, and the runtime board name. A board file's keys take precedence
+    over the same profile's inline `boards:` entry.
+    """
     path = source_root(target, project_root) / "platform.yaml"
     if not path.exists():
         raise ContractError(f"no platform.yaml at {path}")
-    return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    platform = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+
+    boards_dir = source_root(target, project_root) / "boards"
+    if boards_dir.is_dir():
+        boards = platform.setdefault("boards", {})
+        for board_file in sorted(boards_dir.glob("*.yaml")):
+            data = yaml.safe_load(board_file.read_text(encoding="utf-8")) or {}
+            boards[board_file.stem] = {**boards.get(board_file.stem, {}), **data}
+    return platform
 
 
 def load_module_manifests(target: McuTarget, project_root: Path) -> dict[str, dict]:
@@ -164,6 +179,48 @@ def assign_channels(target: McuTarget, manifests: dict[str, dict]) -> list[McuCh
 
 # ── Validation ──────────────────────────────────────────────────────────────
 
+def _resolve_pinset(kind: str, board_def: dict, family_pins: dict) -> list | None:
+    """Pin list for a capability kind: per-board table first, family fallback.
+
+    `kind` may be flat ("pwm") or role-dotted ("spi.mosi", "i2s.bclk") — bus
+    protocols are role-bound (TX≠RX, BCLK≠DIN), so their tables nest one level.
+    Returns None when neither table defines the kind.
+    """
+    for source in (board_def.get("pins") or {}, family_pins):
+        node: Any = source
+        for part in kind.split("."):
+            if isinstance(node, dict) and part in node:
+                node = node[part]
+            else:
+                node = None
+                break
+        if isinstance(node, list):
+            return node
+    return None
+
+
+def _claimed_pins(mod: McuModule, manifest: dict) -> list[tuple[str, str | None]]:
+    """(pin, capability-kind) pairs this module claims.
+
+    The manifest's `claims` maps param names to capability kinds —
+    `{pins: pwm, dac_pin: dac, ack_pins: adc}`. "pins" is the McuModule.pins
+    field; any other param holds one pin name or a list of them. Pins in
+    `mod.pins` without a claim still participate (kind None) so the
+    one-module-per-pin conflict rule covers them.
+    """
+    claims: dict[str, str] = manifest.get("claims") or {}
+    pairs: list[tuple[str, str | None]] = []
+    if mod.pins and "pins" not in claims:
+        pairs += [(p, None) for p in mod.pins]
+    for param, kind in claims.items():
+        value = mod.pins if param == "pins" else mod.params.get(param)
+        if not value:
+            continue
+        for pin in (value if isinstance(value, list) else [value]):
+            pairs.append((str(pin), kind))
+    return pairs
+
+
 def validate(target: McuTarget, platform: dict, manifests: dict[str, dict]) -> list[str]:
     """Static checks. Returns human-readable problems (empty == OK)."""
     errors: list[str] = []
@@ -172,8 +229,9 @@ def validate(target: McuTarget, platform: dict, manifests: dict[str, dict]) -> l
     boards = platform.get("boards", {})
     if target.board not in boards:
         errors.append(f"board '{target.board}' not in platform.yaml ({sorted(boards)})")
+    board_def = boards.get(target.board) or {}
 
-    pinsets = platform.get("pins", {})
+    family_pins = platform.get("pins", {})
     claimed: dict[str, str] = {}     # pin -> module that claimed it
     transports: list[str] = []
 
@@ -187,13 +245,25 @@ def validate(target: McuTarget, platform: dict, manifests: dict[str, dict]) -> l
         if manifest.get("role") == "transport":
             transports.append(mod.module)
 
-        kind = (manifest.get("claims") or {}).get("kind")
-        valid_pins = pinsets.get(kind, []) if kind else []
-        for pin in mod.pins:
-            if kind and pin not in valid_pins:
-                errors.append(f"module '{mod.module}': {pin} is not a valid {kind} pin on '{target.board}'")
+        for pin, kind in _claimed_pins(mod, manifest):
+            if kind is not None:
+                valid = _resolve_pinset(kind, board_def, family_pins)
+                if valid is None:
+                    errors.append(
+                        f"module '{mod.module}': no '{kind}' pin table for board "
+                        f"'{target.board}' (add it to the board file / platform.yaml)"
+                    )
+                elif pin not in valid:
+                    errors.append(
+                        f"module '{mod.module}': {pin} is not a valid {kind} pin "
+                        f"on '{target.board}' (valid: {valid})"
+                    )
             if pin in claimed:
-                errors.append(f"pin {pin} claimed by both '{claimed[pin]}' and '{mod.module}'")
+                who = claimed[pin]
+                errors.append(
+                    f"pin {pin} claimed twice by '{mod.module}'" if who == mod.module
+                    else f"pin {pin} claimed by both '{who}' and '{mod.module}'"
+                )
             else:
                 claimed[pin] = mod.module
 

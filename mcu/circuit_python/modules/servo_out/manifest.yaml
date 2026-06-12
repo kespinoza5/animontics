@@ -2,6 +2,8 @@ module: servo_out
 platforms: [circuit_python]
 role: actuator
 description: Hobby-servo pulse outputs (pwmio @ 50 Hz), driven by inbound set_us commands.
+claims:
+  pins: pwm                 # servo pulse = hardware PWM; pins must be pwm-capable
 accepts:
   set_us: {channel: int, us: int}   # microsecond pulse width; clamped to [min_us, max_us]
 config:

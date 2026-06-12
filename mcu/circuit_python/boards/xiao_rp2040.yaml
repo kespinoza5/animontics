@@ -1,0 +1,25 @@
+# Seeed XIAO RP2040 — pin capability table for forge validation.
+#
+# Silk → RP2040 GPIO: D0/A0=GP26 D1/A1=GP27 D2/A2=GP28 D3/A3=GP29 D4=GP6
+# D5=GP7 D6=GP0 D7=GP1 D8=GP2 D9=GP4 D10=GP3.
+#
+# countio is the trap on RP2040: countio.Counter borrows the PWM peripheral's
+# B channel, which exists only on ODD GP numbers — D8(GP2) and D9(GP4) can
+# NEVER count pulses. Verify any table edit with validate_pins.py.
+
+board: seeed_xiao_rp2040
+logic_v: 3.3
+
+pins:
+  gpio:    [D0, D1, D2, D3, D4, D5, D6, D7, D8, D9, D10, A0, A1, A2, A3]
+  adc:     [A0, A1, A2, A3, D0, D1, D2, D3]      # GP26–GP29 only
+  dac:     []                                     # RP2040 has no DAC
+  pwm:     [D0, D1, D2, D3, D4, D5, D6, D7, D8, D9, D10, A0, A1, A2, A3]
+  countio: [D1, A1, D3, A3, D5, D7, D10]          # odd GPs: 27, 29, 7, 1, 3
+  # Bus silk positions (the chips can remux — extend if a contract needs it):
+  uart:    {tx: [D6], rx: [D7]}
+  i2c:     {scl: [D5], sda: [D4]}
+  spi:     {sck: [D8], mosi: [D10], miso: [D9],
+            cs: [D0, D1, D2, D3, D4, D5, D6, D7, D8, D9, D10]}
+  # i2s: PIO-driven on RP2040 — any pins, but LRCK must be BCLK+1 (GP numbers).
+  # No table until a CP i2s module exists; encode the +1 rule in its claims then.

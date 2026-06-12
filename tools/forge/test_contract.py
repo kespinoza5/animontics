@@ -22,13 +22,13 @@ PLATFORM = {
 }
 MANIFESTS = {
     "analog_in": {"module": "analog_in", "platforms": ["arduino"], "role": "sensor",
-                  "claims": {"kind": "adc"}, "provides": {"channels": "per_pin"}},
+                  "claims": {"pins": "adc"}, "provides": {"channels": "per_pin"}},
     "pwm_out": {"module": "pwm_out", "platforms": ["arduino"], "role": "actuator",
-                "claims": {"kind": "pwm"}},
+                "claims": {"pins": "pwm"}},
     "gpio_out": {"module": "gpio_out", "platforms": ["arduino"], "role": "actuator",
-                 "claims": {"kind": "gpio"}},
+                 "claims": {"pins": "gpio"}},
     "transport_serial": {"module": "transport_serial", "platforms": ["arduino"],
-                         "role": "transport", "claims": {"kind": "uart"}},
+                         "role": "transport", "claims": {"pins": "uart"}},
 }
 
 

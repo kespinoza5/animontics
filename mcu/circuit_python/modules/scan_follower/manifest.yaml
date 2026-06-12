@@ -7,6 +7,9 @@ description: >
   Emits the decoded row index as one frame channel (-1 on watch timeout, so a
   dead conductor is visible, not silent). List this module FIRST so the row
   tag is channel 0.
+claims:
+  watch_pin: adc            # reads the conductor's DAC broadcast
+  ack_pin: dac              # this follower's ack DAC
 provides:
   channels: 1                   # the decoded row index (or -1 sentinel)
 config:

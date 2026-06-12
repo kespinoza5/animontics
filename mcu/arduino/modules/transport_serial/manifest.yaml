@@ -3,5 +3,5 @@ platforms: [arduino]
 role: transport
 description: Frame the sample vector onto the USB/UART uplink (protocol v1).
 claims:
-  kind: uart                # the hardware UART / USB-CDC link (D0/D1)
+  pins: uart                # the hardware UART / USB-CDC link (D0/D1)
 sources: [transport_serial.h, transport_serial.cpp]

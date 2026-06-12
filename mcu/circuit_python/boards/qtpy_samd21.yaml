@@ -1,0 +1,30 @@
+# Adafruit QT Py SAMD21 — pin capability table for forge validation.
+#
+# Pads: A0–A3 on one edge; SDA/SCL, TX, RX, SCK, MISO, MOSI on the other.
+# CircuitPython aliases the bus pads as A4–A10 in silk order
+# (A4=SDA, A5=SCL, A6=TX, A7=RX, A8=SCK, A9=MISO, A10=MOSI) — VERIFY the
+# A4/A5 aliases exist in board.* with validate_pins.py.
+#
+# This board hosts the cervical servos (contract pins A4/A5/A6) — the pwm
+# rows below are the answer to that contract's "VERIFY PWM-capable" note,
+# pending one validate_pins.py run.
+
+board: adafruit_qtpy_m0
+logic_v: 3.3
+
+pins:
+  gpio: [A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10,
+         D0, D1, D2, D3, SDA, SCL, TX, RX, SCK, MISO, MOSI]
+  # SDA/SCL pads have no SAMD21 ADC channel; the rest are analog-capable.
+  adc:  [A0, A1, A2, A3, A6, A7, A8, A9, A10, D0, D1, D2, D3, TX, RX, SCK, MISO, MOSI]
+  dac:  [A0, D0]
+  # VERIFY: Adafruit's guide — true PWM on every pad except A0 (the DAC).
+  # Confirm A1 and the A4/A5 (SDA/SCL) pads with validate_pins.py.
+  pwm:  [A1, A2, A3, A4, A5, A6, A7, A8, A9, A10,
+         D1, D2, D3, SDA, SCL, TX, RX, SCK, MISO, MOSI]
+  # VERIFY: EIC coverage untested; no contract claims countio here yet.
+  countio: [A0, A1, A2, A3, A6, A7, A8, A9, A10]
+  uart: {tx: [TX, A6], rx: [RX, A7]}
+  i2c:  {scl: [SCL, A5], sda: [SDA, A4]}
+  spi:  {sck: [SCK, A8], mosi: [MOSI, A10], miso: [MISO, A9],
+         cs: [A0, A1, A2, A3, D0, D1, D2, D3]}

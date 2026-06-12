@@ -6,6 +6,10 @@ description: >
   coordinates follower MCUs over an analog DAC/ack handshake. Emits the
   current row index as one frame channel (list this module FIRST so the row
   tag is channel 0).
+claims:                      # param → capability kind (board pin tables)
+  pins: gpio                # mux select + INH lines
+  dac_pin: dac              # row-code broadcast to the followers
+  ack_pins: adc             # one follower ack DAC per pin
 provides:
   channels: 1                   # the row index (pin-independent virtual channel)
 config:

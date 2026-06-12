@@ -1,0 +1,27 @@
+# Waveshare RP2040-Zero — pin capability table for forge validation.
+#
+# Exposed pads: GP0–GP15 on the edge, GP26–GP29 on the bottom row
+# (GP16 drives the onboard WS2812 — not listed). The brainstem power
+# controllers (rp2040_power0/1) drive gpio_out on GP0–GP7.
+#
+# countio on RP2040 = PWM B channel = ODD GP numbers only.
+
+board: waveshare_rp2040_zero
+logic_v: 3.3
+
+pins:
+  gpio:    [GP0, GP1, GP2, GP3, GP4, GP5, GP6, GP7, GP8, GP9, GP10,
+            GP11, GP12, GP13, GP14, GP15, GP26, GP27, GP28, GP29]
+  adc:     [GP26, GP27, GP28, GP29]
+  dac:     []                                    # RP2040 has no DAC
+  pwm:     [GP0, GP1, GP2, GP3, GP4, GP5, GP6, GP7, GP8, GP9, GP10,
+            GP11, GP12, GP13, GP14, GP15, GP26, GP27, GP28, GP29]
+  countio: [GP1, GP3, GP5, GP7, GP9, GP11, GP13, GP15, GP27, GP29]
+  # RP2040 buses remux across many pins; lists cover the exposed pads.
+  uart:    {tx: [GP0, GP4, GP8, GP12], rx: [GP1, GP5, GP9, GP13]}
+  i2c:     {sda: [GP0, GP2, GP4, GP6, GP8, GP10, GP12, GP14, GP26, GP28],
+            scl: [GP1, GP3, GP5, GP7, GP9, GP11, GP13, GP15, GP27, GP29]}
+  spi:     {sck: [GP2, GP6, GP10, GP14], mosi: [GP3, GP7, GP11, GP15],
+            miso: [GP0, GP4, GP8, GP12],
+            cs:   [GP0, GP1, GP2, GP3, GP4, GP5, GP6, GP7, GP8, GP9, GP10,
+                   GP11, GP12, GP13, GP14, GP15, GP26, GP27, GP28, GP29]}

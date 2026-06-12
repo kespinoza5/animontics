@@ -18,7 +18,15 @@ It is **target-pluggable**: the AVR/Arduino MCU builder is the first target;
 FPGA bitstreams and accelerator (Hailo/Coral) model compiles slot in behind the
 same `Builder` interface with no change to existing targets.
 
-`validate` (and therefore `build`) also runs **cross-contract checks**
+`validate` (and therefore `build`) checks **pin capabilities**: each module's
+manifest `claims` maps its pin params to capability kinds
+(`{pins: pwm, dac_pin: dac, ack_pins: adc}`; bus roles dotted — `uart.tx`),
+validated against the board's pin tables (`mcu/<family>/boards/<profile>.yaml`,
+see its README) plus the one-module-per-pin conflict rule across ALL claimed
+pins. This is what catches "tach on an even RP2040 GP can never count" at the
+desk instead of the bench.
+
+`validate` also runs **cross-contract checks**
 (`cross_contract.py`): contracts that participate in the same scanned-lattice
 sweep (`matrix_scan` conductor + `scan_follower` followers) must agree on
 `rows` and `max_code`, and the conductor must declare one `ack_pin` per
