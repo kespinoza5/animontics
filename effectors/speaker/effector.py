@@ -32,10 +32,6 @@ class Speaker(EffectorBase):
 
     effector_type = "speaker"
     lanes = ("request", "stream")
-    SPEC = {
-        "description": "ALSA speaker — request-lane control + stream-lane PCM audio.",
-        "params": ["alsa_device", "sample_rate", "channels", "sd_line"],
-    }
 
     def __init__(self, effector_id, config) -> None:
         super().__init__(effector_id, config)

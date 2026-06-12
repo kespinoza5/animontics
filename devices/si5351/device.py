@@ -76,12 +76,6 @@ def _msynth_params(int_part: int, num: int, denom: int) -> list[int]:
 class Si5351Device(Device):
     """Si5351A on I2C: program CLK0 at params.clk0_hz, then health-check."""
 
-    SPEC = {
-        "description": "Si5351 clock generator — programs CLK0 at boot (clock-tree root).",
-        "optional": ["bus", "address"],
-        "params": ["clk0_hz"],
-    }
-
     def __init__(self, device_id: str, config: "DeviceConfig") -> None:
         super().__init__(device_id, config)
         self._bus_no = config.bus if config.bus is not None else 1

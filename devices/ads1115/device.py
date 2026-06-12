@@ -29,12 +29,6 @@ class Ads1115Device(Device):
     #         DR=128SPS | comparator disabled
     _BASE = 0x8000 | 0x0100 | (0b100 << 5) | 0b00011
 
-    SPEC = {
-        "description": "ADS1115 4-channel I2C ADC — pull device, serialized single-shot reads.",
-        "optional": ["bus", "address"],
-        "params": [],
-    }
-
     def __init__(self, device_id: str, config: "DeviceConfig") -> None:
         super().__init__(device_id, config)
         self._bus_no = config.bus if config.bus is not None else 1

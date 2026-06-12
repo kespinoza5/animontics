@@ -27,13 +27,6 @@ class ThresholdPolicy(PolicyBase):
         emergency) — but they also never release.
     """
 
-    SPEC = {
-        "description": "Trip/release guard — drives an effector when a signal crosses a threshold.",
-        "needs_effector": True,
-        "needs_observation": True,
-        "params": ["trip_above", "release_below", "latch"],
-    }
-
     def __init__(self, policy_id, config) -> None:
         super().__init__(policy_id, config)
         self._tripped = False

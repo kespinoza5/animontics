@@ -18,10 +18,6 @@ class StreamSink(EffectorBase):
 
     effector_type = "stream_sink"
     lanes = ("stream",)
-    SPEC = {
-        "description": "Reference stream-lane sink — counts bytes fed (testing).",
-        "params": [],
-    }
 
     def __init__(self, effector_id: str, config: "EffectorConfig") -> None:
         super().__init__(effector_id, config)

@@ -347,16 +347,24 @@ that reads `request.app.state.*`.
   not config; `PolicyConfig` only declares the observation/action wiring + params.
   Mark resilient loops `always_on`. Declare under `policies:`.
 
-**Every device/effector/policy class also declares a `SPEC`** — a one-line
-description plus the config fields, backend kinds, and `params:` keys its board
-config entry must/may contain (the schema is documented on each base class).
-`animon deploy` validates `config/boards/<id>.yaml` against the SPECs *before*
-pushing, so a malformed entry — a `sara_r5` with no `port`, a backend naming a
-nonexistent device, a policy aimed at a missing effector — fails on the dev
-machine instead of at runtime on the board. `animon types` lists everything
-registered with its description. A new type without a SPEC still works (only
-its existence is checked), but add one: it is the difference between a bench
-session and an error message.
+**Every device/effector/policy package also declares `METADATA`** — module-level
+in its `__init__.py`, outside the class import guard, exactly like sensors (the
+schema must load even where the class can't import). It carries a one-line
+`description` plus the authoring schema `animon deploy` validates
+`config/boards/<id>.yaml` against *before* pushing — so a malformed entry (a
+`sara_r5` with no `port`, a backend naming a nonexistent device, a policy aimed
+at a missing effector) fails on the dev machine instead of at runtime on the
+board. Fields by tier (all optional; `type` + `description` always):
+
+- **devices**: `required` / `optional` (DeviceConfig fields), `params` (known
+  `params:` keys — unknown keys warn)
+- **effectors**: `backends` ({kind: [required backend keys]}),
+  `default_backend`, `params`
+- **policies**: `needs_effector`, `needs_observation`, `params`
+
+`animon types` lists every tier from METADATA. A new type without it still
+works (only its existence is checked), but add it: it is the difference between
+a bench session and an error message.
 
 Keep the boundary: devices move bytes; sensors/effectors/policies own meaning.
 

@@ -19,9 +19,8 @@ animon probe   <node-id>  [--user USER]
 animon types
 ```
 
-`deploy` validates the whole board config before pushing anything: sensors
-against their `METADATA` constraints, and the **devices/effectors/policies
-tiers against each type's `SPEC`** (`tools/fleet/validate_board.py`) — unknown
+`deploy` validates the whole board config before pushing anything: every tier
+against its package **`METADATA`** (`tools/fleet/validate_board.py`) — unknown
 kinds, missing required fields, a `backend.device` or `action.effector` that
 names nothing on the board, and dangling sensor→device references all fail on
 the dev machine with the file to fix. Unknown `params:` keys print as warnings.

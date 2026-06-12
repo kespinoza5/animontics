@@ -26,29 +26,39 @@ class ReconcileError(Exception):
     """Raised when reconciliation cannot produce a valid config."""
 
 
-def load_all_metadata() -> dict[str, dict[str, Any]]:
-    """Load METADATA from all sensor packages present on this machine.
+def load_tier_metadata(tier: str, tier_dir=None) -> dict[str, dict[str, Any]]:
+    """Load METADATA from every package of one plugin tier on this machine.
 
-    Returns a dict keyed by sensor type, e.g. {"tf_mini": {...}, ...}.
-    Packages that fail to import (missing hardware deps) are skipped.
+    `tier` is a plugin tree name: "sensors", "devices", "effectors", or
+    "policies". Every plugin package declares a module-level METADATA dict in
+    its __init__.py, outside the class import guard — so the authoring schema
+    loads even where the class itself can't import (missing hardware deps).
+    Returns {type: METADATA}; packages that fail to import are skipped.
+    `tier_dir` overrides the directory walked (tests only).
     """
     import importlib
     import pkgutil
     from pathlib import Path
 
     metadata: dict[str, dict] = {}
-    sensors_dir = Path(__file__).parent.parent.parent / "sensors"
+    tier_dir = tier_dir or Path(__file__).parent.parent.parent / tier
 
-    for pkg in pkgutil.iter_modules([str(sensors_dir)]):
+    for pkg in pkgutil.iter_modules([str(tier_dir)]):
         try:
-            mod = importlib.import_module(f"sensors.{pkg.name}")
+            mod = importlib.import_module(f"{tier}.{pkg.name}")
             if hasattr(mod, "METADATA"):
                 meta = mod.METADATA
                 metadata[meta["type"]] = meta
         except Exception:
-            pass  # missing hardware deps — skip gracefully
+            pass  # broken package — skip gracefully
 
     return metadata
+
+
+def load_all_metadata() -> dict[str, dict[str, Any]]:
+    """Sensor METADATA, keyed by type (the original loader — kept by name
+    because reconcile/deploy/probe consume specifically the sensor tier)."""
+    return load_tier_metadata("sensors")
 
 
 def _default_connection(

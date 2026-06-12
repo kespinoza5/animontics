@@ -39,12 +39,6 @@ class PowerRail(EffectorBase):
 
     effector_type = "power_rail"
     lanes = ("request",)
-    SPEC = {
-        "description": "Switched power rail — gates member devices (gated ≠ failed).",
-        "backends": {"gpio": ["line"], "mcu": ["device"]},
-        "default_backend": "gpio",
-        "params": ["initial", "members"],
-    }
 
     def __init__(self, effector_id, config) -> None:
         super().__init__(effector_id, config)

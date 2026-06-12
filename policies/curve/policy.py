@@ -13,13 +13,6 @@ class CurvePolicy(PolicyBase):
     ignored (fail-safe: an absent sensor never forces high output).
     """
 
-    SPEC = {
-        "description": "Piecewise-linear map: observations → one effector's channels.",
-        "needs_effector": True,
-        "needs_observation": True,
-        "params": ["in_min", "in_max", "out_min", "out_max"],
-    }
-
     def step(self, obs: dict) -> dict:
         p = self.config.params
         in_min = p.get("in_min", [])

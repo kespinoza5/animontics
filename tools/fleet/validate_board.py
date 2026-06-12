@@ -6,8 +6,9 @@ desired-state reconcile), which meant a malformed entry — a `sara_r5` device
 with no `port`, an effector whose `backend.device` names a nonexistent device,
 a policy aimed at a missing effector — only failed at *runtime* on the board.
 This pass runs on the dev machine inside `animon deploy`, before anything is
-pushed, against each type's `SPEC` (see Device.SPEC / EffectorBase.SPEC /
-PolicyBase.SPEC).
+pushed, against each type's `METADATA` — declared module-level in the plugin
+package's `__init__.py` (same import-safe pattern as sensors; field reference
+in CONTRIBUTING → "Adding a device, effector, or policy").
 
 Errors abort the deploy; warnings (unknown params keys, empty observations)
 print but do not block — a SPEC may simply lag a freshly added param.
@@ -16,14 +17,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-# Side-effect imports: populate the three registries so specs are available.
-import devices    # noqa: F401
-import effectors  # noqa: F401
-import policies   # noqa: F401
-
-from core.device import registered_specs as _device_specs
-from core.effector_base import registered_specs as _effector_specs
-from core.policy import registered_specs as _policy_specs
+from tools.fleet.reconcile import load_tier_metadata
 
 if TYPE_CHECKING:
     from core.models import NodeConfig
@@ -39,11 +33,11 @@ def validate_board_tiers(
     """Validate the devices/effectors/policies tiers of a board config.
 
     Returns (errors, warnings) as human-readable strings. The spec maps
-    default to the live registries; tests inject their own.
+    default to each tier's package METADATA; tests inject their own.
     """
-    device_specs = device_specs if device_specs is not None else _device_specs()
-    effector_specs = effector_specs if effector_specs is not None else _effector_specs()
-    policy_specs = policy_specs if policy_specs is not None else _policy_specs()
+    device_specs = device_specs if device_specs is not None else load_tier_metadata("devices")
+    effector_specs = effector_specs if effector_specs is not None else load_tier_metadata("effectors")
+    policy_specs = policy_specs if policy_specs is not None else load_tier_metadata("policies")
 
     errors: list[str] = []
     warnings: list[str] = []

@@ -1,3 +1,14 @@
-from effectors.pwm.effector import PwmEffector
+try:
+    from effectors.pwm.effector import PwmEffector
+except ImportError:
+    pass  # hardware deps unavailable — METADATA below must still load
 
-__all__ = ["PwmEffector"]
+METADATA = {
+    "type": "pwm",
+    "description": "Generic PWM duty levels through an MCU device (CMD_SET_DUTY).",
+    "backends": {"mcu": ["device"]},
+    "default_backend": "mcu",
+    "params": ["min_duty"],
+}
+
+__all__ = ["PwmEffector", "METADATA"]

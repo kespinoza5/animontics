@@ -40,11 +40,6 @@ def register_policy(policy_type: str):
     return decorator
 
 
-def registered_specs() -> dict[str, dict]:
-    """Return {type: SPEC} for every registered policy type (see PolicyBase.SPEC)."""
-    return {t: getattr(cls, "SPEC", {}) for t, cls in _registry.items()}
-
-
 def create_policy(config: "PolicyConfig") -> "PolicyBase":
     cls = _registry.get(config.type)
     if cls is None:
@@ -59,14 +54,9 @@ class PolicyBase(ABC):
 
     policy_type: str = "policy"
 
-    #: Authoring spec — what a board config `policies:` entry for this type
-    #: must/may contain. Validated by `animon deploy` BEFORE pushing.
-    #: Keys (all optional):
-    #:   description       — one line for `animon types`
-    #:   needs_effector    — True if action.effector is required
-    #:   needs_observation — True if an empty observation list is suspicious
-    #:   params            — known `params:` keys (unknown keys ⇒ deploy warning)
-    SPEC: dict = {}
+    # NOTE: each policy package's __init__.py declares a module-level METADATA
+    # dict (import-safe, like sensors) — the authoring schema `animon deploy`
+    # validates board configs against. Field reference: CONTRIBUTING.md.
 
     def __init__(self, policy_id: str, config: "PolicyConfig") -> None:
         self.id = policy_id
