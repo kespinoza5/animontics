@@ -15,6 +15,7 @@ print but do not block — a SPEC may simply lag a freshly added param.
 """
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from tools.fleet.reconcile import load_tier_metadata
@@ -23,17 +24,44 @@ if TYPE_CHECKING:
     from core.models import NodeConfig
 
 
+def _mcu_command_slots(
+    device_id: str, command: str, project_root: Path,
+) -> tuple[int | None, str | None]:
+    """How many command channels the device's contract provides for `command`.
+
+    Channel index space = the pins of every contract module whose manifest
+    `accepts` the command (e.g. set_us → servo_out's pins, in pin order).
+    Returns (slots, problem) — slots None when the contract can't be read.
+    """
+    from tools.forge.contract import ContractError, load_contract, load_module_manifests
+    try:
+        target = load_contract(device_id, project_root)
+        manifests = load_module_manifests(target, project_root)
+    except ContractError:
+        return None, f"no contract config/mcus/{device_id}.yaml — cannot cross-check channels"
+    except Exception as exc:
+        return None, f"contract '{device_id}' unreadable ({exc}) — cannot cross-check channels"
+    slots = sum(
+        len(mod.pins) for mod in target.modules
+        if command in (manifests.get(mod.module, {}).get("accepts") or {})
+    )
+    return slots, None
+
+
 def validate_board_tiers(
     config: "NodeConfig",
     *,
     device_specs: dict[str, dict] | None = None,
     effector_specs: dict[str, dict] | None = None,
     policy_specs: dict[str, dict] | None = None,
+    project_root: Path | None = None,
 ) -> tuple[list[str], list[str]]:
     """Validate the devices/effectors/policies tiers of a board config.
 
     Returns (errors, warnings) as human-readable strings. The spec maps
     default to each tier's package METADATA; tests inject their own.
+    `project_root` enables the effector→MCU contract cross-check (channel
+    indices vs the firmware's command channels); None skips it.
     """
     device_specs = device_specs if device_specs is not None else load_tier_metadata("devices")
     effector_specs = effector_specs if effector_specs is not None else load_tier_metadata("effectors")
@@ -89,8 +117,8 @@ def validate_board_tiers(
 
         backend = ec.backend or {}
         backends = spec.get("backends")
+        kind = backend.get("kind", spec.get("default_backend"))
         if backends:
-            kind = backend.get("kind", spec.get("default_backend"))
             if kind not in backends:
                 errors.append(
                     f"effector '{ec.id}' ({ec.type}): backend kind '{kind}' "
@@ -110,6 +138,31 @@ def validate_board_tiers(
                 f"effector '{ec.id}' ({ec.type}): backend.device '{dev_ref}' "
                 f"is not a declared device (declared: {sorted(device_ids)})"
             )
+
+        # ── Cross-check channel indices against the device's MCU contract ─────
+        # (device id = contract stem, the same convention forge resolve uses)
+        command = spec.get("mcu_command")
+        if (project_root is not None and command and kind == "mcu"
+                and dev_ref is not None and dev_ref in device_ids):
+            indices = {c.index for c in ec.channels}
+            if "channel" in backend:           # e.g. power_rail's single line
+                indices.add(int(backend["channel"]))
+            if indices:
+                slots, problem = _mcu_command_slots(dev_ref, command, project_root)
+                if problem:
+                    warnings.append(f"effector '{ec.id}' ({ec.type}): {problem}")
+                elif slots == 0:
+                    errors.append(
+                        f"effector '{ec.id}' ({ec.type}): contract '{dev_ref}' has "
+                        f"no module accepting '{command}' — firmware can't drive it"
+                    )
+                else:
+                    for idx in sorted(i for i in indices if i >= slots):
+                        errors.append(
+                            f"effector '{ec.id}' ({ec.type}): channel index {idx} "
+                            f"out of range — contract '{dev_ref}' provides "
+                            f"{slots} '{command}' channel(s)"
+                        )
 
         known_params = spec.get("params")
         if known_params is not None:

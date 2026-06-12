@@ -16,7 +16,8 @@ def test_derive_from_contract():
 
 
 def test_resolve_board_fills_device_fed_sensor():
-    board = {"sensors": [
+    board = {"devices": [{"id": "example", "kind": "mcu_serial"}],
+             "sensors": [
         {"id": "arr", "type": "analog_in", "devices": ["example"]},
         {"id": "scalar", "type": "tf_mini"},          # no devices → untouched
     ]}
@@ -29,7 +30,8 @@ def test_resolve_board_fills_device_fed_sensor():
 
 
 def test_explicit_channels_win():
-    board = {"sensors": [{"id": "arr", "type": "a", "devices": ["example"],
+    board = {"devices": [{"id": "example", "kind": "mcu_serial"}],
+             "sensors": [{"id": "arr", "type": "a", "devices": ["example"],
                           "channels": [{"index": 0, "signal": "keep"}]}]}
     board, n = resolve_board(board, PROJECT_ROOT)
     assert n == 0                                     # already authored → not overwritten
@@ -42,7 +44,9 @@ def test_resolve_node_config_fills_models_in_place():
     from core.models import NodeConfig
     from tools.forge.resolve import resolve_node_config
 
-    config = NodeConfig(node_id="n1", node_type="t", sensors=[
+    config = NodeConfig(node_id="n1", node_type="t",
+                        devices=[{"id": "example", "kind": "mcu_serial"}],
+                        sensors=[
         {"id": "arr", "type": "analog_in", "devices": ["example"]},
         {"id": "scalar", "type": "tf_mini"},
         {"id": "authored", "type": "analog_in", "devices": ["example"],
@@ -67,7 +71,9 @@ def test_resolve_node_config_missing_contract_raises():
     from tools.forge.contract import ContractError
     from tools.forge.resolve import resolve_node_config
 
-    config = NodeConfig(node_id="n1", node_type="t", sensors=[
+    config = NodeConfig(node_id="n1", node_type="t",
+                        devices=[{"id": "no_such_contract", "kind": "mcu_serial"}],
+                        sensors=[
         {"id": "arr", "type": "analog_in", "devices": ["no_such_contract"]}])
     with pytest.raises(ContractError):
         resolve_node_config(config, PROJECT_ROOT)
@@ -87,8 +93,25 @@ def test_resolve_node_config_warns_on_channel_less_contract(tmp_path):
         "modules": [{"module": "transport_serial"}],
     }), encoding="utf-8")
 
-    config = NodeConfig(node_id="n1", node_type="t", sensors=[
+    config = NodeConfig(node_id="n1", node_type="t",
+                        devices=[{"id": "bare", "kind": "mcu_serial"}],
+                        sensors=[
         {"id": "arr", "type": "fan_tach", "devices": ["bare"]}])
     notes = resolve_node_config(config, tmp_path)
     assert config.sensors[0].channels == []
     assert len(notes) == 1 and "declare no channels" in notes[0]
+
+
+def test_non_mcu_devices_are_not_contract_resolved():
+    """A modem/ADC-fed sensor has no forge contract — the resolver must skip
+    it silently (this crashed orangepi_proprioception's deploy: sara_r5_1)."""
+    from core.models import NodeConfig
+    from tools.forge.resolve import resolve_node_config
+
+    config = NodeConfig(node_id="n1", node_type="t",
+                        devices=[{"id": "modem", "kind": "sara_r5", "port": "/dev/ttyS5"}],
+                        sensors=[{"id": "gnss", "type": "sara_r5_gnss",
+                                  "devices": ["modem"]}])
+    notes = resolve_node_config(config, PROJECT_ROOT)
+    assert notes == []
+    assert config.sensors[0].channels == []

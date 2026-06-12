@@ -359,7 +359,9 @@ board. Fields by tier (all optional; `type` + `description` always):
 - **devices**: `required` / `optional` (DeviceConfig fields), `params` (known
   `params:` keys — unknown keys warn)
 - **effectors**: `backends` ({kind: [required backend keys]}),
-  `default_backend`, `params`
+  `default_backend`, `params`, `mcu_command` (the firmware command this type
+  sends — set_duty/set_us/set_gpio; lets deploy cross-check channel indices
+  against the device's contract)
 - **policies**: `needs_effector`, `needs_observation`, `params`
 
 `animon types` lists every tier from METADATA. A new type without it still

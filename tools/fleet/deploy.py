@@ -206,7 +206,7 @@ def deploy(
 
     # ── 4b. Validate the non-sensor tiers before anything touches the board ───
     # (sensors were validated against METADATA above / during reconcile)
-    tier_errors, tier_warnings = validate_board_tiers(new_config)
+    tier_errors, tier_warnings = validate_board_tiers(new_config, project_root=project_root)
     if tier_warnings:
         log("\nTier validation warnings:")
         for w in tier_warnings:

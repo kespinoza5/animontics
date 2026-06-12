@@ -8,6 +8,7 @@ METADATA = {
     "description": "Named fans over the request lane — per-fan min_duty atop pwm.",
     "backends": {"mcu": ["device"]},
     "default_backend": "mcu",
+    "mcu_command": "set_duty",
     "params": ["min_duty", "per_fan"],
 }
 

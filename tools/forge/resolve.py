@@ -43,9 +43,15 @@ def resolve_node_config(config: "NodeConfig", project_root: Path) -> list[str]:
     channels are left untouched. Returns human-readable change notes; raises
     ContractError if a listed device has no config/mcus/<id>.yaml.
     """
+    # Contract-backed channel derivation applies only to MCU-uplink devices —
+    # a sensor fed by a sara_r5 modem or an SBC-side ads1115 has no forge
+    # contract to derive from (it authors channels explicitly, or none).
+    mcu_ids = {d.id for d in config.devices if d.kind == "mcu_serial"}
+
     notes: list[str] = []
     for sc in config.sensors:
-        if sc.enabled and sc.devices and not sc.channels:
+        if (sc.enabled and sc.devices and not sc.channels
+                and all(d in mcu_ids for d in sc.devices)):
             derived = derive_sensor_channels(sc.devices, project_root)
             if derived:
                 sc.channels = derived
@@ -66,10 +72,12 @@ def resolve_node_config(config: "NodeConfig", project_root: Path) -> list[str]:
 def resolve_board(board: dict, project_root: Path) -> tuple[dict, int]:
     """Fill device-fed sensors' `channels` from their `devices`. Mutates + returns
     the board dict and the count of sensors resolved."""
+    mcu_ids = {d.get("id") for d in (board.get("devices") or [])
+               if d.get("kind") == "mcu_serial"}
     resolved = 0
     for sc in board.get("sensors", []) or []:
         devices = sc.get("devices")
-        if devices and not sc.get("channels"):
+        if devices and not sc.get("channels") and all(d in mcu_ids for d in devices):
             derived = derive_sensor_channels(devices, project_root)
             if not derived:
                 continue  # contract has no channel block — nothing to write

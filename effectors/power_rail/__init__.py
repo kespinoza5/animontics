@@ -8,6 +8,7 @@ METADATA = {
     "description": "Switched power rail — gates member devices (gated ≠ failed).",
     "backends": {"gpio": ["line"], "mcu": ["device"]},
     "default_backend": "gpio",
+    "mcu_command": "set_gpio",
     "params": ["initial", "members"],
 }
 

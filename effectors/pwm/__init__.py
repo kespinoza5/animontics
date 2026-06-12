@@ -8,6 +8,7 @@ METADATA = {
     "description": "Generic PWM duty levels through an MCU device (CMD_SET_DUTY).",
     "backends": {"mcu": ["device"]},
     "default_backend": "mcu",
+    "mcu_command": "set_duty",
     "params": ["min_duty"],
 }
 
