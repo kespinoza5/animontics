@@ -81,6 +81,13 @@ class ServoEffector(EffectorBase):
 
     effector_type = "servo"
     lanes = ("request",)
+    SPEC = {
+        "description": "Hobby servos by angle/µs — mcu (CMD_SET_US) or sbc_pwm backend.",
+        "backends": {"mcu": ["device"], "sbc_pwm": []},
+        "default_backend": "mcu",
+        "params": ["freq_hz", "min_us", "max_us", "deg_min", "deg_max",
+                   "trim_deg", "invert", "per_channel"],
+    }
 
     def __init__(self, effector_id, config) -> None:
         super().__init__(effector_id, config)

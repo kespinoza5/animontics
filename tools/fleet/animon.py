@@ -6,6 +6,7 @@ Usage:
     animon diff   <node-id>   [--user USER] [--verbose]
     animon pull   <node-id>   [--user USER] [--dry-run]
     animon probe  <node-id>   [--user USER]
+    animon types
 
 Fleet config is read from two sources in the project's config/ directory:
     config/nodes/<id>.yaml    Desired state per node (in repo, no secrets)
@@ -139,6 +140,38 @@ def _cmd_pull(args: argparse.Namespace) -> int:
         user_override=args.user,
         dry_run=args.dry_run,
     )
+
+
+def _cmd_types(args: argparse.Namespace) -> int:
+    """List every plugin type available on this machine, with its one-liner."""
+    from core.device import registered_specs as device_specs
+    from core.effector_base import registered_specs as effector_specs
+    from core.policy import registered_specs as policy_specs
+    from tools.fleet.reconcile import load_all_metadata
+    import devices, effectors, policies  # noqa: F401,E401  (registry side effects)
+
+    def section(title: str, entries: dict[str, str]) -> None:
+        print(f"\n{title}")
+        if not entries:
+            print("  (none registered on this machine)")
+        width = max((len(k) for k in entries), default=0)
+        for key in sorted(entries):
+            print(f"  {key:<{width}}  {entries[key]}")
+
+    section("Sensors (sensors/ — METADATA)", {
+        t: m.get("description", m.get("name", ""))
+        for t, m in load_all_metadata().items()
+    })
+    section("Devices (devices/ — SPEC)", {
+        k: s.get("description", "") for k, s in device_specs().items()
+    })
+    section("Effectors (effectors/ — SPEC)", {
+        t: s.get("description", "") for t, s in effector_specs().items()
+    })
+    section("Policies (policies/ — SPEC)", {
+        t: s.get("description", "") for t, s in policy_specs().items()
+    })
+    return 0
 
 
 def _cmd_probe(args: argparse.Namespace) -> int:
@@ -321,6 +354,18 @@ Examples:
     p_pull.add_argument("--dry-run", action="store_true",
                         help="Show what would be added without modifying animon.yaml")
     p_pull.set_defaults(func=_cmd_pull)
+
+    # ── types ─────────────────────────────────────────────────────────────────
+    p_types = subparsers.add_parser(
+        "types",
+        help="List available sensor/device/effector/policy types.",
+        description=(
+            "Lists every plugin type registered on this machine with its "
+            "one-line description — the vocabulary available when authoring "
+            "config/boards/<id>.yaml and config/nodes/<id>.yaml."
+        ),
+    )
+    p_types.set_defaults(func=_cmd_types)
 
     # ── probe ─────────────────────────────────────────────────────────────────
     p_probe = subparsers.add_parser(

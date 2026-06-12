@@ -52,6 +52,14 @@ class SaraR5Device(Device):
 
     BAUD_DEFAULT = 115_200
 
+    SPEC = {
+        "description": "u-blox SARA-R5 modem — NMEA push + AT poll over one UART.",
+        "required": ["port"],
+        "optional": ["baud"],
+        "params": ["init", "power_on_delay_s", "reset_settle_s",
+                   "power_line", "reset_line"],
+    }
+
     def __init__(self, device_id: str, config: "DeviceConfig") -> None:
         super().__init__(device_id, config)
         params = config.params or {}

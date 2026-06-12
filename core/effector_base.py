@@ -36,6 +36,11 @@ def register_effector(effector_type: str):
     return decorator
 
 
+def registered_specs() -> dict[str, dict]:
+    """Return {type: SPEC} for every registered effector type (see EffectorBase.SPEC)."""
+    return {t: getattr(cls, "SPEC", {}) for t, cls in _registry.items()}
+
+
 def create_effector(config: "EffectorConfig") -> "EffectorBase":
     cls = _registry.get(config.type)
     if cls is None:
@@ -51,6 +56,16 @@ class EffectorBase(ABC):
 
     effector_type: str = "effector"
     lanes: tuple[str, ...] = ("request",)     # "request" and/or "stream"
+
+    #: Authoring spec — what a board config `effectors:` entry for this type
+    #: must/may contain. Validated by `animon deploy` BEFORE pushing.
+    #: Keys (all optional):
+    #:   description     — one line for `animon types`
+    #:   backends        — {kind: [required backend keys]}; entry's backend.kind
+    #:                     must be one of these (missing kind ⇒ default_backend)
+    #:   default_backend — kind assumed when backend.kind is omitted
+    #:   params          — known `params:` keys (unknown keys ⇒ deploy warning)
+    SPEC: dict = {}
 
     def __init__(self, effector_id: str, config: "EffectorConfig") -> None:
         self.id = effector_id

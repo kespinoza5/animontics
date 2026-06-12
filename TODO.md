@@ -122,18 +122,15 @@ The current sensor streaming API (`GET /sensors/{id}/stream`, `WS /sensors/{id}/
 
 ## Tools
 
-- [ ] Device/effector/policy board-config validation at deploy. Unlike sensors,
-      these tiers have NO METADATA and are authored complete in `config/boards/<id>.yaml`
-      (so they're correctly absent from the desired-state reconcile). But that means a
-      malformed entry — a `sara_r5` device with no `port`, an effector whose
-      `backend.device` names a nonexistent device — only fails at *runtime* (logged,
-      degrades), not at deploy. Add a lightweight per-type descriptor (a params schema
-      + one-line description) on the `Device`/`EffectorBase`/`PolicyBase` classes, and a
-      board-config validation pass that `animon deploy` runs before pushing. This is NOT
-      the sensor `METADATA` (whose job is desired-state→board reconciliation + connection
-      constraints for sensors only) — it's a separate validator/discoverability descriptor
-      with its own consumer. Also enables a `animon` command listing available device
-      kinds / effector types. See the four-layer config design in CLAUDE.md.
+- [x] Device/effector/policy board-config validation at deploy — done (2026-06):
+      every Device/EffectorBase/PolicyBase subclass declares a `SPEC` (description,
+      required/optional config fields, backend kinds + required keys, known params);
+      `tools/fleet/validate_board.py` validates the board config against the SPECs
+      (plus dangling backend.device / action.effector / sensor→device references and
+      duplicate ids) and `animon deploy` aborts on errors before pushing. `animon
+      types` lists the registered vocabulary. Also fixed en route: deploy now pushes
+      the devices/effectors/policies plugin trees (it never did — fresh boards
+      crashed on ImportError).
 - [ ] `tools/dev/audit.py` — shape-aware router check: detect module-level mutable dicts
       that handlers close over (the `register_sensors` anti-pattern by another name) rather
       than relying solely on the literal string `"register_sensors"`. Requires AST analysis

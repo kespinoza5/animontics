@@ -28,6 +28,13 @@ class McuSerialDevice(Device):
     BAUD_DEFAULT = 115_200
     DEFAULT_PORT = "/dev/ttyUSB0"
 
+    SPEC = {
+        "description": "Serial link to an MCU — decodes sample frames, sends command frames.",
+        "required": ["port"],
+        "optional": ["baud"],
+        "params": [],
+    }
+
     def __init__(self, device_id: str, config: "DeviceConfig") -> None:
         super().__init__(device_id, config)
         self._subscribers: list[Callable[[Frame], None]] = []

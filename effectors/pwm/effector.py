@@ -17,6 +17,12 @@ class PwmEffector(EffectorBase):
 
     effector_type = "pwm"
     lanes = ("request",)
+    SPEC = {
+        "description": "Generic PWM duty levels through an MCU device (CMD_SET_DUTY).",
+        "backends": {"mcu": ["device"]},
+        "default_backend": "mcu",
+        "params": ["min_duty"],
+    }
 
     def descriptor(self) -> dict:
         d = super().descriptor()

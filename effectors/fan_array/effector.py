@@ -21,6 +21,13 @@ class FanArray(PwmEffector):
 
     effector_type = "fan_array"
 
+    SPEC = {
+        "description": "Named fans over the request lane — per-fan min_duty atop pwm.",
+        "backends": {"mcu": ["device"]},
+        "default_backend": "mcu",
+        "params": ["min_duty", "per_fan"],
+    }
+
     def _min_duty_for(self, channel_name: str) -> float:
         per_fan = self.config.params.get("per_fan", {}) or {}
         if channel_name in per_fan:

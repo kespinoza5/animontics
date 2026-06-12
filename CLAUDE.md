@@ -292,6 +292,7 @@ python -m tools.fleet.animon deploy <node-id> --config <file> --note "..."  # ad
 python -m tools.fleet.animon revert <node-id>                      # discard override, restore baseline
 python -m tools.fleet.animon pull   <node-id>
 python -m tools.fleet.animon probe  <node-id>
+python -m tools.fleet.animon types                      # list registered plugin types
 ```
 
 Exit codes: `0` = success/in-sync, `1` = error, `2` = drift or active override.

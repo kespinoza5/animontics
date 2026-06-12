@@ -57,6 +57,16 @@ def registered_kinds() -> list[str]:
     return sorted(_registry)
 
 
+def registered_specs() -> dict[str, dict]:
+    """Return {kind: SPEC} for every registered device kind.
+
+    Consumed by `animon` for deploy-time board-config validation and the
+    `animon types` listing. A kind with no SPEC contributes an empty dict
+    (validation then only checks that the kind exists).
+    """
+    return {kind: getattr(cls, "SPEC", {}) for kind, cls in _registry.items()}
+
+
 class Device(ABC):
     """Base class for shared peripherals.
 
@@ -68,6 +78,16 @@ class Device(ABC):
     """
 
     kind: str = ""
+
+    #: Authoring spec — what a config/boards/<id>.yaml `devices:` entry for this
+    #: kind must/may contain. Validated by `animon deploy` BEFORE pushing, so a
+    #: malformed entry fails on the dev machine, not at runtime on the board.
+    #: Keys (all optional):
+    #:   description — one line for `animon types`
+    #:   required    — DeviceConfig fields that must be set (e.g. ["port"])
+    #:   optional    — DeviceConfig fields this kind reads if present
+    #:   params      — known `params:` keys (unknown keys ⇒ deploy warning)
+    SPEC: dict = {}
 
     def __init__(self, device_id: str, config: "DeviceConfig") -> None:
         self.id = device_id

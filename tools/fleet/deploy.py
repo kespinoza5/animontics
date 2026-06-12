@@ -40,6 +40,7 @@ from tools.fleet.reconcile import (
     validate_connection,
 )
 from tools.fleet.ssh import SSHError, read_remote_file, rsync_to, run_remote, write_remote_file
+from tools.fleet.validate_board import validate_board_tiers
 
 
 def deploy(
@@ -188,6 +189,21 @@ def deploy(
                 log(c)
         else:
             log("  Config: no changes.")
+
+    # ── 4b. Validate the non-sensor tiers before anything touches the board ───
+    # (sensors were validated against METADATA above / during reconcile)
+    tier_errors, tier_warnings = validate_board_tiers(new_config)
+    if tier_warnings:
+        log("\nTier validation warnings:")
+        for w in tier_warnings:
+            log(f"  ? {w}")
+    if tier_errors:
+        print("\nerror: board config failed device/effector/policy validation:")
+        for err in tier_errors:
+            print(f"  ! {err}")
+        print("  (fix config/boards/{0}.yaml — or the override file — and retry; "
+              "'animon types' lists what this machine knows)".format(node_id))
+        return 1
 
     desired_sensor_types = {ref.type for ref in node.sensors}
     enabled_sensor_types = {s.type for s in new_config.sensors if s.enabled}

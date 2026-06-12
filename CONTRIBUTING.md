@@ -347,6 +347,17 @@ that reads `request.app.state.*`.
   not config; `PolicyConfig` only declares the observation/action wiring + params.
   Mark resilient loops `always_on`. Declare under `policies:`.
 
+**Every device/effector/policy class also declares a `SPEC`** — a one-line
+description plus the config fields, backend kinds, and `params:` keys its board
+config entry must/may contain (the schema is documented on each base class).
+`animon deploy` validates `config/boards/<id>.yaml` against the SPECs *before*
+pushing, so a malformed entry — a `sara_r5` with no `port`, a backend naming a
+nonexistent device, a policy aimed at a missing effector — fails on the dev
+machine instead of at runtime on the board. `animon types` lists everything
+registered with its description. A new type without a SPEC still works (only
+its existence is checked), but add one: it is the difference between a bench
+session and an error message.
+
 Keep the boundary: devices move bytes; sensors/effectors/policies own meaning.
 
 ## Standardized data keys

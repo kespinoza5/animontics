@@ -16,7 +16,17 @@ animon status  [<node-id>] [--json]
 animon diff    <node-id>  [--user USER] [--verbose]
 animon pull    <node-id>  [--user USER] [--dry-run]
 animon probe   <node-id>  [--user USER]
+animon types
 ```
+
+`deploy` validates the whole board config before pushing anything: sensors
+against their `METADATA` constraints, and the **devices/effectors/policies
+tiers against each type's `SPEC`** (`tools/fleet/validate_board.py`) — unknown
+kinds, missing required fields, a `backend.device` or `action.effector` that
+names nothing on the board, and dangling sensor→device references all fail on
+the dev machine with the file to fix. Unknown `params:` keys print as warnings.
+`animon types` lists every registered sensor/device/effector/policy type with
+its one-line description — the authoring vocabulary.
 
 Global flags:
 
