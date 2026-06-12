@@ -39,7 +39,9 @@ docs/cortex.md). What remains is bench bring-up + research tracks.
       to an RA4M1-Zero if lattice signal is weak); fill real
       `/dev/serial/by-id/` paths; `animon deploy neocore2_hub`; confirm
       84-channel sweeps in `web/viewers/pressure_array.html`
-- [ ] Cervical: VERIFY A4/A5/A6 are pwmio-capable on the QtPy SAMD21; fit
+- [ ] Cervical: VERIFY A4/A5/A6 are pwmio-capable on the QtPy SAMD21 (now
+      encoded in `mcu/circuit_python/boards/qtpy_samd21.yaml` with VERIFY marks —
+      one `validate_pins.py` run on the QtPy confirms the whole table); fit
       **dividers on every pot tap** (DS3218 wiper swings to servo V+ 6–7.4 V);
       `set_us` round-trip → movement; calibrate `servo_pot` counts↔degrees
       endpoints; measure ACS712 `zero_counts` at rest
@@ -126,9 +128,10 @@ The current sensor streaming API (`GET /sensors/{id}/stream`, `WS /sensors/{id}/
 ## Tools
 
 - [x] Device/effector/policy board-config validation at deploy — done (2026-06):
-      every Device/EffectorBase/PolicyBase subclass declares a `SPEC` (description,
-      required/optional config fields, backend kinds + required keys, known params);
-      `tools/fleet/validate_board.py` validates the board config against the SPECs
+      every device/effector/policy package declares `METADATA` in its `__init__.py`
+      (description, required/optional config fields, backend kinds + required keys,
+      known params — unified with the sensors pattern);
+      `tools/fleet/validate_board.py` validates the board config against it
       (plus dangling backend.device / action.effector / sensor→device references and
       duplicate ids) and `animon deploy` aborts on errors before pushing. `animon
       types` lists the registered vocabulary. Also fixed en route: deploy now pushes
@@ -224,11 +227,12 @@ The current sensor streaming API (`GET /sensors/{id}/stream`, `WS /sensors/{id}/
 ## Infrastructure
 
 - [x] Delete `LV-MaxSonar-EZ/` root directory — resolved
-- [ ] `core/gpio.py` + `config/boards/proprioception.yaml` — VERIFY the SARA-R5
-      power/reset GPIO on the Orange Pi Zero 2: the gpiochip name + line offsets for
-      PI6/PI16 (guessed `gpiochip0` line 262/272 from bank*32+pin) and the installed
-      gpiod Python binding major (v1 vs v2). `LibgpiodOutputLine` is written but
-      unexercised on hardware; confirm with `gpioinfo`/`gpiofind` on the board.
+- [ ] `core/gpio.py` — VERIFY the SARA-R5 power/reset GPIO on the Orange Pi
+      Zero 2 with `gpioinfo`/`gpiofind`, and the installed gpiod binding major
+      (v1 vs v2). The PI6=262/PI16=272 bank arithmetic now lives in
+      `config/profiles/orangepi_zero2.yaml` (the authoritative home, marked
+      VERIFY) and deploy checks line specs against it. `LibgpiodOutputLine` is
+      written but unexercised on hardware.
 - [ ] `core/gpio.py` — implement the `mcu` backend (drive a pin through a device's
       command sink) so a modem/peripheral can be power-gated by an MCU GPIO, not
       only an SBC kernel line. Today it's a logged no-op stub.
@@ -251,7 +255,11 @@ The current sensor streaming API (`GET /sensors/{id}/stream`, `WS /sensors/{id}/
       (`config/animon.yaml`); inter-node auth credentials come from a gitignored
       per-board `secrets.yaml`, never from `animon.yaml` or the board config. Keep
       address (topology) and identity (credential) in separate places.
-- [ ] Board profiles (`config/profiles/`) — hardware defaults per board type
+- [x] Board profiles (`config/profiles/`) — landed (2026-06) as **SBC
+      pin-capability profiles** per node_type (tracked): gpiochip + header line
+      offsets, pwm chips + required overlays, role-bound bus pins; deploy
+      validates line specs and sbc_pwm backends against them. Extend the same
+      files if per-board-type *defaults* are ever needed.
 - [ ] Fleet node discovery / health check endpoint
 - [ ] Hotswap peripheral autodetection (scan I2C + USB on startup, auto-add to config)
 - [x] `docs/architecture.md` — full system design, topology diagram, data flow
@@ -328,6 +336,18 @@ an existing seam:
       (`tools/forge/drift.py`: unbuilt / stale-vs-contract per declared usb_mcu)
       surfaces in `status`, `diff`, and as deploy warnings. Deploy still never
       builds/flashes — that stays a forge step because it needs the hardware.
+- [ ] `animon probe` live pin/overlay verification — read `/sys/class/pwm`,
+      `/proc/device-tree`, and `gpioinfo` over SSH to confirm what the offline
+      profile checks can't: overlays actually enabled, gpiochip names/line
+      counts as profiled. The seam is noted in config/profiles/README.
+- [ ] RP2040 PWM slice arithmetic — two pins on one PWM slice must share a
+      frequency; the capability table can't express it. Needs a per-chip rule
+      in the claims checker if a contract ever drives two different
+      frequencies on adjacent pins.
+- [ ] Voltage-domain checks — board files and SBC profiles carry `logic_v`;
+      a future check could flag a 3.3 V driver claiming a module whose
+      manifest declares a higher required VIH (the CD4051 lattice concern).
+      Data is in place; the check is not.
 - [ ] Protocol v2 — wider/float payloads; bump `VERSION` in `core/mcu_link.py` and
       the firmware `transport_serial` module together, branch decode on version.
 - [ ] Generate the firmware serializer from `core/mcu_link.py` constants so the

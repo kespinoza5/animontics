@@ -36,6 +36,7 @@ This is the core design. Each layer owns exactly its concern — never cross the
 | Fleet access | `config/animon.yaml` | ❌ gitignored | The node's address: IPs/hostname + HTTP port, SSH users — how to reach each board (authoritative; the board serving-config bind is projected from `port`) |
 | Board wiring reality | `config/boards/<id>.yaml` + board's `config.yaml` | ❌ gitignored | Physical connection details (port, bus, baud, address) |
 | Hardware constraints | `sensors/<type>/__init__.py` `METADATA` | ✅ | Valid connection types, addresses, baud rates, defaults |
+| SBC pin capabilities | `config/profiles/<node_type>.yaml` | ✅ | Board-model facts: gpiochip + header line offsets, pwm chips + required overlays |
 
 `config/nodes/`, `config/boards/`, `config/mcus/`, and `config/animon.yaml` are all
 gitignored — only the `example.yaml` template in each dir is tracked. Real fleet
@@ -54,6 +55,7 @@ declares the runtime's other tiers**, and a fifth config home drives firmware:
 | Effectors | `config/boards/<id>.yaml` `effectors:` | outputs (type, `backend.device`, name+index channels) |
 | Policies | `config/boards/<id>.yaml` `policies:` | control loops (type, observation, action, params) |
 | MCU build contract | `config/mcus/<id>.yaml` | what `forge` composes for one MCU (modules, pins/chips, channels) |
+| MCU pin capabilities | `mcu/<family>/boards/<profile>.yaml` | tracked per-board pin tables (gpio/adc/dac/pwm/countio + role-bound buses) `forge validate` checks claims against |
 
 Array sensors (`mq_array`, `pressure_array`) carry `channels:` mapping
 `(device, index) → signal + calibration`; they omit `connection`.
@@ -124,6 +126,13 @@ __all__ = ["MySensor", "METADATA"]
 
 **Why:** Without METADATA, `animon deploy` raises `ReconcileError` when adding the
 sensor to a board that has no existing config.yaml. This was a real bug.
+
+**The same pattern covers every tier**: device/effector/policy packages also
+declare a module-level `METADATA` in `__init__.py`, outside the import guard
+(fields differ per tier — see CONTRIBUTING → "Adding a device, effector, or
+policy"). `animon deploy` validates board configs against them; `animon types`
+lists the vocabulary. Never put the schema on the class — a failed hardware
+import would silently drop it.
 
 ### Routers that need the sensor registry use `request.app.state`:
 
@@ -309,6 +318,9 @@ config for testing/debugging/rollback. It never overwrites the staged baseline
 
 ```bash
 python -m tools.forge.forge validate <mcu-id>   # static-check config/mcus/<id>.yaml
+#   validate covers: modules/pins vs the board's capability tables
+#   (mcu/<family>/boards/<profile>.yaml — pwm/adc/dac/countio/bus roles, pin
+#   conflicts) and cross-contract sweep params (rows/max_code/ack_pins).
 python -m tools.forge.forge build    <mcu-id>   # compose (+compile) → firmware/<id>/
 python -m tools.forge.forge flash    <mcu-id>   # build + flash/copy to the target (needs hardware)
 python -m tools.forge.forge channels <mcu-id>   # print the canonical channel block to paste in

@@ -272,7 +272,7 @@ A module is a hand-written lean C++ library plus a manifest and jinja fragments:
 
 ```
 mcu/arduino/modules/my_module/
-├── manifest.yaml      # platforms, role, claims{kind}, provides{channels}, config, sources
+├── manifest.yaml      # platforms, role, claims (param→pin kind), provides{channels}, config, sources
 ├── my_module.h        # a small class — setup() + its work method(s), no framing
 ├── my_module.cpp
 ├── decl.j2            # instance declaration   → main.ino globals
@@ -286,7 +286,13 @@ mcu/arduino/modules/my_module/
 module: my_module
 platforms: [arduino]
 role: sensor              # sensor | actuator | transport
-claims: {kind: adc}       # pins must be valid <kind> pins in platform.yaml; one claim per pin
+claims: {pins: adc}       # param → capability kind; every claimed pin must be
+                          # valid for its kind in the board's pin tables
+                          # (mcu/<family>/boards/<profile>.yaml, family pins as
+                          # fallback) and one module per pin. Pin params beyond
+                          # `pins` are claimed by name — e.g. matrix_scan's
+                          # {pins: gpio, dac_pin: dac, ack_pins: adc}; bus roles
+                          # use dotted kinds ({tx_pin: uart.tx}).
 provides: {channels: per_pin}   # sensors only: per_pin or an integer count
 config: {sample_hz: 2}    # defaults, overridable per instance in the contract
 sources: [my_module.h, my_module.cpp]

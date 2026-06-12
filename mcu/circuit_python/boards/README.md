@@ -37,8 +37,17 @@ module needs one, it's because a new peripheral class is in play.
 
 Tables are authored from the datasheet / CircuitPython docs; entries that
 haven't been confirmed on silicon carry a `# VERIFY` comment. The source of
-truth is the chip itself: `mcu/circuit_python/validate_pins.py` (bench script)
-probes a live board over CIRCUITPY and prints its table in this exact format —
-verifying a board is a diff, not a transcription. A board profile with no file
-here simply gets no capability checking (claims error with "no pin table"
-only when a contract actually claims that kind).
+truth is the chip itself — verify with the probe:
+
+```
+# 1. copy mcu/circuit_python/validate_pins.py → CIRCUITPY/code.py
+# 2. open the serial console (screen /dev/ttyACM0 115200 or Mu/tio)
+# 3. diff the printed table against the boards/<profile>.yaml entries
+```
+
+The probe tries each peripheral class (digitalio/AnalogIn/AnalogOut/pwmio/
+countio) on every `board.*` pin and prints what sticks, in this file format.
+Bus roles are not probed (pairwise bus construction is O(n²)) — those stay
+datasheet-authored. A board profile with no file here simply gets no
+capability checking (claims error with "no pin table" only when a contract
+actually claims that kind).
