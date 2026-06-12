@@ -16,6 +16,8 @@ METADATA = {
         # The physical UART is owned by the sara_r5 device; list its id under
         # `devices:` in the board config instead of specifying a connection here.
         "supported": [],
+        "defaults": {},
+        "valid": {},
         "notes": "No direct connection — attach via `devices: [<sara_r5_device_id>]`.",
     },
     "data_keys": {

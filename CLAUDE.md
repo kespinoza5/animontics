@@ -241,6 +241,15 @@ first** (subtree merge or `git filter-repo`). See
 ## Verification commands
 
 ```bash
+# THE one command — the whole offline battery with a summary table
+# (imports, pytest, audit, forge validate ×contracts, board validation, docs):
+python -m tools.dev.check
+python -m tools.dev.check tests forge     # or just some steps
+```
+
+Individual pieces:
+
+```bash
 # Import sanity (run from project root)
 python -c "from node.app import create_app; print('OK')"
 python -c "from tools.fleet.reconcile import load_all_metadata; print(sorted(load_all_metadata()))"

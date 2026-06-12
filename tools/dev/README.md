@@ -4,6 +4,30 @@ Tools that support *working on* the codebase, as opposed to `tools/fleet`
 (which operates the running fleet) or `tools/board` / `tools/network` (which
 configure hardware). Nothing here talks to a board or the network.
 
+## `check.py` — the offline verification battery, one command
+
+Everything a change should pass before it's trusted, with sectioned output
+and a one-screen summary (✓/✗ per step, timing, exit 0/1). This is the
+command to run before committing — and it becomes CI verbatim if the repo
+ever gets a remote.
+
+```bash
+python -m tools.dev.check                  # everything (~15 s)
+python -m tools.dev.check tests forge      # just these steps
+python -m tools.dev.check --no-docs        # skip the slowest step
+```
+
+| Step      | What it runs |
+|-----------|--------------|
+| `imports` | app factory import + every tier's METADATA loads |
+| `tests`   | bare `pytest` from the root |
+| `audit`   | `tools/dev/audit.py` sensor conformance (static) |
+| `forge`   | `forge validate` on every contract in `config/mcus/` |
+| `boards`  | the full deploy-time validation of every `config/boards/<id>.yaml` — sensor connections, tier METADATA + `valid:` values, bus/pin profiles, contract cross-checks, channel resolution |
+| `docs`    | `mkdocs build`, real WARNINGs only |
+
+Warnings print but never fail a step; errors fail the step and the run.
+
 ## `audit.py` — sensor plugin conformance audit
 
 Checks every sensor package under `sensors/` against the plugin contract

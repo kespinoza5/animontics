@@ -14,6 +14,8 @@ METADATA = {
     ),
     "connection": {
         "supported": [],
+        "defaults": {},
+        "valid": {},
         "notes": "No direct connection — attach via `devices: [<sara_r5_device_id>]`.",
     },
     "data_keys": {
