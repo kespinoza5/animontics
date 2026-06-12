@@ -193,3 +193,12 @@ def test_existing_board_other_tiers_untouched():
     assert [d.id for d in new.devices] == ["mcu0"]
     assert [e.id for e in new.effectors] == ["fans"]
     assert [p.id for p in new.policies] == ["reflex"]
+
+
+def test_connectionless_sensor_does_not_crash_validation():
+    """Device-fed sensors (connection=None) must pass through reconcile's
+    validation step — this crashed on real boards with pressure/mq arrays."""
+    assert validate_connection("fake_uart", None, METADATA) == []
+    existing = SensorConfig(id="arr", type="fake_uart", devices=["mcu0"])
+    new, changes = reconcile(_entry(("arr", "fake_uart")), _board(existing), METADATA)
+    assert new.sensors == [existing]

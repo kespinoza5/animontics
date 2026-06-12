@@ -17,6 +17,7 @@ from core.config import load_board_override, load_fleet, save_board_staging
 from core.models import AnimonConfig, AnimonNodeEntry, NodeConfig
 from tools.fleet.reconcile import load_all_metadata, reconcile
 from tools.fleet.ssh import SSHError, read_remote_file
+from tools.forge.drift import firmware_drift
 
 
 # Exit codes
@@ -80,6 +81,7 @@ def status(
 
         override = load_board_override(node.id, root)
         drift = _compute_drift(node, live_config, metadata)
+        drift += firmware_drift(node.usb_mcus, root)
         # An active override is an intentional, tracked deviation — surface it
         # distinctly, but it still means the board is not on the staged baseline.
         any_drift = any_drift or bool(drift) or override is not None
@@ -153,13 +155,19 @@ def diff(
               + f" (deployed {override.deployed_at}).")
         print(f"    Diff below is vs. the staged baseline; run 'animon revert {node_id}' "
               f"to restore it.")
+    fw_notes = firmware_drift(node.usb_mcus, project_root)
+
     if changes:
         for c in changes:
             print(c)
+    if fw_notes:
+        print("  Firmware (build/flash via forge):")
+        for n in fw_notes:
+            print(f"    ⚙ {n}")
+    if changes or fw_notes:
         return EXIT_DRIFT
-    else:
-        print("  No changes — node is in sync with desired state.")
-        return EXIT_OK
+    print("  No changes — node is in sync with desired state.")
+    return EXIT_OK
 
 
 def pull(

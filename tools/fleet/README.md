@@ -28,6 +28,18 @@ the dev machine with the file to fix. Unknown `params:` keys print as warnings.
 `animon types` lists every registered sensor/device/effector/policy type with
 its one-line description — the authoring vocabulary.
 
+`deploy` also runs the **forge channel resolver**: a device-fed sensor that
+lists `devices:` but no `channels:` gets them derived from the MCU contracts
+(`config/mcus/<id>.yaml`) so the channel map is authored once; a contract with
+no channel block is flagged with the `forge channels` command to fix it. And
+**firmware drift** — a declared MCU whose contract was never built, or edited
+since its last `forge build` — appears in `status` and `diff` output and as
+deploy warnings. Deploy never builds or flashes firmware itself (that needs
+the hardware); it just refuses to let stale firmware go unnoticed.
+
+`deploy --dry-run` is fully offline — it reads the staging copy and skips the
+board query (removals report as unknown).
+
 Global flags:
 
 ```

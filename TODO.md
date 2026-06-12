@@ -178,11 +178,9 @@ The current sensor streaming API (`GET /sensors/{id}/stream`, `WS /sensors/{id}/
       run_remote seam), and the CLI entry points (`animon.py`, `forge.py`).
 - [ ] `animon update <node-id>` — remote apt/pip upgrade as a fleet subcommand
       (folded into tools/fleet/ rather than a standalone maintenance script)
-- [ ] `tools/fleet/deploy.py` — `deploy --dry-run` still makes one SSH call
-      (`_remote_packages`) to compute packages-to-remove, so an offline dry-run
-      (e.g. previewing a `--config` override) pauses on the connect timeout.
-      Skip the remote query under `dry_run` and report removals as
-      "unknown (offline)".
+- [x] `tools/fleet/deploy.py` — `deploy --dry-run` is now fully offline: the
+      `_remote_packages` SSH query is skipped under dry_run and removals report
+      as "unknown (dry-run skips the board query)". (2026-06)
 
 ---
 
@@ -320,9 +318,13 @@ an existing seam:
 - [x] Channel-contract dedup — the MCU contract's `channels` is the single source;
       a device-fed sensor lists `devices: [<id>]` and `forge resolve <node>` derives
       its board-config `channels` (`tools/forge/resolve.py`). Author once.
-- [ ] `animon`↔`forge` integration: `animon deploy` calls the resolver end-to-end
-      and reconciles firmware as desired state (today `forge resolve` is a separate
-      step; deploy doesn't run it yet).
+- [x] `animon`↔`forge` integration — done (2026-06): `animon deploy` runs the
+      channel resolver itself (`resolve_node_config`; shipped configs always carry
+      contract-derived channels, explicit channels win, a channel-less contract is
+      flagged with the `forge channels` fix), and firmware build-state drift
+      (`tools/forge/drift.py`: unbuilt / stale-vs-contract per declared usb_mcu)
+      surfaces in `status`, `diff`, and as deploy warnings. Deploy still never
+      builds/flashes — that stays a forge step because it needs the hardware.
 - [ ] Protocol v2 — wider/float payloads; bump `VERSION` in `core/mcu_link.py` and
       the firmware `transport_serial` module together, branch decode on version.
 - [ ] Generate the firmware serializer from `core/mcu_link.py` constants so the

@@ -13,9 +13,13 @@ function is the seam for `animon deploy` to bake channels into shipped configs.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from core.models import SensorChannel
 from tools.forge import contract as contract_mod
+
+if TYPE_CHECKING:
+    from core.models import NodeConfig
 
 
 def derive_sensor_channels(device_ids: list[str], project_root: Path) -> list[SensorChannel]:
@@ -31,6 +35,34 @@ def derive_sensor_channels(device_ids: list[str], project_root: Path) -> list[Se
     return channels
 
 
+def resolve_node_config(config: "NodeConfig", project_root: Path) -> list[str]:
+    """Fill empty `channels` on device-fed sensors of a NodeConfig, in place.
+
+    The model twin of resolve_board() — this is what `animon deploy` calls so a
+    deployed config always ships with contract-derived channels. Explicit
+    channels are left untouched. Returns human-readable change notes; raises
+    ContractError if a listed device has no config/mcus/<id>.yaml.
+    """
+    notes: list[str] = []
+    for sc in config.sensors:
+        if sc.enabled and sc.devices and not sc.channels:
+            derived = derive_sensor_channels(sc.devices, project_root)
+            if derived:
+                sc.channels = derived
+                notes.append(
+                    f"  ⚙ {sc.id}: {len(derived)} channels resolved from "
+                    f"contract(s) {sc.devices}"
+                )
+            else:
+                # A device-fed sensor pointed at contracts with no channel
+                # block — runtime would see an empty array. Surface it.
+                notes.append(
+                    f"  ⚠ {sc.id}: contract(s) {sc.devices} declare no channels — "
+                    f"run 'forge channels <id>' and paste the block into the contract"
+                )
+    return notes
+
+
 def resolve_board(board: dict, project_root: Path) -> tuple[dict, int]:
     """Fill device-fed sensors' `channels` from their `devices`. Mutates + returns
     the board dict and the count of sensors resolved."""
@@ -38,7 +70,9 @@ def resolve_board(board: dict, project_root: Path) -> tuple[dict, int]:
     for sc in board.get("sensors", []) or []:
         devices = sc.get("devices")
         if devices and not sc.get("channels"):
-            sc["channels"] = [c.model_dump(exclude_none=True)
-                              for c in derive_sensor_channels(devices, project_root)]
+            derived = derive_sensor_channels(devices, project_root)
+            if not derived:
+                continue  # contract has no channel block — nothing to write
+            sc["channels"] = [c.model_dump(exclude_none=True) for c in derived]
             resolved += 1
     return board, resolved

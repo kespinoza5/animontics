@@ -41,6 +41,9 @@ from tools.fleet.reconcile import (
 )
 from tools.fleet.ssh import SSHError, read_remote_file, rsync_to, run_remote, write_remote_file
 from tools.fleet.validate_board import validate_board_tiers
+from tools.forge.contract import ContractError
+from tools.forge.drift import firmware_drift
+from tools.forge.resolve import resolve_node_config
 
 
 def deploy(
@@ -182,6 +185,17 @@ def deploy(
             print(f"error: {e}")
             return 1
 
+        # ── 3c. Resolve device-fed sensor channels from the MCU contracts ─────
+        # (channel maps are authored once, in config/mcus/<id>.yaml; the shipped
+        # config always carries the derived copy. Explicit channels are kept.)
+        try:
+            changes += resolve_node_config(new_config, project_root)
+        except ContractError as e:
+            print(f"error: channel resolution failed: {e}\n"
+                  f"  (a device-fed sensor lists a device with no contract in "
+                  f"config/mcus/ — author the contract or set channels explicitly)")
+            return 1
+
         # ── Show the diff ──────────────────────────────────────────────────────
         if changes:
             log("\nConfig changes:")
@@ -205,19 +219,29 @@ def deploy(
               "'animon types' lists what this machine knows)".format(node_id))
         return 1
 
+    # ── 4c. Firmware drift (informational — deploy never builds or flashes) ───
+    fw_notes = firmware_drift(node.usb_mcus, project_root)
+    if fw_notes:
+        log("\nFirmware (not reconciled by deploy — build/flash via forge):")
+        for n in fw_notes:
+            log(f"  ⚙ {n}")
+
     desired_sensor_types = {ref.type for ref in node.sensors}
     enabled_sensor_types = {s.type for s in new_config.sensors if s.enabled}
     packages_to_deploy = enabled_sensor_types & _available_packages(project_root)
-    packages_to_remove = _remote_packages(host, user, deploy_path) - enabled_sensor_types
 
     if packages_to_deploy:
         log(f"\nPackages to deploy:  {sorted(packages_to_deploy)}")
-    if packages_to_remove:
-        log(f"Packages to remove:  {sorted(packages_to_remove)}")
 
     if dry_run:
+        # Offline by design: don't SSH to compute removals during a preview.
+        log("Packages to remove:  unknown (dry-run skips the board query)")
         log("\n[dry-run] No changes applied.")
         return 0
+
+    packages_to_remove = _remote_packages(host, user, deploy_path) - enabled_sensor_types
+    if packages_to_remove:
+        log(f"Packages to remove:  {sorted(packages_to_remove)}")
 
     # ── 5. Rsync core files ────────────────────────────────────────────────────
     log("\nSyncing files...")

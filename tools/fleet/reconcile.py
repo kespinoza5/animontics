@@ -75,7 +75,7 @@ def _default_connection(
 
 def validate_connection(
     sensor_type: str,
-    connection: ConnectionConfig,
+    connection: ConnectionConfig | None,
     metadata: dict[str, dict],
 ) -> list[str]:
     """Validate a connection config against sensor METADATA constraints.
@@ -83,6 +83,8 @@ def validate_connection(
     Returns a list of validation error strings (empty = valid).
     """
     errors: list[str] = []
+    if connection is None:
+        return errors  # device-fed / connectionless sensors have no connection block
     meta = metadata.get(sensor_type)
     if not meta:
         return errors  # no metadata to validate against
