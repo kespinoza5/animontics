@@ -71,9 +71,12 @@ docs/cortex.md). What remains is bench bring-up + research tracks.
       reconfigurable 4-lane I2S/SPI fabric links; reflash via the brainstem
 - [ ] Brainstem autonomy: watchdog firmware on the rp2040_power boards
       (deterministic, acts without a cortex) — today they are command-driven
-- [ ] forge: cross-contract validation for shared scan params (`rows`,
-      `max_code` must match across featherm4_lattice + samd21_press0/1/2;
-      manual today)
+- [x] forge: cross-contract validation for shared scan params — done (2026-06):
+      `forge validate`/`build` check `rows` + `max_code` agree across every
+      scan-module contract and that the conductor's `ack_pins` count matches
+      the follower count (`tools/forge/cross_contract.py`). Assumes one sweep
+      group fleet-wide; add a group key to the module params if a second
+      lattice ever appears.
 - [ ] RA4M1-Zero swap points (boards ordered): lattice conductor (5 V mux
       drive + unshifted 5 V ADS I2C; cap DAC codes ≤3.3 V for the followers),
       visceral analog front-end (drops the shifted-I2C ADS1115), cervical

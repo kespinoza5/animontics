@@ -18,6 +18,14 @@ It is **target-pluggable**: the AVR/Arduino MCU builder is the first target;
 FPGA bitstreams and accelerator (Hailo/Coral) model compiles slot in behind the
 same `Builder` interface with no change to existing targets.
 
+`validate` (and therefore `build`) also runs **cross-contract checks**
+(`cross_contract.py`): contracts that participate in the same scanned-lattice
+sweep (`matrix_scan` conductor + `scan_follower` followers) must agree on
+`rows` and `max_code`, and the conductor must declare one `ack_pin` per
+follower contract — a mismatch decodes garbage on the bench and looks exactly
+like a wiring fault, so it fails validation instead. Contracts without a scan
+module are unaffected.
+
 ## How it fits
 
 ```

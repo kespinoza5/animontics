@@ -24,6 +24,7 @@ from pathlib import Path
 import tools.forge.builders  # noqa: F401  (side-effect: registers builders)
 from tools.forge import contract as contract_mod
 from tools.forge.builder import BuildContext, BuildError, get_builder
+from tools.forge.cross_contract import cross_contract_issues
 
 
 def _project_root() -> Path:
@@ -155,6 +156,9 @@ def _all_issues(target: contract_mod.McuTarget, ctx: BuildContext) -> list[str]:
         issues += get_builder(target.target).validate(ctx)
     except BuildError as exc:
         issues.append(str(exc))
+    # Sweep-group consistency (rows/max_code/ack_pins across the lattice
+    # contracts) — no-op for contracts without a scan module.
+    issues += cross_contract_issues(target, ctx.project_root)
     return issues
 
 
