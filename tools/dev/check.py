@@ -9,10 +9,12 @@ Usage:
     python -m tools.dev.check                  # everything
     python -m tools.dev.check tests forge      # just these steps
     python -m tools.dev.check --no-docs        # skip the slowest step
+    python -m tools.dev.check -v               # full output from each step
+    python -m tools.dev.check tests -vv        # + per-test pytest names
 
 Steps:
     imports   app factory + every tier's METADATA loads
-    tests     bare pytest from the root
+    tests     bare pytest from the root (skip reasons always shown)
     audit     tools/dev/audit.py sensor conformance (static)
     forge     `forge validate` every contract in config/mcus/
     boards    full deploy-time validation of every config/boards/<id>.yaml
@@ -20,8 +22,9 @@ Steps:
               cross-checks, channel resolution, firmware drift)
     docs      mkdocs build
 
-Exit code: 0 = all green, 1 = any step failed. Warnings never fail a step —
-they print so they're seen, not so they block.
+Verbosity (-v, -vv) widens what prints; it never changes pass/fail. Warnings
+and skips print at any level — they're shown so they're seen, not so they
+block. Exit code: 0 = all green, 1 = any step failed.
 """
 from __future__ import annotations
 
@@ -32,7 +35,7 @@ import time
 from pathlib import Path
 
 GREEN, RED, YELLOW, DIM, RESET = "\033[32m", "\033[31m", "\033[33m", "\033[2m", "\033[0m"
-OK, FAIL, WARN = f"{GREEN}✓{RESET}", f"{RED}✗{RESET}", f"{YELLOW}?{RESET}"
+OK, FAIL, WARN, SKIP = f"{GREEN}✓{RESET}", f"{RED}✗{RESET}", f"{YELLOW}?{RESET}", f"{YELLOW}–{RESET}"
 
 
 def _root() -> Path:
@@ -52,45 +55,60 @@ def _run(cmd: list[str]) -> tuple[int, str]:
     return proc.returncode, (proc.stdout or "") + (proc.stderr or "")
 
 
-# ── Steps — each returns (ok, one-line summary) ───────────────────────────────
+def _dump(out: str, indent: str = "  ") -> None:
+    for line in out.strip().splitlines():
+        print(f"{indent}{DIM}{line}{RESET}")
 
-def step_imports() -> tuple[bool, str]:
+
+# ── Steps — each returns (ok, one-line summary). `v` is the verbosity level ───
+
+def step_imports(v: int) -> tuple[bool, str]:
     try:
         from node.app import create_app  # noqa: F401
         from tools.fleet.reconcile import load_tier_metadata
-        counts = {t: len(load_tier_metadata(t))
+        loaded = {t: sorted(load_tier_metadata(t))
                   for t in ("sensors", "devices", "effectors", "policies")}
     except Exception as exc:
         print(f"  {FAIL} {exc}")
         return False, str(exc)
-    line = ", ".join(f"{n} {t}" for t, n in counts.items())
+    line = ", ".join(f"{len(names)} {t}" for t, names in loaded.items())
     print(f"  {OK} app factory imports; METADATA: {line}")
+    if v >= 1:
+        for t, names in loaded.items():
+            print(f"      {DIM}{t}: {', '.join(names)}{RESET}")
     return True, line
 
 
-def step_tests() -> tuple[bool, str]:
-    rc, out = _run([sys.executable, "-m", "pytest", "-q"])
-    tail = [l for l in out.strip().splitlines() if l.strip()][-1:]
-    summary = tail[0] if tail else "(no output)"
-    if rc != 0:
-        print(out)
-        return False, summary
-    print(f"  {OK} {summary}")
-    return True, summary
+def step_tests(v: int) -> tuple[bool, str]:
+    # -rs always reports skip reasons; -rA (v>=1) reports every non-pass
+    # outcome; -v (v>=2) adds per-test names. Skips are surfaced at any level
+    # so "why was that skipped?" is answered inline, not left a mystery.
+    flags = ["-q", "-rs"] if v == 0 else (["-rA"] if v == 1 else ["-v", "-rA"])
+    rc, out = _run([sys.executable, "-m", "pytest", *flags])
+    lines = [l for l in out.strip().splitlines() if l.strip()]
+    summary = lines[-1] if lines else "(no output)"
+    if rc != 0 or v >= 1:
+        _dump(out)
+    else:
+        # quiet pass: still surface the skip-reason lines pytest's -rs printed
+        for l in lines:
+            if l.startswith("SKIPPED") or l.startswith("XFAIL"):
+                print(f"  {SKIP} {l}")
+    print(f"  {OK if rc == 0 else FAIL} {summary}")
+    return rc == 0, summary
 
 
-def step_audit() -> tuple[bool, str]:
+def step_audit(v: int) -> tuple[bool, str]:
     rc, out = _run([sys.executable, "-m", "tools.dev.audit"])
-    last = [l for l in out.strip().splitlines() if l.strip()][-1:]
-    summary = last[0] if last else "(no output)"
-    if rc != 0:
-        print(out)
-        return False, summary
-    print(f"  {OK} {summary}")
-    return True, summary
+    lines = [l for l in out.strip().splitlines() if l.strip()]
+    summary = lines[-1] if lines else "(no output)"
+    if rc != 0 or v >= 1:
+        _dump(out)
+    print(f"  {OK if rc == 0 else FAIL} {summary}")
+    return rc == 0, summary
 
 
-def step_forge() -> tuple[bool, str]:
+def step_forge(v: int) -> tuple[bool, str]:
     mcus = sorted(p.stem for p in (_root() / "config" / "mcus").glob("*.yaml")
                   if p.stem != "example")
     if not mcus:
@@ -109,7 +127,7 @@ def step_forge() -> tuple[bool, str]:
     return failures == 0, summary
 
 
-def step_boards() -> tuple[bool, str]:
+def step_boards(v: int) -> tuple[bool, str]:
     from core.config import load_node_config
     from tools.fleet.reconcile import load_all_metadata, validate_connection
     from tools.fleet.validate_board import validate_board_tiers
@@ -151,8 +169,9 @@ def step_boards() -> tuple[bool, str]:
               f"{len(tier_warnings)} warning(s)")
         for e in errors:
             print(f"      {RED}!{RESET} {e}")
-        for w in tier_warnings:
-            print(f"      {DIM}? {w}{RESET}")
+        if v >= 1 or not errors:        # warnings: always at -v, else only on a clean board
+            for w in tier_warnings:
+                print(f"      {DIM}? {w}{RESET}")
         total_errors += len(errors)
         total_warnings += len(tier_warnings)
 
@@ -160,17 +179,20 @@ def step_boards() -> tuple[bool, str]:
     return total_errors == 0, summary
 
 
-def step_docs() -> tuple[bool, str]:
+def step_docs(v: int) -> tuple[bool, str]:
     rc, out = _run([sys.executable, "-m", "mkdocs", "build"])
+    if rc != 0:
+        print(out)
+        return False, "build failed"
+    if v >= 1:
+        _dump(out)
     # keep real diagnostics; mkdocs prints INFO progress and mkdocs-material
     # an informational banner on every run that would drown them out
     issues = [l for l in out.strip().splitlines()
               if "WARNING" in l or "ERROR" in l]
-    if rc != 0:
-        print(out)
-        return False, "build failed"
-    for line in issues:
-        print(f"  {DIM}? {line}{RESET}")
+    if v == 0:
+        for line in issues:
+            print(f"  {DIM}? {line}{RESET}")
     print(f"  {OK} docs build clean" if not issues
           else f"  {OK} docs build ({len(issues)} warning(s))")
     return True, "clean" if not issues else f"{len(issues)} warning(s)"
@@ -195,6 +217,8 @@ def main(argv: list[str] | None = None) -> int:
                         help=f"steps to run (default: all — {', '.join(STEPS)})")
     parser.add_argument("--no-docs", action="store_true",
                         help="skip the mkdocs build (the slowest step)")
+    parser.add_argument("-v", "--verbose", action="count", default=0,
+                        help="show each step's full output (-vv adds per-test names)")
     args = parser.parse_args(argv)
 
     selected = args.steps or list(STEPS)
@@ -205,7 +229,7 @@ def main(argv: list[str] | None = None) -> int:
     for name in selected:
         _section(name)
         t0 = time.monotonic()
-        ok, summary = STEPS[name]()
+        ok, summary = STEPS[name](args.verbose)
         results.append((name, ok, summary, time.monotonic() - t0))
 
     _section("summary")

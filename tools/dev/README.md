@@ -15,6 +15,8 @@ ever gets a remote.
 python -m tools.dev.check                  # everything (~15 s)
 python -m tools.dev.check tests forge      # just these steps
 python -m tools.dev.check --no-docs        # skip the slowest step
+python -m tools.dev.check -v               # full output from each step
+python -m tools.dev.check tests -vv        # + per-test pytest names
 ```
 
 | Step      | What it runs |
@@ -27,6 +29,12 @@ python -m tools.dev.check --no-docs        # skip the slowest step
 | `docs`    | `mkdocs build`, real WARNINGs only |
 
 Warnings print but never fail a step; errors fail the step and the run.
+**Skips always print with their reason** — a test guarded by
+`pytest.importorskip("smbus2")` shows `SKIPPED … could not import 'smbus2'`,
+so a board-only test reads as deliberate, not missing. `-v` expands every step
+to its full subprocess output (per-board warnings, each `forge validate`
+detail, mkdocs INFO); `-vv` additionally runs `pytest -v` for per-test names.
+Verbosity only widens what prints — it never changes pass/fail.
 
 ## `audit.py` — sensor plugin conformance audit
 
