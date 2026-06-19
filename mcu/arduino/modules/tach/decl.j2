@@ -1,0 +1,2 @@
+static const uint8_t {{ inst }}_pins[] = { {{ pins | join(', ') }} };
+static Tach {{ inst }}({{ inst }}_pins, {{ pins | length }}, {{ params.pulses_per_rev | default(2) }});

@@ -60,6 +60,21 @@ docs/cortex.md). What remains is bench bring-up + research tracks.
       3.3 V I2C segment; `arecord`/`aplay` sanity, then the sensor +
       effector lanes; set the MAX98357A gain strap conservatively (1 W driver)
 - [ ] `larduino` MQ array unchanged but re-verify after hub re-cabling
+- [ ] **LR4Z bring-up** (Waveshare RA4M1-Zero visceral front-end, `config/mcus/lr4z.yaml`):
+      firmware is composed offline; hardware steps remain —
+      (1) implement renesas **DFU flash** in `ArduinoBuilder` (board `flash.tool`
+      override; the AVR path uses avrdude) — or flash via arduino-cli/IDE for now;
+      (2) `forge build lr4z` on the toolchain (arduino-cli renesas core, WSL);
+      (3) **VERIFY the pin map** in `mcu/arduino/boards/ra4m1_zero.yaml` against the
+      Waveshare schematic (PWM-25 kHz / countio / Serial1 / ADC pads);
+      (4) wire the 2N3904 inverter on the MB1010 TX → Serial1 (D0), AREF→5 V;
+      (5) implement/verify **25 kHz** fan PWM (see Firmware) and calibrate the
+      analog lanes (`acs712` zero/counts-per-amp, `maxsonar` `scale` mm/count) at
+      10-bit + AREF=5 V — board values are placeholders;
+      (6) fill real `/dev/serial/by-id/` for `lr4z`; `animon deploy neocore2_hub`;
+      confirm both sonar lanes (`distance_mm` agree within near-field divergence),
+      `rail_current.amps`, `fan_rpm`, fan `set_duty`, and relay on/off via
+      `power_rail`.
 
 ### Research tracks / open seams
 
@@ -79,11 +94,48 @@ docs/cortex.md). What remains is bench bring-up + research tracks.
       the follower count (`tools/forge/cross_contract.py`). Assumes one sweep
       group fleet-wide; add a group key to the module params if a second
       lattice ever appears.
-- [ ] RA4M1-Zero swap points (boards ordered): lattice conductor (5 V mux
+- [~] RA4M1-Zero swap points (boards ordered): lattice conductor (5 V mux
       drive + unshifted 5 V ADS I2C; cap DAC codes ≤3.3 V for the followers),
       visceral analog front-end (drops the shifted-I2C ADS1115), cervical
-      (5 V servo logic). Forge cost: CP board profile if supported, else an
-      arduino-family Renesas platform entry (fqbn + DFU flash)
+      (5 V servo logic). Forge approach DECIDED (2026-06): an **arduino-family
+      Renesas board entry** — `mcu/arduino/boards/ra4m1_zero.yaml`
+      (`arduino:renesas_uno:minima`). **CircuitPython is deprecated for this
+      board**: the Waveshare RA4M1-Zero has no CP build, and CP would consume most
+      of the flash even if it did. Visceral front-end COMPOSED (offline): the LR4Z
+      (`config/mcus/lr4z.yaml`) carries the MB1010 sonar (analog AN + inverted-TX
+      digital lanes), 3 fans + tach, ACS712, and the relay — replacing the
+      SBC-side ADS1115 + lxiao + SBC-GPIO relay on `neocore2_hub`. Bench bring-up
+      pending (below). Lattice-conductor + cervical RA4M1 swaps still open.
+- [ ] Lattice inter-MCU coordination lane — DESIGN DECIDED (design-of-record):
+      the RA4M1 conductor coordinates the SAMD21 followers over **analog
+      DAC↔ADC point-to-point lines, NOT I2C**. Down: RA4M1 12-bit DAC broadcasts
+      the active-row state (discrete bands, scaled ≤3.3 V so the non-5V-tolerant
+      SAMD21s read it directly — doubles as free 5V→3.3V level translation,
+      threshold-immune into the ADC). Up: each SAMD21's real 10-bit DAC returns a
+      per-follower **salience/surprise magnitude** (clean — no PWM+RC smear; the
+      SAMD21 DAC is why we don't need the RP2040's filtered-PWM workaround) into
+      the RA4M1 A1/A2/A3. Rationale for not using I2C: a coordination round is
+      ~µs and fully parallel on analog lines vs ~100s of µs–ms serialized on I2C,
+      which is already saturated by the slow ADS1115 bulk reads (~860 SPS,
+      ~18 ms/4-ADS-bus full scan). Analog also carries usable *coarse* timing
+      (onset/dV/dt, cross-channel ordering at the ADC sample rate); digital
+      spikes would buy sub-dwell event ordering but cost a 3.3→5V shifter
+      (5 V RA4M1 VIH ≈ 3.5–4 V) — defer unless a reflex needs intra-dwell order.
+      The returns are a low-latency *reflex hint* only: raw data still goes to
+      the SBC over USB and Python owns the authoritative surprise (firmware moves
+      bytes). I2C carries ADS bulk data only; 16 ADSs split 4-per-MCU is a
+      perfect 0x48–0x4B address fit (no mux, no second bus). Open seam: the
+      RA4M1 edge reflex that *consumes* the returns (re-scan/dwell on the salient
+      row) — build only when one concrete reflex action is named; SBC pushes its
+      params/thresholds down (predict-down), reflex emits its decision up. Wiring
+      CONFIRMED (2026-06) on the Nano R4 + XIAO SAMD21: A0=P014_AN09_DAC (DAC
+      out); Qwiic SCL/SDA = P400/P401 (IIC0) is a *separate* bus from A4/A5 =
+      P100/P101, so the ADSs-on-Qwiic move genuinely frees A4/A5 as analog ins;
+      XIAO SAMD21 fits the follower budget — A0 DAC return + 1 row-state ADC in +
+      6 native ADC reads (internal mux, no follower CD4051) + D4/D5 I2C = 10 of
+      11 pins. All lattice ADSs on the 3.3 V Qwiic rail → uniform
+      front-end dividers + consistent calibration (keep this domain its own
+      3.3 V island; don't mix with the 5 V ear-ADS segment).
 - [ ] `animon status` device-tier surface: roll `GET /devices`
       (healthy/gated/down) into fleet status output
 
@@ -233,9 +285,10 @@ The current sensor streaming API (`GET /sensors/{id}/stream`, `WS /sensors/{id}/
       `config/profiles/orangepi_zero2.yaml` (the authoritative home, marked
       VERIFY) and deploy checks line specs against it. `LibgpiodOutputLine` is
       written but unexercised on hardware.
-- [ ] `core/gpio.py` — implement the `mcu` backend (drive a pin through a device's
-      command sink) so a modem/peripheral can be power-gated by an MCU GPIO, not
-      only an SBC kernel line. Today it's a logged no-op stub.
+- [x] `core/gpio.py` — `mcu` backend implemented (2026-06): `McuOutputLine` drives
+      a pin through a device's command sink via `CMD_SET_GPIO` (Phase 4). The
+      `power_rail` effector uses it (`backend: {kind: mcu, device, channel,
+      active_low}`) — e.g. the LR4Z relay and the brainstem RP2040s.
 - [x] `config/nodes/*.yaml` gitignore vs docs reconciled — CLAUDE.md, architecture.md,
       CONTRIBUTING, and the example headers now all state config/nodes is gitignored
       (only `example.yaml` tracked), matching `.gitignore`. The `proprioception` node
@@ -295,13 +348,15 @@ an existing seam:
       `mcu/circuit_python` forge family feeding `pressure_array`. See docs/cortex.md.
 - [x] CircuitPython actuator path — `mcu/circuit_python` is now bidirectional:
       `pwm_out` module (`pwmio`, clean 25 kHz) + inbound `AC` command decode in the
-      runtime. The chassis fans (4-pin PWM) live on the LXiao (XIAO RP2040,
-      `config/mcus/lxiao.yaml`), driven by the node effector tier — moved off the
-      AVR, whose timer map (Timer0 = millis) makes clean 25 kHz awkward.
-- [ ] Real PWM frequency in the AVR `pwm_out` (lower priority now fans are on the
-      RP2040) — it still ignores `freq_hz` and runs at `analogWrite`'s default.
-      Only needed if an AVR ever drives a PWM load wanting >default frequency
-      (timer config; keep off Timer0/D5/D6 which run `millis()`).
+      runtime. The chassis fans (4-pin PWM) were initially moved off the AVR
+      (Timer0/millis conflict) onto a CP board; on `neocore2_hub` they were later
+      consolidated onto the LR4Z (Renesas RA4M1, `config/mcus/lr4z.yaml`).
+- [ ] Real PWM frequency in `pwm_out` — it still ignores `freq_hz` and runs at
+      `analogWrite`'s default. **Now needed**: the LR4Z (RA4M1) drives 4-pin
+      chassis fans that want clean **25 kHz**. Implement the renesas GPT/
+      `analogWriteFrequency` path (verify the core API on hardware — it's why this
+      is deferred). AVR side stays optional (keep off Timer0/D5/D6 which run
+      `millis()`).
 - [ ] Flash on real hardware — `ArduinoBuilder.deploy` (rsync .hex + avrdude over
       the host's SSH) is written but unexercised; needs avrdude on the host. Add a
       direct dev-machine-USB flash option for boards not behind a node.

@@ -1,2 +1,2 @@
 static const uint8_t {{ inst }}_pins[] = { {{ pins | join(', ') }} };
-static AnalogIn {{ inst }}({{ inst }}_pins, {{ pins | length }});
+static AnalogIn {{ inst }}({{ inst }}_pins, {{ pins | length }}, AnalogIn::{{ 'AREF_EXTERNAL' if (params.aref | default('default')) == 'external' else 'AREF_DEFAULT' }}, {{ params.adc_bits | default(0) }});

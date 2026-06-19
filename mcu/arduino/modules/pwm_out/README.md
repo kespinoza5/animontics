@@ -8,3 +8,8 @@ actuator · **claims:** pwm pins · **accepts:** `set_duty {channel, duty}`.
   (composed into the generated `onCommand`, fed by `transport_serial.poll`).
 
 Driven from the node by the **effector** tier through the device — never a sensor.
+
+**Frequency:** `config.freq_hz` is accepted but currently **ignored** — `analogWrite`
+runs at the core default. Clean 25 kHz for 4-pin fans on the RA4M1 (renesas) is a
+bench TODO (the frequency API is unverified and needs hardware to validate); see
+`TODO.md`. Fans still run at the default frequency until then.

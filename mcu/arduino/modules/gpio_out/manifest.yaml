@@ -1,9 +1,11 @@
 module: gpio_out
 platforms: [arduino]
 role: actuator
-description: Simple digital outputs with an optional heartbeat blink.
+description: Digital outputs — optional heartbeat blink and/or CMD_SET_GPIO control.
 claims:
   pins: gpio                # each entry of `pins` must be digital-capable on the board
+accepts:
+  set_gpio: {channel: int, level: int}   # CMD_SET_GPIO (3) — inbound digital write (e.g. a relay)
 config:
-  blink_ms: 0               # 0 = static LOW; >0 = toggle every blink_ms (status LED)
+  blink_ms: 0               # 0 = static (set_gpio owns the level); >0 = toggle every blink_ms (status LED)
 sources: [gpio_out.h, gpio_out.cpp]

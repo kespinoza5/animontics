@@ -1,0 +1,4 @@
+if (cmd == 3 && n >= 2) {   // CMD_SET_GPIO: args = [channel, level]
+  const int16_t ch = args[0];
+  if (ch >= {{ cmd_offset }} && ch < {{ cmd_offset + npins }}) {{ inst }}.set_gpio((uint8_t)(ch - {{ cmd_offset }}), args[1] != 0);
+}

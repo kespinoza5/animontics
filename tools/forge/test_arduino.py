@@ -38,7 +38,7 @@ class TestCompose:
             assert f'#include "{header}"\n' in ino
 
         # direct, concrete instances (no registry / vtables)
-        assert "AnalogIn analog_in0(analog_in0_pins, 2);" in ino
+        assert "AnalogIn analog_in0(analog_in0_pins, 2, AnalogIn::AREF_DEFAULT, 0);" in ino
         assert "PwmOut pwm_out0(pwm_out0_pins, 1);" in ino
         assert "GpioOut gpio_out0(gpio_out0_pins, 1, 250UL);" in ino
         assert "TransportSerial transport_serial0;" in ino

@@ -12,9 +12,11 @@ directory with:
 
 | Module | Role | Claims | Notes |
 |--------|------|--------|-------|
-| `analog_in` | sensor | adc | one frame channel per pin |
+| `analog_in` | sensor | adc | one frame channel per pin; RA4M1 `aref`/`adc_bits` knobs |
+| `serial_sonar` | sensor | uart | MaxBotix `R<NNN>` off a hardware UART → inches |
+| `tach` | sensor | countio | fan FG → RPM per pin (pin-change ISR) |
 | `pwm_out` | actuator | pwm | `set_duty` command target (fans, etc.) |
-| `gpio_out` | actuator | gpio | digital out + optional heartbeat blink |
+| `gpio_out` | actuator | gpio | digital out: heartbeat blink and/or `set_gpio` (CMD_SET_GPIO) |
 | `transport_serial` | transport | uart | protocol-v1 framing + inbound command poll |
 
 Adding a module: see

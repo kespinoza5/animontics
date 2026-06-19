@@ -1,0 +1,31 @@
+# Waveshare RA4M1-Zero — pin capability table for forge validation.
+#
+# Renesas RA4M1 (Arduino UNO R4 core). This board flashes with the UNO R4 Minima
+# FQBN — pin tokens below are the **Minima Arduino names** (D0–D13, A0–A5) the
+# generated sketch compiles against, NOT the Waveshare silk. Map the Waveshare
+# pads → these Arduino pins against the board schematic before wiring a contract:
+#   https://files.waveshare.com/wiki/RA4M1-Zero/RA4M1-zero-schematic.pdf
+#
+# All tables marked VERIFY: confirmed against the RA4M1/UNO R4 core, to be
+# re-checked against the Waveshare pinout on first bring-up (no hardware yet).
+#
+#   - Serial1 = D0(RX)/D1(TX) — the MB1010 digital lane (via the 2N3904 inverter)
+#     reads here. The uplink to the SBC is native USB CDC (Serial), which claims
+#     no GPIO, so D0/D1 stay free for serial_sonar.
+#   - 14-bit ADC: analog_in sets analogReadResolution(adc_bits) and AREF=external
+#     (AREF tied to 5 V) for the ratiometric MB1010 AN + ACS712 lanes.
+
+board: waveshare_ra4m1_zero
+fqbn: arduino:renesas_uno:minima
+logic_v: 5.0
+adc_bits: 14                      # RA4M1 ADC; analog_in raises resolution from the 10-bit default
+
+pins:
+  # VERIFY all against the Waveshare schematic.
+  gpio:    [D0, D1, D2, D3, D4, D5, D6, D7, D8, D9, D10, D11, D12, D13,
+            A0, A1, A2, A3, A4, A5]
+  adc:     [A0, A1, A2, A3, A4, A5]
+  dac:     [A0]                    # RA4M1 12-bit DAC on A0 (unused here)
+  pwm:     [D3, D5, D6, D9, D10, D11]   # GPT-backed; analogWriteFrequency → 25 kHz
+  countio: [D2, D3, D7, D8, D12, D13]   # external-interrupt pins for FG/tach (avoid D0/D1)
+  uart:    [D0, D1]               # Serial1 (D0=RX, D1=TX) — the sonar digital lane

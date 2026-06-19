@@ -1,0 +1,13 @@
+module: serial_sonar
+platforms: [arduino]
+role: sensor
+description: Read a MaxBotix LV-MaxSonar ASCII range frame off a hardware UART.
+claims:
+  pins: uart                # the Serial1 RX pin (the sonar's digital lane)
+provides:
+  channels: 1               # one channel: range in inches (signed int16, -1 until first frame)
+config:
+  port: 1                   # which hardware UART (1 = Serial1)
+  baud: 9600                # MB1010 is fixed at 9600 8N1
+  sample_hz: 10             # ~matches the sensor's ~20 Hz output; informs the sample period
+sources: [serial_sonar.h, serial_sonar.cpp]

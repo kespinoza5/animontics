@@ -1,0 +1,12 @@
+module: tach
+platforms: [arduino]
+role: sensor
+description: Count fan FG (tach) pulses per pin and stream RPM as frame channels.
+claims:
+  pins: countio             # each FG pin must be interrupt-capable on the board
+provides:
+  channels: per_pin         # one RPM channel per FG pin (signed int16, wire order = pin order)
+config:
+  pulses_per_rev: 2         # FG edges per revolution (2 for most PC/printer fans)
+  sample_hz: 4              # informs the firmware's global sample period
+sources: [tach.h, tach.cpp]

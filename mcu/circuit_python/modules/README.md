@@ -20,7 +20,7 @@ compiled sources** — they parameterize the generic runtime
 The runtime composes an ordered, kind-tagged `FRAME_SOURCES` list (ADS reads,
 native ADC, tach RPM, scan row tags) for the afferent lane and a command handler
 (PWM duty + servo µs) for the efferent lane, both conditional — so a board can be
-sensor-only, actuator-only, or **both** (the LXiao drives fans *and* reads their
+sensor-only, actuator-only, or **both** (a fan MCU drives fans *and* reads their
 RPM; the cervical board drives servos *and* reads their pots). The matrix-scan
 pair coordinates multiple MCUs into one scanned organ — the handshake spec lives
 in [matrix_scan/README.md](matrix_scan/README.md).

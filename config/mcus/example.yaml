@@ -38,3 +38,30 @@ channels:
   - {index: 1, source: analog_in.A1, signal: example_1, calibration: {type: raw}}
   - {index: 2, source: analog_in.A2, signal: example_2, calibration: {type: raw}}
   - {index: 3, source: analog_in.A3, signal: example_3, calibration: {type: raw}}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Illustrative variant: a Renesas RA4M1 (UNO R4 core) visceral front-end.
+#
+# Shows the RA4M1-only pieces — board profile `ra4m1_zero`, AREF=5 V ratiometric
+# analog, the `serial_sonar` digital lane (Serial1 via a hardware inverter), the
+# `tach` module, and a commandable `gpio_out` relay (CMD_SET_GPIO). Placeholder
+# pins/signals only — copy + edit for a real (gitignored) contract.
+#
+#   id:     example_ra4m1
+#   target: mcu.arduino
+#   board:  ra4m1_zero            # mcu/arduino/boards/ra4m1_zero.yaml (UNO R4 Minima FQBN)
+#   transport: {type: serial, baud: 115200}
+#   modules:
+#     - {module: analog_in, pins: [A0, A1], aref: external, sample_hz: 4}  # ratiometric (AREF=5 V)
+#     - {module: serial_sonar, pins: [D0], port: 1, baud: 9600}            # MaxBotix R<NNN> on Serial1
+#     - {module: tach, pins: [D2, D7, D8], pulses_per_rev: 2}              # fan FG → RPM
+#     - {module: pwm_out, pins: [D3, D5, D6], freq_hz: 25000}             # fans (set_duty 0..2)
+#     - {module: gpio_out, pins: [D4], blink_ms: 0}                       # relay (CMD_SET_GPIO ch 3)
+#     - {module: transport_serial}
+#   channels:
+#     - {index: 0, source: analog_in.A0, signal: example_current, calibration: {type: raw}}
+#     - {index: 1, source: analog_in.A1, signal: example_range_an, calibration: {type: raw}}
+#     - {index: 2, source: serial_sonar.0, signal: example_range_in, calibration: {type: raw}}
+#     - {index: 3, source: tach.D2, signal: example_fan0, calibration: {type: raw}}
+#     - {index: 4, source: tach.D7, signal: example_fan1, calibration: {type: raw}}
+#     - {index: 5, source: tach.D8, signal: example_fan2, calibration: {type: raw}}

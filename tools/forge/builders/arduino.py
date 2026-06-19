@@ -101,7 +101,7 @@ class ArduinoBuilder(Builder):
         sources: set[tuple[str, str]] = set()
         channel_count = len(contract_mod.provided_sources(target, manifests))
         offset = 0          # running sensor-channel offset (frame slot)
-        cmd_offset = 0      # running actuator command-channel offset
+        cmd_offsets: dict[str, int] = {}   # per-command-type running channel offset
         type_counts: dict[str, int] = {}
         sample_hz: list[int] = []
 
@@ -122,6 +122,14 @@ class ArduinoBuilder(Builder):
             if manifest.get("role") == "sensor" and "sample_hz" in params:
                 sample_hz.append(int(params["sample_hz"]))
 
+            # Command channels are indexed PER command type (e.g. set_duty for
+            # fans, set_gpio for a relay) — matching the node-side convention the
+            # board validator enforces. A module's cmd_offset is the running count
+            # of pins from prior modules accepting the SAME command.
+            accepts = manifest.get("accepts") or {}
+            this_cmd = next(iter(accepts), None)
+            cmd_offset = cmd_offsets.get(this_cmd, 0) if this_cmd else 0
+
             fctx = {
                 "inst": inst,
                 "pins": [_pin(p) for p in mod.pins],
@@ -136,8 +144,8 @@ class ArduinoBuilder(Builder):
                 "fqbn": fqbn,
             }
             offset += count
-            if manifest.get("accepts"):
-                cmd_offset += len(mod.pins)   # command channels span actuator modules
+            if this_cmd:
+                cmd_offsets[this_cmd] = cmd_offset + len(mod.pins)
 
             mod_dir = src_root / "modules" / mod.module
             for frag_file, bucket in _FRAGMENTS.items():

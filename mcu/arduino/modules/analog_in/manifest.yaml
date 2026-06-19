@@ -8,4 +8,6 @@ provides:
   channels: per_pin         # one frame channel per configured pin (wire order = pin order)
 config:
   sample_hz: 2              # informs the firmware's global sample period
+  aref: default            # renesas-only: "external" → analogReference(AR_EXTERNAL) (AREF=5 V); no-op on AVR
+  adc_bits: 0              # renesas-only: >0 → analogReadResolution; 0 = core 10-bit default. no-op on AVR
 sources: [analog_in.h, analog_in.cpp]

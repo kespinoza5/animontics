@@ -90,9 +90,13 @@ format lives once in `core/mcu_link.py` and is versioned.
 
 Firmware families are organized by **runtime**, not chip:
 
-- **`mcu/arduino/`** (`target: mcu.arduino`) — AVR/ATmega328P. Composes lean C++
-  from `analog_in`/`pwm_out`/`gpio_out`/`transport_serial` modules and compiles a
-  real `.hex` with `arduino-cli` (WSL fallback).
+- **`mcu/arduino/`** (`target: mcu.arduino`) — AVR/ATmega328P (Nano/Uno) **and**
+  Renesas RA4M1 (UNO R4 core; e.g. the Waveshare RA4M1-Zero, board profile
+  `ra4m1_zero` → `arduino:renesas_uno:minima`). Composes lean C++ from
+  `analog_in` (RA4M1: optional AREF=5 V / `adc_bits`), `serial_sonar` (MaxBotix
+  `R<NNN>` off a UART), `tach` (fan FG→RPM), `pwm_out`, `gpio_out` (heartbeat
+  and/or `CMD_SET_GPIO`), and `transport_serial`, and compiles a real `.hex` with
+  `arduino-cli` (WSL fallback). Per-board pin tables live in `mcu/arduino/boards/`.
 - **`mcu/circuit_python/`** (`target: mcu.circuit_python`) — XIAO SAMD21, RP2040,
   Feather M4, any CircuitPython board. *No compile*: one generic runtime
   (`templates/code.py.j2`) is composed with the instance's module configuration

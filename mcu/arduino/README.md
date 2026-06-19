@@ -1,29 +1,41 @@
 # mcu/arduino/ — AVR/Arduino firmware family
 
-Source for forge's first target, `target: mcu.arduino` (ATmega328P — Nano/Uno).
-`ArduinoBuilder` (`tools/forge/builders/arduino.py`) renders these into a sketch
-and compiles it with `arduino-cli`.
+Source for forge's `target: mcu.arduino` — AVR (ATmega328P Nano/Uno) **and**
+Renesas RA4M1 (Arduino UNO R4 core; e.g. the Waveshare RA4M1-Zero). Organized by
+**runtime** (arduino-cli), not chip. `ArduinoBuilder`
+(`tools/forge/builders/arduino.py`) renders these into a sketch and compiles it
+with `arduino-cli` (WSL fallback).
 
 ```
 arduino/
-├── platform.yaml          board profiles (→ FQBN), valid pins per kind, compile/flash tools
+├── platform.yaml          family pins/tools + inline AVR board profiles (→ FQBN)
+├── boards/<profile>.yaml  per-board pin tables, merged over platform.yaml (e.g. ra4m1_zero)
 ├── templates/main.ino.j2  the sketch skeleton: setup() inits modules, loop() ticks + flushes
-└── modules/<name>/        manifest.yaml + <name>.h/.cpp + {decl,setup,read,send,loop}.j2
+└── modules/<name>/        manifest.yaml + <name>.h/.cpp + {decl,setup,read,send,loop,cmd}.j2
 ```
 
 ## Boards
 
-`platform.yaml` defines `nano` (`arduino:avr:nano`), `nano_old` (legacy
-bootloader), and `uno`. Pick one as `board:` in the contract.
+`platform.yaml` defines the AVR profiles inline — `nano` (`arduino:avr:nano`),
+`nano_old` (legacy bootloader), `uno`. Larger pin maps live in `boards/` and are
+merged over the inline map: `ra4m1_zero` (`arduino:renesas_uno:minima`, the
+Waveshare RA4M1-Zero). Pick one as `board:` in the contract. See
+[boards/README.md](boards/README.md).
 
 ## Modules
 
 | Module | Role | Claims | Provides / Accepts |
 | --- | --- | --- | --- |
-| `analog_in` | sensor | adc pins | one channel per pin (raw int16) |
-| `pwm_out` | actuator | pwm pins | accepts `set_duty {channel, duty}` |
-| `gpio_out` | actuator | gpio pins | optional heartbeat blink (`blink_ms`) |
-| `transport_serial` | transport | uart (D0/D1) | frames the sample vector (protocol v1) |
+| `analog_in` | sensor | adc pins | one channel per pin (raw int16); RA4M1: optional `aref: external` (AREF=5 V) + `adc_bits` |
+| `serial_sonar` | sensor | uart | MaxBotix `R<NNN>` off a hardware UART → 1 channel (inches) |
+| `tach` | sensor | countio pins | one RPM channel per FG pin (pin-change ISR) |
+| `pwm_out` | actuator | pwm pins | accepts `set_duty {channel, duty}` (`freq_hz` not yet honored — bench TODO) |
+| `gpio_out` | actuator | gpio pins | heartbeat blink (`blink_ms`) and/or `set_gpio` (CMD_SET_GPIO, e.g. a relay) |
+| `transport_serial` | transport | uart | frames the sample vector + inbound command poll (protocol v1) |
+
+The `cmd.j2` fragment is a case in the generated `onCommand()` (inbound
+command lane, fed by `transport_serial.poll`) — `pwm_out` (`CMD_SET_DUTY`) and
+`gpio_out` (`CMD_SET_GPIO`) use it.
 
 A module is a small hand-written C++ class (`setup()` + its work method) plus
 jinja fragments the composer drops into the sketch: `decl.j2` (global instance),

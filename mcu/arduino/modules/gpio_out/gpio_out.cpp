@@ -7,6 +7,12 @@ void GpioOut::setup() {
   }
 }
 
+void GpioOut::set_gpio(uint8_t idx, bool on) {
+  if (idx < _count) {
+    digitalWrite(_pins[idx], on ? HIGH : LOW);   // node-side already applied active_low
+  }
+}
+
 void GpioOut::tick(unsigned long now) {
   if (_blink_ms == 0) {
     return;
