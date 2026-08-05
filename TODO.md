@@ -280,9 +280,8 @@ The current sensor streaming API (`GET /sensors/{id}/stream`, `WS /sensors/{id}/
 
 - [x] `README.md` — CI/Docs badges point at
       `https://github.com/kespinoza5/animontics/actions/...` (resolved 2026-08-05).
-- [ ] `.github/workflows/docs.yml` — needs Pages enabled with source "GitHub
-      Actions" in the repo settings once the remote exists; the workflow fails
-      at the deploy step until that is set.
+- [x] `.github/workflows/docs.yml` — Pages enabled with source "GitHub Actions";
+      site live at https://kespinoza5.github.io/animontics/ (2026-08-05).
 - [x] Delete `LV-MaxSonar-EZ/` root directory — resolved
 - [ ] `core/gpio.py` — VERIFY the SARA-R5 power/reset GPIO on the Orange Pi
       Zero 2 with `gpioinfo`/`gpiofind`, and the installed gpiod binding major
