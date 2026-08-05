@@ -1,10 +1,23 @@
 """Unit tests for cross-contract sweep validation (rows/max_code/ack_pins)."""
 from __future__ import annotations
 
+from pathlib import Path
+
+import pytest
 import yaml
 
 from tools.forge.contract import load_contract
 from tools.forge.cross_contract import cross_contract_issues
+
+_ROOT = Path(__file__).resolve().parent.parent.parent
+
+
+def _absent(*stems: str) -> list[str]:
+    """Which of these contracts are missing. config/mcus/ is gitignored, so the
+    real-fleet tests below only run on a machine that has the fleet checked
+    out — in a clean clone they skip rather than fail."""
+    return [s for s in stems
+            if not (_ROOT / "config" / "mcus" / f"{s}.yaml").exists()]
 
 
 def _write_contract(root, stem: str, modules: list[dict]) -> None:
@@ -76,10 +89,10 @@ def test_unloadable_sibling_is_skipped(tmp_path):
     assert _issues_for(tmp_path, "cnd") == []
 
 
+@pytest.mark.skipif(bool(_absent("featherm4_lattice")),
+                    reason=f"fleet contracts not present: {_absent('featherm4_lattice')}")
 def test_real_lattice_contracts_agree():
     """The actual fleet: featherm4_lattice + samd21_press0/1/2 must be in sync
     (this is the manual-sync warning from the contract headers, automated)."""
-    from pathlib import Path
-    root = Path(__file__).resolve().parent.parent.parent
-    target = load_contract("featherm4_lattice", root)
-    assert cross_contract_issues(target, root) == []
+    target = load_contract("featherm4_lattice", _ROOT)
+    assert cross_contract_issues(target, _ROOT) == []

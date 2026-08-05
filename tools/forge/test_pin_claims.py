@@ -1,7 +1,22 @@
 """Unit tests for pin-capability claims — manifest param→kind maps vs board tables."""
 from __future__ import annotations
 
+from pathlib import Path
+
+import pytest
+
 from tools.forge.contract import McuTarget, validate
+
+_ROOT = Path(__file__).resolve().parent.parent.parent
+_FLEET = ("featherm4_lattice", "samd21_press0", "samd21_cervical")
+
+
+def _absent(*stems: str) -> list[str]:
+    """Which of these contracts are missing. config/mcus/ is gitignored, so the
+    real-fleet test below only runs on a machine that has the fleet checked
+    out — in a clean clone it skips rather than fails."""
+    return [s for s in stems
+            if not (_ROOT / "config" / "mcus" / f"{s}.yaml").exists()]
 
 PLATFORM = {
     "boards": {
@@ -106,14 +121,14 @@ def test_family_fallback_when_board_lacks_table():
     assert any("no 'dac' pin table" in e for e in errs)
 
 
+@pytest.mark.skipif(bool(_absent(*_FLEET)),
+                    reason=f"fleet contracts not present: {_absent(*_FLEET)}")
 def test_real_lattice_contracts_pass_pin_validation():
     """The fleet's lattice contracts satisfy the authored board tables."""
-    from pathlib import Path
     from tools.forge.contract import (load_contract, load_module_manifests,
                                       load_platform)
-    root = Path(__file__).resolve().parent.parent.parent
-    for stem in ("featherm4_lattice", "samd21_press0", "samd21_cervical"):
-        target = load_contract(stem, root)
-        platform = load_platform(target, root)
-        manifests = load_module_manifests(target, root)
+    for stem in _FLEET:
+        target = load_contract(stem, _ROOT)
+        platform = load_platform(target, _ROOT)
+        manifests = load_module_manifests(target, _ROOT)
         assert validate(target, platform, manifests) == [], stem
