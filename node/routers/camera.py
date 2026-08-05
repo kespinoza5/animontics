@@ -5,11 +5,15 @@ import threading
 import time
 from typing import Optional
 
-import cv2
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 
 from core.models import CameraConfig
+
+try:
+    import cv2
+except ImportError:
+    cv2 = None  # optional dep — only boards with camera.enabled install opencv
 
 router = APIRouter()
 
@@ -66,6 +70,11 @@ class CameraThread:
 
 def start_camera(config: CameraConfig) -> CameraThread:
     global _camera
+    if cv2 is None:
+        raise RuntimeError(
+            "camera is enabled in this board's config but opencv is not "
+            "installed — pip install opencv-python-headless"
+        )
     _camera = CameraThread(config)
     _camera.start()
     return _camera
