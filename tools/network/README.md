@@ -40,7 +40,7 @@ order:
    AP_PASS="your-wpa2-passphrase"  # required, 8-63 chars
    ```
 
-   Copy [`ap.secrets.example`](ap.secrets.example) to `ap.secrets` and fill it in.
+   Copy `tools/network/ap.secrets.example` to `ap.secrets` and fill it in.
 
 2. The environment, when no file is present:
 

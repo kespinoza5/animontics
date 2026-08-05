@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  check:
+    name: Offline verification battery
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # Runtime + sensor deps. smbus2/pyserial import fine on Linux runners.
+          pip install -r requirements.txt
+          # Test tooling — commented out in requirements.txt because boards
+          # never install it, but the battery's `tests` step needs it.
+          pip install pytest httpx
+          # The `docs` step runs a real mkdocs build.
+          pip install -r docs/requirements.txt
+
+      - name: Run checks
+        # imports, tests, audit, forge, boards, docs. The forge and boards
+        # steps no-op here: config/mcus/ and config/boards/ hold only the
+        # tracked example.yaml, so there is nothing fleet-specific to validate.
+        run: python -m tools.dev.check

@@ -1,5 +1,10 @@
 # Animontics
 
+[![CI](https://github.com/kespinoza5/animontics/actions/workflows/ci.yml/badge.svg)](https://github.com/kespinoza5/animontics/actions/workflows/ci.yml)
+[![Docs](https://github.com/kespinoza5/animontics/actions/workflows/docs.yml/badge.svg)](https://github.com/kespinoza5/animontics/actions/workflows/docs.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+<!--docs-start-->
 A distributed **nervous system** for an embodied AI. Each compute node is a
 *cortex*: it **senses** the world (afferent), **acts** on it through **effectors**
 (efferent — motion, light, sound), and runs local **control loops** (policies),
@@ -64,10 +69,13 @@ Sensor configuration is split into four layers, each owning exactly one concern:
 
 | Layer | Where | In repo? | Holds |
 |-------|-------|----------|-------|
-| **Desired state** | `config/nodes/<id>.yaml` | ✅ | Which sensors a node runs (id + type), role, capabilities |
+| **Desired state** | `config/nodes/<id>.yaml` | ❌ | Which sensors a node runs (id + type), role, capabilities |
 | **Fleet access** | `config/animon.yaml` | ❌ | IPs, SSH users — how to reach each board |
 | **Board wiring** | `config/boards/<id>.yaml` | ❌ | Physical connections (port, bus, baud, address) |
 | **Hardware constraints** | `sensors/<type>/__init__.py` `METADATA` | ✅ | Valid connection types, addresses, locked baud rates |
+
+The three ❌ layers describe one specific fleet, so they stay out of the public
+history; each directory tracks an `example.yaml` documenting its schema.
 
 The board config additionally declares the runtime's other tiers — `devices:`,
 `effectors:`, `policies:` — and each microcontroller has a build contract in
@@ -85,7 +93,7 @@ Boards are provisioned from a dev machine — you don't clone the repo onto each
 one. Drive everything through the fleet CLI:
 
 ```bash
-# 1. Declare what the node should run (committed, no secrets)
+# 1. Declare what the node should run (gitignored — your fleet, not the repo's)
 $EDITOR config/nodes/my_sbc_node.yaml      # see config/nodes/example.yaml
 
 # 2. Tell the CLI how to reach the board (gitignored)
